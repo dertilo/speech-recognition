@@ -70,10 +70,10 @@ def build_sox_interference(
     return multiply_signals(factor, interfere_signal)
 
 
-def add_signals_trim_to_len(original, signals):
+def add_signals_trim_to_len(original, signals,augmented):
     signals_to_add = " ".join(["<(%s)" % s for s in signals])
-    sox_cmd = "sox -m {signals} -p trim 0 $(soxi -D {original})".format(
-        signals=signals_to_add, original=original
+    sox_cmd = "sox -m {signals} {augmented} trim 0 $(soxi -D {original})".format(
+        signals=signals_to_add, original=original,augmented=augmented
     )
     return sox_cmd
 
@@ -127,8 +127,7 @@ def random_augmentation(original_file, audio_files, augmented_file):
         ac_gain=int(round(np.random.uniform(-9, -3))),
     )
 
-    sox_pipe = add_signals_trim_to_len(original_file, [signal, noise, interf])
-    sox_cmd = sox_pipe + " > " + augmented_file
+    sox_cmd = add_signals_trim_to_len(original_file, [signal, noise, interf],augmented_file)
     subprocess.call(["bash", "-c", sox_cmd])
 
 
