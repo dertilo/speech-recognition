@@ -3,7 +3,7 @@ import argparse
 import warnings
 
 from opts import add_decoder_args, add_inference_args
-from transcribe import transcribe
+from transcribing.transcribe import transcribe
 from utils import load_model
 
 warnings.simplefilter("ignore")
@@ -13,8 +13,6 @@ from decoder import GreedyDecoder
 import torch
 
 from data_related.data_loader import SpectrogramParser
-import os.path
-import json
 
 
 def decode_results(decoded_output):
