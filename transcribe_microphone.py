@@ -16,12 +16,14 @@ from data_related.data_loader import SpectrogramParser
 import os.path
 import json
 
+
 def decode_results(decoded_output):
     pi = 0
     b = 0
     return decoded_output[b][pi]
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
 
     arg_parser = argparse.ArgumentParser(description="DeepSpeech transcription")
     arg_parser = add_inference_args(arg_parser)
@@ -33,7 +35,7 @@ if __name__ == '__main__':
         help="Returns time offset information",
     )
     arg_parser = add_decoder_args(arg_parser)
-    model_file = '/tmp/deepspeech_42.pth.tar'
+    model_file = "/tmp/deepspeech_42.pth.tar"
 
     args = arg_parser.parse_args()
     device = torch.device("cuda" if args.cuda else "cpu")
@@ -45,15 +47,15 @@ if __name__ == '__main__':
         r = sr.Recognizer()
         with sr.Microphone(sample_rate=16_000) as source:
             r.adjust_for_ambient_noise(source)
-            print('listening ...')
+            print("listening ...")
             audio = r.listen(source)
 
-        audio_file = '/tmp/test.wav'
-        with open(audio_file, 'wb') as f:
+        audio_file = "/tmp/test.wav"
+        with open(audio_file, "wb") as f:
             bytes = audio.get_wav_data()
             f.write(bytes)
 
-        print('recognizing ...')
+        print("recognizing ...")
 
         decoded_output, decoded_offsets = transcribe(
             audio_path=audio_file,

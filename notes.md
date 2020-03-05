@@ -36,11 +36,11 @@ for debug
 
 ### spanish
 * debug
-    python -m multiproc train.py --labels-path spanish_vocab.json --train-manifest spanish_some.csv --val-manifest spanish_some.csv --id debug --save-folder librispeech_save/debug
+    python -m multiproc train.py --labels-path spanish_vocab.json --train-manifest spanish_some.csv --val-manifest spanish_some.csv --id debug
 
 * full
  
-    python -m multiproc train.py --labels-path spanish_vocab.json --train-manifest spanish_train_manifest.csv --val-manifest spanish_eval_manifest.csv --id spanish
+    python -m multiproc train.py --id spanish_full_05_03_2020
     
 * mel
 

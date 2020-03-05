@@ -39,17 +39,23 @@ def load_audio(path):
             sound = sound.mean(axis=1)  # multiple channels, average
     return sound
 
+
 def get_feature_dim(audio_conf):
-    feature_type = audio_conf["feature_type"] if 'feature_type' in audio_conf else 'stft'
+    feature_type = (
+        audio_conf["feature_type"] if "feature_type" in audio_conf else "stft"
+    )
     if feature_type == "mfcc":
         FEATURE_DIM = 40
-    elif feature_type == 'mel':
+    elif feature_type == "mel":
         FEATURE_DIM = 161
-    elif feature_type == 'stft':
-        FEATURE_DIM = int(math.floor((audio_conf['sample_rate'] * audio_conf['window_size']) / 2) + 1)# 161
+    elif feature_type == "stft":
+        FEATURE_DIM = int(
+            math.floor((audio_conf["sample_rate"] * audio_conf["window_size"]) / 2) + 1
+        )  # 161
     else:
         assert False
     return FEATURE_DIM
+
 
 # def load_audio(path):
 #     sound, sample_rate = torchaudio.load(path, normalization=True)
@@ -81,9 +87,14 @@ class AudioParser(object):
         raise NotImplementedError
 
 
-
 class SpectrogramParser(AudioParser):
-    def __init__(self, audio_conf, normalize=False, speed_volume_perturb=False, spec_augment=False):
+    def __init__(
+        self,
+        audio_conf,
+        normalize=False,
+        speed_volume_perturb=False,
+        spec_augment=False,
+    ):
         """
         Parses audio file into spectrogram with optional normalization and various augmentations
         :param audio_conf: Dictionary containing the sample rate, window and the window length/stride in seconds
@@ -92,7 +103,7 @@ class SpectrogramParser(AudioParser):
         :param spec_augment(default False): Apply simple spectral augmentation to mel spectograms
         """
         super(SpectrogramParser, self).__init__()
-        self.feature_type = audio_conf.get("feature_type",'stft')
+        self.feature_type = audio_conf.get("feature_type", "stft")
         self.window_stride = audio_conf["window_stride"]
         self.window_size = audio_conf["window_size"]
         self.sample_rate = audio_conf["sample_rate"]
@@ -105,11 +116,14 @@ class SpectrogramParser(AudioParser):
             self.mfcc = torchaudio.transforms.MFCC(
                 sample_rate=SAMPLE_RATE, n_mfcc=get_feature_dim(audio_conf)
             )
-        elif self.feature_type == 'mel':
-            self.mel = torchaudio.transforms.MelSpectrogram(sample_rate=SAMPLE_RATE,n_mels=get_feature_dim(audio_conf))
+        elif self.feature_type == "mel":
+            self.mel = torchaudio.transforms.MelSpectrogram(
+                sample_rate=SAMPLE_RATE, n_mels=get_feature_dim(audio_conf)
+            )
 
-        self.audio_files = [f for f,_ in self.audio_text_files]#TODO accessing the child-classes attribute!!
-
+        self.audio_files = [
+            f for f, _ in self.audio_text_files
+        ]  # TODO accessing the child-classes attribute!!
 
     def parse_audio(self, audio_path):
         if self.signal_augment:
@@ -121,7 +135,7 @@ class SpectrogramParser(AudioParser):
             feat = self.mfcc.forward(torch.from_numpy(y).unsqueeze(0)).data.squeeze(0)
         elif self.feature_type == "stft":
             feat = self._calc_stft(y)
-        elif self.feature_type == 'mel':
+        elif self.feature_type == "mel":
             feat = self.mel.forward(torch.from_numpy(y).unsqueeze(0)).data.squeeze(0)
         else:
             assert False
@@ -161,7 +175,15 @@ class SpectrogramParser(AudioParser):
 
 
 class SpectrogramDataset(Dataset, SpectrogramParser):
-    def __init__(self, audio_conf, manifest_filepath, labels, normalize=False, speed_volume_perturb=False, spec_augment=False):
+    def __init__(
+        self,
+        audio_conf,
+        manifest_filepath,
+        labels,
+        normalize=False,
+        speed_volume_perturb=False,
+        spec_augment=False,
+    ):
         """
         Dataset that loads tensors via a csv containing file paths to audio files and transcripts separated by
         a comma. Each new line is a different sample. Example below:
@@ -210,7 +232,9 @@ class SpectrogramDataset(Dataset, SpectrogramParser):
         self.audio_text_files = audio_text_files
         self.size = len(audio_text_files)
         self.labels_map = dict([(labels[i], i) for i in range(len(labels))])
-        super(SpectrogramDataset, self).__init__(audio_conf, normalize, speed_volume_perturb, spec_augment)
+        super(SpectrogramDataset, self).__init__(
+            audio_conf, normalize, speed_volume_perturb, spec_augment
+        )
 
     def __getitem__(self, index):
         audio_file, text_file = self.audio_text_files[index]
@@ -335,9 +359,7 @@ def get_audio_length(path):
     return float(output)
 
 
-def load_randomly_augmented_audio(
-    path, audio_files
-):
+def load_randomly_augmented_audio(path, audio_files):
     with NamedTemporaryFile(suffix=".wav") as augmented_file:
         augmented_filename = augmented_file.name
         random_augmentation(path, audio_files, augmented_filename)

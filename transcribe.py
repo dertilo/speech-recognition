@@ -15,7 +15,7 @@ import os.path
 import json
 
 
-def decode_results(decoded_output, decoded_offsets,args):
+def decode_results(decoded_output, decoded_offsets, args):
     results = {
         "output": [],
         "_meta": {
@@ -69,7 +69,9 @@ if __name__ == "__main__":
     arg_parser = add_decoder_args(arg_parser)
     args = arg_parser.parse_args()
     device = torch.device("cuda" if args.cuda else "cpu")
-    model = load_model(device, '/home/tilo/data/asr_data/SPANISH/deepspeech_42.pth.tar', args.half)
+    model = load_model(
+        device, "/home/tilo/data/asr_data/SPANISH/deepspeech_42.pth.tar", args.half
+    )
 
     if args.decoder == "beam":
         from decoder import BeamCTCDecoder
@@ -98,4 +100,4 @@ if __name__ == "__main__":
         use_half=args.half,
     )
     print(decoded_output)
-    print(json.dumps(decode_results(decoded_output, decoded_offsets,args)))
+    print(json.dumps(decode_results(decoded_output, decoded_offsets, args)))

@@ -16,8 +16,8 @@ def _preprocess_transcript(phrase):
     return phrase.strip().lower()
 
 
-def process_example(wav_dir, txt_dir, audio_file, text,base_path):
-    audio_file_name = audio_file.split(base_path)[-1].replace('/','_')
+def process_example(wav_dir, txt_dir, audio_file, text, base_path):
+    audio_file_name = audio_file.split(base_path)[-1].replace("/", "_")
     audio_file_name_no_suffix = os.path.splitext(audio_file_name)[0]
     wav_recording_path = os.path.join(wav_dir, audio_file_name_no_suffix + ".wav")
     subprocess.call(
@@ -41,7 +41,7 @@ if __name__ == "__main__":
 
     base_path = os.path.join(os.environ["HOME"], "data/asr_data/SPANISH")
 
-    for split_type in ["train",'eval']:
+    for split_type in ["train", "eval"]:
         wav_dir = os.path.join(base_path, split_type, "wav")
         txt_dir = os.path.join(base_path, split_type, "txt")
 
@@ -52,12 +52,13 @@ if __name__ == "__main__":
             def funfun(audio_file_text):
                 audio_file, text = audio_file_text
                 audio_file = base_path + audio_file
-                process_example(wav_dir, txt_dir, audio_file, text,base_path)
+                process_example(wav_dir, txt_dir, audio_file, text, base_path)
 
             with multiprocessing.Pool(processes=50) as p:
                 result = list(
                     p.imap_unordered(
-                        funfun, tqdm(read_jsonl(base_path + "/spanish_%s.jsonl" % split_type)),
+                        funfun,
+                        tqdm(read_jsonl(base_path + "/spanish_%s.jsonl" % split_type)),
                     )
                 )
 
