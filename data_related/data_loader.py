@@ -92,7 +92,7 @@ class SpectrogramParser(AudioParser):
         self,
         audio_conf,
         normalize=False,
-        speed_volume_perturb=False,
+        signal_augment=False,
         spec_augment=False,
     ):
         """
@@ -109,7 +109,7 @@ class SpectrogramParser(AudioParser):
         self.sample_rate = audio_conf["sample_rate"]
         self.window = windows.get(audio_conf["window"], windows["hamming"])
         self.normalize = normalize
-        self.signal_augment = speed_volume_perturb
+        self.signal_augment = signal_augment
         self.spec_augment = spec_augment
 
         if self.feature_type == "mfcc":
@@ -181,7 +181,7 @@ class SpectrogramDataset(Dataset, SpectrogramParser):
         manifest_filepath,
         labels,
         normalize=False,
-        speed_volume_perturb=False,
+        signal_augment=False,
         spec_augment=False,
     ):
         """
@@ -233,7 +233,7 @@ class SpectrogramDataset(Dataset, SpectrogramParser):
         self.size = len(audio_text_files)
         self.labels_map = dict([(labels[i], i) for i in range(len(labels))])
         super(SpectrogramDataset, self).__init__(
-            audio_conf, normalize, speed_volume_perturb, spec_augment
+            audio_conf, normalize, signal_augment, spec_augment
         )
 
     def __getitem__(self, index):
@@ -366,3 +366,7 @@ def load_randomly_augmented_audio(path, audio_files):
         audio = load_audio(augmented_filename)
 
     return audio
+
+
+if __name__ == '__main__':
+    x = load_randomly_augmented_audio('/tmp/original.wav',['/tmp/interfere.wav','/tmp/interfere2.wav'])

@@ -117,7 +117,7 @@ def random_augmentation(original_file, audio_files, augmented_file):
     lowpass = int(round(np.random.uniform(low=100, high=8000)))
     highpass = int(round(np.random.uniform(low=1, high=lowpass)))
     noise = build_sox_noise(
-        original, np.random.uniform(0.1, 2), lowpass, highpass, noise_power
+        original_file, np.random.uniform(0.1, 2), lowpass, highpass, noise_power
     )
 
     interf = build_sox_interference(
@@ -127,7 +127,7 @@ def random_augmentation(original_file, audio_files, augmented_file):
         ac_gain=int(round(np.random.uniform(-9, -3))),
     )
 
-    sox_pipe = add_signals_trim_to_len(original, [signal, noise, interf])
+    sox_pipe = add_signals_trim_to_len(original_file, [signal, noise, interf])
     sox_cmd = sox_pipe + " > " + augmented_file
     subprocess.call(["bash", "-c", sox_cmd])
 

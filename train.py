@@ -140,13 +140,6 @@ parser.add_argument(
     help='Finetune the model from checkpoint "continue_from"',
 )
 parser.add_argument(
-    "--speed-volume-perturb",
-    default=False,
-    dest="speed_volume_perturb",
-    action="store_true",
-    help="Use random tempo and gain perturbations.",
-)
-parser.add_argument(
     "--spec-augment",
     default=False,
     dest="spec_augment",
@@ -376,7 +369,7 @@ if __name__ == "__main__":
         manifest_filepath=args.train_manifest,
         labels=labels,
         normalize=True,
-        speed_volume_perturb=args.speed_volume_perturb,
+        signal_augment=True,
         spec_augment=args.spec_augment,
     )
     test_dataset = SpectrogramDataset(
@@ -384,7 +377,7 @@ if __name__ == "__main__":
         manifest_filepath=args.val_manifest,
         labels=labels,
         normalize=True,
-        speed_volume_perturb=False,
+        signal_augment=False,
         spec_augment=False,
     )
     if not args.distributed:
