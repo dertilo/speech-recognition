@@ -16,7 +16,7 @@ import math
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 
-# from data_related.spec_augment import spec_augment
+from data_related.data_augmentation.spec_augment import spec_augment
 
 windows = {
     "hamming": scipy.signal.hamming,
@@ -86,9 +86,9 @@ class NoiseInjection(object):
         Adds noise to an input signal with specific SNR. Higher the noise level, the more noise added.
         Modified code from https://github.com/willfrey/audio/blob/master/torchaudio/transforms.py
         """
-        if not os.path.exists(path):
-            print("Directory doesn't exist: {}".format(path))
-            raise IOError
+        # if not os.path.exists(path):
+        #     print("Directory doesn't exist: {}".format(path))
+        #     raise IOError
         self.paths = path is not None and librosa.util.find_files(path)
         self.sample_rate = sample_rate
         self.noise_levels = noise_levels
