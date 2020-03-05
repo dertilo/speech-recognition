@@ -78,9 +78,9 @@ def add_signals_trim_to_len(original, signals):
     return sox_cmd
 
 
-def random_augmentation(original_file, interfere_path, augmented_file):
-    interfere_files = librosa.util.find_files(interfere_path)
-    interfere_file = np.random.choice(interfere_files)
+def random_augmentation(original_file, audio_files, augmented_file):
+    # interfere_files = librosa.util.find_files(interfere_path)
+    interfere_file = np.random.choice(audio_files)
 
     lowpass = int(round(np.random.uniform(low=1000, high=8000)))
     highpass = int(round(np.random.uniform(low=1, high=lowpass - 1000)))
