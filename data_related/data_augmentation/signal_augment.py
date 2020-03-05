@@ -24,6 +24,15 @@ def build_sox_distortions(audio_file, gain=0, tempo=1.0, pitch=0, reverb=0):
     return sox_params
 
 
+def build_sox_noise(audio_file, lowpass_cutoff=1, noise_gain=-4):
+    params = {"lowpass_cutoff": lowpass_cutoff, "noise_gain": noise_gain}
+
+    sox_params = "sox {audio_file} -p synth whitenoise lowpass {lowpass_cutoff} synth whitenoise amod gain {noise_gain}".format(
+        audio_file=audio_file, **params
+    )
+    return sox_params
+
+
 if __name__ == "__main__":
     """
     play original.wav tempo 1.4 gain -9 pitch -100 reverb 50 80 100 10 0 0
@@ -32,5 +41,12 @@ if __name__ == "__main__":
     original = "/tmp/original.wav"
     augmented = "/tmp/augmented.wav"
 
-    sox_pipe = build_sox_distortions(original,gain=-4,tempo=1.2,pitch=-200,reverb=50)
-    subprocess.call(["bash", "-c", sox_pipe+' > '+augmented])
+    signal = build_sox_distortions(original, gain=-4, tempo=1.2, pitch=-200, reverb=50)
+    noise = build_sox_noise(original,noise_gain=0)
+    # subprocess.call(["bash", "-c", sox_pipe+' > '+augmented])
+
+    sox_cmd = "sox -m <({noise}) <({signal}) {augmented}".format(
+        noise=noise, signal=signal, augmented=augmented
+    )
+
+    subprocess.call(["bash", "-c", sox_cmd])
