@@ -1,5 +1,7 @@
 import subprocess
 
+import librosa
+import numpy as np
 
 def to_str(v):
     if isinstance(v, tuple):
@@ -14,7 +16,7 @@ def to_str(v):
 
 def build_sox_distortions(audio_file, gain=0, tempo=1.0, pitch=0, reverb=0):
     params = {
-        "gain": gain,
+        "gain -n ": gain,
         "tempo": tempo,
         "pitch": pitch,
         "reverb": (reverb, 50, 100, 100, 0, 0),
@@ -27,7 +29,7 @@ def build_sox_distortions(audio_file, gain=0, tempo=1.0, pitch=0, reverb=0):
 def build_sox_noise(audio_file, lowpass_cutoff=1, noise_gain=-4):
     params = {"lowpass_cutoff": lowpass_cutoff, "noise_gain": noise_gain}
 
-    sox_params = "sox {audio_file} -p synth whitenoise lowpass {lowpass_cutoff} synth whitenoise amod gain {noise_gain}".format(
+    sox_params = "sox {audio_file} -p synth whitenoise lowpass {lowpass_cutoff} synth whitenoise amod gain -n {noise_gain}".format(
         audio_file=audio_file, **params
     )
     return sox_params
@@ -48,11 +50,10 @@ def multiply_signals(signal_a, signal_b):
 
 
 def build_sox_interference(
-    interfere_file, interfere_gain=-12, lowpass_cutoff=1, ac_gain=-6
+    interfere_file,interfere_signal, lowpass_cutoff=1, ac_gain=-6
 ):
     factor = build_varying_amplitude_factor(interfere_file, lowpass_cutoff, ac_gain)
-    signal = "sox {} -p gain {} reverse".format(interfere_file, interfere_gain)
-    return multiply_signals(factor, signal)
+    return multiply_signals(factor, interfere_signal)
 
 
 def add_signals_trim_to_len(original, signals):
@@ -62,20 +63,51 @@ def add_signals_trim_to_len(original, signals):
     )
     return sox_cmd
 
-if __name__ == "__main__":
-    """
-    play original.wav tempo 1.4 gain -9 pitch -100 reverb 50 80 100 10 0 0
-    """
+def random_augmentation(original_file, interfere_path, augmented_file):
+    interfere_files = librosa.util.find_files(interfere_path)
+    interfere_file = np.random.choice(interfere_files)
 
-    original = "/tmp/original.wav"
-    augmented = "/tmp/augmented.wav"
-    interfere = "/tmp/interfere.wav"
+    signal_params = {
+        'gain':round(np.random.uniform(low=-6, high=-1),2),
+        'tempo':round(np.random.uniform(low=0.6, high=1.4),2),
+        'pitch':int(round(np.random.uniform(low=-500, high=500))),
+        'reverb':int(round(np.random.uniform(low=0, high=100))),
+    }
+    interfere_params = {
+        'gain':round(np.random.uniform(low=-24, high=-3),2),
+        'tempo':round(np.random.uniform(low=0.6, high=1.4),2),
+        'pitch':int(round(np.random.uniform(low=-500, high=500))),
+        'reverb':int(round(np.random.uniform(low=0, high=100))),
+    }
+    noise_power = np.random.uniform(-30,-1)
 
-    signal = build_sox_distortions(original, gain=-4, tempo=1.2, pitch=-200, reverb=50)
-    noise = build_sox_noise(original, noise_gain=0)
-    interf = build_sox_interference(interfere)
+    signal = build_sox_distortions(original_file, **signal_params)
+    interfere_signal = build_sox_distortions(interfere_file, **interfere_params)
+    noise = build_sox_noise(original,np.random.uniform(0.1,2) ,noise_power)
+
+    interf = build_sox_interference(interfere_file, interfere_signal,
+                                    lowpass_cutoff=np.random.uniform(0.5,2),
+                                    ac_gain=int(round(np.random.uniform(-9,-3))))
 
     sox_pipe = add_signals_trim_to_len(original,[signal,noise,interf])
-    sox_cmd = sox_pipe +' > '+augmented
-    print(sox_cmd)
+    sox_cmd = sox_pipe +' > '+augmented_file
     subprocess.call(["bash", "-c", sox_cmd])
+
+
+if __name__ == "__main__":
+    original = "/tmp/original.wav"
+    augmented = "/tmp/augmented.wav"
+    # interfering = "/tmp/interfere2.wav"
+    #
+    # signal = build_sox_distortions(original, gain=-6, tempo=0.6, pitch=-500, reverb=0)
+    # interfere_signal = build_sox_distortions(interfering, gain=-4, tempo=0.8, pitch=100, reverb=50)
+    # noise = build_sox_noise(original, noise_gain=-6)
+    # interf = build_sox_interference(interfering, interfere_signal)
+    #
+    # sox_pipe = add_signals_trim_to_len(original,[signal,noise,interf])
+    # sox_cmd = sox_pipe +' > '+augmented
+    # subprocess.call(["bash", "-c", sox_cmd])
+
+
+    interfere_path = '/home/tilo/data/asr_data/SPANISH/openslr_spanish/es_co_female'
+    random_augmentation(original,interfere_path,augmented)
