@@ -362,8 +362,13 @@ def get_audio_length(path):
 def load_randomly_augmented_audio(path, audio_files):
     with NamedTemporaryFile(suffix=".wav") as augmented_file:
         augmented_filename = augmented_file.name
-        random_augmentation(path, audio_files, augmented_filename)
-        audio = load_audio(augmented_filename)
+        while True:
+            try:
+                random_augmentation(path, audio_files, augmented_filename)
+                audio = load_audio(augmented_filename)
+                break
+            except:
+                pass
 
     return audio
 
