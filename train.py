@@ -10,7 +10,7 @@ import torch.utils.data.distributed
 from apex import amp
 from apex.parallel import DistributedDataParallel
 
-from data_related.vocabulary import BLANK_CHAR
+from data_related.building_vocabulary import BLANK_CHAR
 from warpctc_pytorch import CTCLoss
 
 from data_related.data_loader import (
