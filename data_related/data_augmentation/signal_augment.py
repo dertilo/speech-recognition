@@ -14,12 +14,14 @@ def to_str(v):
     return s
 
 
-def build_sox_distortions(audio_file, gain=0, tempo=1.0, pitch=0, reverb=0):
+def build_sox_distortions(audio_file, gain=0, tempo=1.0, pitch=0, reverb=0,lowpass=8000,highpass=1):
     params = {
         "gain -n ": gain,
         "tempo": tempo,
         "pitch": pitch,
         "reverb": (reverb, 50, 100, 100, 0, 0),
+        "lowpass":lowpass,
+        "highpass":highpass,
     }
     param_str = " ".join([k + " " + to_str(v) for k, v in params.items()])
     sox_params = "sox {} -p {} ".format(audio_file, param_str)
@@ -67,17 +69,28 @@ def random_augmentation(original_file, interfere_path, augmented_file):
     interfere_files = librosa.util.find_files(interfere_path)
     interfere_file = np.random.choice(interfere_files)
 
+    lowpass = int(round(np.random.uniform(low=500, high=8000)))
+    highpass = int(round(np.random.uniform(low=1, high=lowpass-400)))
+
     signal_params = {
         'gain':round(np.random.uniform(low=-6, high=-1),2),
         'tempo':round(np.random.uniform(low=0.6, high=1.4),2),
         'pitch':int(round(np.random.uniform(low=-500, high=500))),
         'reverb':int(round(np.random.uniform(low=0, high=100))),
+        'lowpass':lowpass,
+        'highpass':highpass,
     }
+
+    lowpass = int(round(np.random.uniform(low=100, high=8000)))
+    highpass = int(round(np.random.uniform(low=1, high=lowpass)))
+
     interfere_params = {
         'gain':round(np.random.uniform(low=-24, high=-3),2),
         'tempo':round(np.random.uniform(low=0.6, high=1.4),2),
         'pitch':int(round(np.random.uniform(low=-500, high=500))),
         'reverb':int(round(np.random.uniform(low=0, high=100))),
+        'lowpass': lowpass,
+        'highpass': highpass,
     }
     noise_power = np.random.uniform(-30,-1)
 
