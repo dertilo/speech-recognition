@@ -4,6 +4,7 @@ import subprocess
 import librosa
 import numpy as np
 from tqdm import tqdm
+from typing import Dict
 
 MAX_FREQ = 7999
 
@@ -19,17 +20,7 @@ def to_str(v):
     return s
 
 
-def build_sox_distortions(
-    audio_file, gain=0, tempo=1.0, pitch=0, reverb=0, lowpass=MAX_FREQ, highpass=1
-):
-    params = {
-        "gain -n ": gain,
-        "tempo": tempo,
-        "pitch": pitch,
-        "reverb": (reverb, 50, 100, 100, 0, 0),
-        "lowpass": lowpass,
-        "highpass": highpass,
-    }
+def build_sox_distortions(audio_file, params):
     param_str = " ".join([k + " " + to_str(v) for k, v in params.items()])
     sox_params = "sox {} -p {} ".format(audio_file, param_str)
     return sox_params
@@ -42,6 +33,9 @@ def build_sox_noise(
     highpass_cutoff=1,
     noise_gain=-4,
 ):
+    '''
+    play original.wav synth whitenoise lowpass 0.1 synth whitenoise amod gain -n 0 lowpass 100 highpass 1
+    '''
 
     sox_params = "sox {audio_file} -p synth whitenoise lowpass {amod_lowpass_cutoff} synth whitenoise amod gain -n {noise_gain} lowpass {lowpass_cutoff} highpass {highpass_cutoff}".format(
         audio_file=audio_file,
@@ -82,33 +76,40 @@ def add_signals_trim_to_len(original, signals, augmented):
     return sox_cmd
 
 
+def build_random_bandpass(min_low=50, min_band_width=100) -> Dict:
+    d = {}
+    max_high_cutoff = MAX_FREQ
+    if np.random.choice([True, False]):
+        lowpass = int(round(np.random.uniform(low=min_low, high=MAX_FREQ)))
+        d["lowpass"] = lowpass
+        max_high_cutoff = lowpass - min_band_width
+
+    if np.random.choice([True, False]):
+        highpass = int(round(np.random.uniform(low=1, high=max_high_cutoff)))
+        d["highpass"] = highpass
+
+    return d
+
+
 def random_augmentation(original_file, audio_files, augmented_file):
     interfere_file = np.random.choice(audio_files)
-
-    lowpass = int(round(np.random.uniform(low=1000, high=MAX_FREQ)))
-    highpass = int(round(np.random.uniform(low=1, high=lowpass - 1000)))
 
     signal_gain = round(np.random.uniform(low=-30, high=-1), 2)
     signal_params = {
         "gain": signal_gain,
         "tempo": round(np.random.uniform(low=0.7, high=1.4), 2),
         "pitch": int(round(np.random.uniform(low=-200, high=100))),
-        "reverb": int(round(np.random.uniform(low=0, high=50))),
-        "lowpass": lowpass,
-        "highpass": highpass,
+        "reverb": (int(round(np.random.uniform(low=0, high=50))), 50, 100, 100, 0, 0),
     }
-
-    lowpass = int(round(np.random.uniform(low=50, high=MAX_FREQ)))
-    highpass = int(round(np.random.uniform(low=1, high=lowpass - 100)))
+    signal_params.update(build_random_bandpass(1000, 1000))
 
     interfere_params = {
         "gain": round(np.random.uniform(low=-50, high=signal_gain - 15), 2),
         "tempo": round(np.random.uniform(low=0.6, high=1.4), 2),
         "pitch": int(round(np.random.uniform(low=-500, high=500))),
-        "reverb": int(round(np.random.uniform(low=0, high=100))),
-        "lowpass": lowpass,
-        "highpass": highpass,
+        "reverb": (int(round(np.random.uniform(low=0, high=100))), 50, 100, 100, 0, 0),
     }
+    signal_params.update(build_random_bandpass(50, 100))
 
     # params = {'signal_params':signal_params,'interfere_params':interfere_params,'noise_power':noise_power}
     # pprint(params)
@@ -131,10 +132,11 @@ def random_augmentation(original_file, audio_files, augmented_file):
     )
 
     sox_cmd = add_signals_trim_to_len(
-        original_file, [signal, noise,interf], augmented_file
+        original_file, [signal, noise, interf], augmented_file
     )
     FNULL = open(os.devnull, "w")
     subprocess.call(["bash", "-c", sox_cmd], stdout=FNULL, stderr=subprocess.STDOUT)
+    # subprocess.call(["bash", "-c", sox_cmd])
     # output = subprocess.check_output(["bash", "-c", sox_cmd])
     # if len(output)>0 and 'FAIL' in output:
     #     print(output)
@@ -147,18 +149,18 @@ if __name__ == "__main__":
     interfering = "/tmp/interfere2.wav"
 
     signal = build_sox_distortions(
-        original, gain=-10, tempo=0.7, pitch=100, reverb=0, lowpass=9000
+        original, dict(gain=-10, tempo=0.7, pitch=100, reverb=0, lowpass=9000)
     )
     interfere_signal = build_sox_distortions(
-        interfering, gain=-20, tempo=0.8, pitch=100, reverb=50
+        interfering, dict(gain=-20, tempo=0.8, pitch=100, reverb=50)
     )
     noise = build_sox_noise(
-        original, noise_gain=-5, lowpass_cutoff=9000, highpass_cutoff=10
+        original, noise_gain=-2, lowpass_cutoff=1000, highpass_cutoff=10
     )
     interf = build_sox_interference(interfering, interfere_signal)
 
     sox_cmd = add_signals_trim_to_len(original, [signal, noise, interf], augmented)
-    # subprocess.call(["bash", "-c", sox_cmd])
+    subprocess.call(["bash", "-c", sox_cmd])
 
     #
     # random_augmentation(original, [interfering,interfering], augmented)
