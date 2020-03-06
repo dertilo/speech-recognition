@@ -21,7 +21,7 @@ from data_related.data_loader import (
 )
 from data_related.data_utils import read_jsonl
 from decoder import GreedyDecoder
-from logger import VisdomLogger, TensorBoardLogger
+from logger import TensorBoardLogger
 from model import DeepSpeech, supported_rnns
 from test import evaluate
 from train_util import train_one_epoch
