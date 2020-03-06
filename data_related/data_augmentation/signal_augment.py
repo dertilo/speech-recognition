@@ -93,18 +93,20 @@ def build_random_bandpass(min_low=50, min_band_width=100) -> Dict:
 
 def random_augmentation(original_file, audio_files, augmented_file):
     interfere_file = np.random.choice(audio_files)
+    min_SNR = 20
+    min_SIR = 10
 
     signal_gain = round(np.random.uniform(low=-30, high=-1), 2)
     signal_params = {
         "gain": signal_gain,
-        "tempo": round(np.random.uniform(low=0.7, high=1.4), 2),
-        "pitch": int(round(np.random.uniform(low=-200, high=100))),
-        "reverb": (int(round(np.random.uniform(low=0, high=30))), 50, 100, 100, 0, 0),
+        "tempo": round(np.random.triangular(left=0.7,mode=0,right=1.3), 2),
+        "pitch": int(round(np.random.triangular(left=-100,mode=0,right=100))),
+        "reverb": (int(round(np.random.uniform(low=0, high=50))), 50, 100, 100, 0, 0),
     }
     signal_params.update(build_random_bandpass(1000, 1000))
 
     interfere_params = {
-        "gain": round(np.random.uniform(low=-50, high=signal_gain - 20), 2),
+        "gain": round(np.random.uniform(low=-50, high=signal_gain - min_SIR), 2),
         "tempo": round(np.random.uniform(low=0.6, high=1.4), 2),
         "pitch": int(round(np.random.uniform(low=-500, high=500))),
         "reverb": (int(round(np.random.uniform(low=0, high=100))), 50, 100, 100, 0, 0),
@@ -117,7 +119,7 @@ def random_augmentation(original_file, audio_files, augmented_file):
     signal = build_sox_distortions(original_file, signal_params)
     interfere_signal = build_sox_distortions(interfere_file, interfere_params)
 
-    noise_power = round(np.random.uniform(-60, signal_gain-30), 2)
+    noise_power = round(np.random.uniform(-60, signal_gain - min_SNR), 2)
     lowpass = int(round(np.random.uniform(low=100, high=MAX_FREQ)))
     highpass = int(round(np.random.uniform(low=1, high=lowpass)))
     noise = build_sox_noise(
@@ -164,7 +166,7 @@ if __name__ == "__main__":
     augmented = "/tmp/augmented.wav"
     interfering = "/tmp/interfere2.wav"
 
-    augment_with_specific_params()
+    # augment_with_specific_params()
 
     #
     for k in range(9):
