@@ -22,14 +22,17 @@ class TensorBoardLogger(object):
             values["wer_results"][epoch],
             values["cer_results"][epoch],
         )
-        values = {
+        to_log = {
             "Avg Train Loss": loss,
             "Avg Valid Loss": values["loss_eval_results"][epoch],
             "Avg WER": wer,
             "Avg CER": cer,
         }
-        print(values)
-        self.tensorboard_writer.add_scalars(self.id, values, epoch)
+        print(to_log)
+
+        for k,v in to_log.items():
+            self.tensorboard_writer.add_scalars(k, {self.id:v}, epoch)
+
         if self.log_params:
             for tag, value in parameters():
                 tag = tag.replace(".", "/")
