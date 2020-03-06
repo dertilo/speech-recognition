@@ -99,7 +99,7 @@ def random_augmentation(original_file, audio_files, augmented_file):
     signal_gain = round(np.random.uniform(low=-30, high=-1), 2)
     signal_params = {
         "gain": signal_gain,
-        "tempo": round(np.random.triangular(left=0.7,mode=0,right=1.3), 2),
+        "tempo": round(np.random.triangular(left=0.8,mode=1.0,right=1.2), 2),
         "pitch": int(round(np.random.triangular(left=-100,mode=0,right=100))),
         "reverb": (int(round(np.random.uniform(low=0, high=50))), 50, 100, 100, 0, 0),
     }
