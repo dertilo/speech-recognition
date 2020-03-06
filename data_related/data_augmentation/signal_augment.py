@@ -99,12 +99,12 @@ def random_augmentation(original_file, audio_files, augmented_file):
         "gain": signal_gain,
         "tempo": round(np.random.uniform(low=0.7, high=1.4), 2),
         "pitch": int(round(np.random.uniform(low=-200, high=100))),
-        "reverb": (int(round(np.random.uniform(low=0, high=50))), 50, 100, 100, 0, 0),
+        "reverb": (int(round(np.random.uniform(low=0, high=30))), 50, 100, 100, 0, 0),
     }
     signal_params.update(build_random_bandpass(1000, 1000))
 
     interfere_params = {
-        "gain": round(np.random.uniform(low=-50, high=signal_gain - 10), 2),
+        "gain": round(np.random.uniform(low=-50, high=signal_gain - 20), 2),
         "tempo": round(np.random.uniform(low=0.6, high=1.4), 2),
         "pitch": int(round(np.random.uniform(low=-500, high=500))),
         "reverb": (int(round(np.random.uniform(low=0, high=100))), 50, 100, 100, 0, 0),
@@ -117,7 +117,7 @@ def random_augmentation(original_file, audio_files, augmented_file):
     signal = build_sox_distortions(original_file, signal_params)
     interfere_signal = build_sox_distortions(interfere_file, interfere_params)
 
-    noise_power = round(np.random.uniform(-60, signal_gain-20), 2)
+    noise_power = round(np.random.uniform(-60, signal_gain-30), 2)
     lowpass = int(round(np.random.uniform(low=100, high=MAX_FREQ)))
     highpass = int(round(np.random.uniform(low=1, high=lowpass)))
     noise = build_sox_noise(
