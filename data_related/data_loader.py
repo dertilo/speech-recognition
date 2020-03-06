@@ -120,10 +120,10 @@ class SpectrogramParser(AudioParser):
             self.mel = torchaudio.transforms.MelSpectrogram(
                 sample_rate=SAMPLE_RATE, n_mels=get_feature_dim(audio_conf)
             )
-
-        self.audio_files = [
-            f for f, _ in self.audio_text_files
-        ]  # TODO accessing the child-classes attribute!!
+        if hasattr(self,'audio_text_files'):
+            self.audio_files = [
+                f for f, _ in self.audio_text_files
+            ]  # TODO accessing the child-classes attribute!!
 
     def parse_audio(self, audio_path):
         if self.signal_augment:
