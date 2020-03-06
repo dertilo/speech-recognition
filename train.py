@@ -240,6 +240,44 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 
+def get_labels(labels_path):
+    if "spanish" in labels_path:
+        labels = str("".join(next(iter(read_jsonl(labels_path)))))
+    else:
+        labels = [
+            "_",
+            "'",
+            "A",
+            "B",
+            "C",
+            "D",
+            "E",
+            "F",
+            "G",
+            "H",
+            "I",
+            "J",
+            "K",
+            "L",
+            "M",
+            "N",
+            "O",
+            "P",
+            "Q",
+            "R",
+            "S",
+            "T",
+            "U",
+            "V",
+            "W",
+            "X",
+            "Y",
+            "Z",
+            " ",
+        ]
+    return labels
+
+
 if __name__ == "__main__":
     args = parser.parse_args()
 
@@ -306,40 +344,7 @@ if __name__ == "__main__":
             # if main_proc and args.tensorboard:  # Previous scores to tensorboard logs #TODO: should not be necessary!
             #     tensorboard_logger.load_previous_values(start_epoch, package)
     else:
-        if "spanish" in args.labels_path:
-            labels = str("".join(next(iter(read_jsonl(args.labels_path)))))
-        else:
-            labels = [
-                "_",
-                "'",
-                "A",
-                "B",
-                "C",
-                "D",
-                "E",
-                "F",
-                "G",
-                "H",
-                "I",
-                "J",
-                "K",
-                "L",
-                "M",
-                "N",
-                "O",
-                "P",
-                "Q",
-                "R",
-                "S",
-                "T",
-                "U",
-                "V",
-                "W",
-                "X",
-                "Y",
-                "Z",
-                " ",
-            ]
+        labels = get_labels(args.labels_path)
 
         audio_conf = dict(
             sample_rate=args.sample_rate,
