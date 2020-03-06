@@ -33,9 +33,9 @@ def build_sox_noise(
     highpass_cutoff=1,
     noise_gain=-4,
 ):
-    '''
+    """
     play original.wav synth whitenoise lowpass 0.1 synth whitenoise amod gain -n 0 lowpass 100 highpass 1
-    '''
+    """
 
     sox_params = "sox {audio_file} -p synth whitenoise lowpass {amod_lowpass_cutoff} synth whitenoise amod gain -n {noise_gain} lowpass {lowpass_cutoff} highpass {highpass_cutoff}".format(
         audio_file=audio_file,
@@ -76,16 +76,18 @@ def add_signals_trim_to_len(original, signals, augmented):
     return sox_cmd
 
 
-def build_random_bandpass(min_low=50, min_band_width=100) -> Dict:
+def build_random_bandpass(min_low=50, min_band_width=100, max_high=1000) -> Dict:
     d = {}
     max_high_cutoff = MAX_FREQ
-    if np.random.choice([True, False]):
+    if np.random.choice([True, False], p=[0.5, 0.5]):
         lowpass = int(round(np.random.uniform(low=min_low, high=MAX_FREQ)))
         d["lowpass"] = lowpass
         max_high_cutoff = lowpass - min_band_width
 
-    if np.random.choice([True, False]):
-        highpass = int(round(np.random.uniform(low=1, high=max_high_cutoff)))
+    if np.random.choice([True, False], p=[0.5, 0.5]):
+        highpass = int(
+            round(np.random.uniform(low=1, high=min(max_high, max_high_cutoff)))
+        )
         d["highpass"] = highpass
 
     return d
@@ -93,25 +95,27 @@ def build_random_bandpass(min_low=50, min_band_width=100) -> Dict:
 
 def random_augmentation(original_file, audio_files, augmented_file):
     interfere_file = np.random.choice(audio_files)
-    min_SNR = 20
-    min_SIR = 10
+    min_SNR = 20  # normal:20, less:30, evenless:40
+    min_SIR = 20  # normal:10, less:20, evenless:30
 
-    signal_gain = round(np.random.uniform(low=-30, high=-1), 2)
+    signal_gain = round(np.random.uniform(low=-10, high=0), 2)
     signal_params = {
-        "gain": signal_gain,
-        "tempo": round(np.random.triangular(left=0.8,mode=1.0,right=1.2), 2),
-        "pitch": int(round(np.random.triangular(left=-100,mode=0,right=100))),
-        "reverb": (int(round(np.random.uniform(low=0, high=50))), 50, 100, 100, 0, 0),
+        "tempo": round(np.random.triangular(left=0.8, mode=1.0, right=1.2), 2),
+        "pitch": int(
+            round(np.random.triangular(left=-100, mode=0, right=100))
+        ),  # normal 100, less: 50, evenless: 30
+        "reverb": (int(round(np.random.uniform(low=0, high=50))), 50, 100, 100, 0, 0,),
+        "gain -n": signal_gain,
     }
-    signal_params.update(build_random_bandpass(1000, 1000))
+    signal_params.update(build_random_bandpass(1000, 1000, 100))
 
     interfere_params = {
-        "gain": round(np.random.uniform(low=-50, high=signal_gain - min_SIR), 2),
         "tempo": round(np.random.uniform(low=0.6, high=1.4), 2),
         "pitch": int(round(np.random.uniform(low=-500, high=500))),
         "reverb": (int(round(np.random.uniform(low=0, high=100))), 50, 100, 100, 0, 0),
+        "gain -n": round(np.random.uniform(low=-50, high=signal_gain - min_SIR), 2),
     }
-    signal_params.update(build_random_bandpass(50, 100))
+    interfere_params.update(build_random_bandpass(50, 100, 1000))
 
     # params = {'signal_params':signal_params,'interfere_params':interfere_params,'noise_power':noise_power}
     # pprint(params)
@@ -147,14 +151,14 @@ def random_augmentation(original_file, audio_files, augmented_file):
 
 def augment_with_specific_params():
     signal_gain = 0
-    signal = build_sox_distortions(
-        original, dict(gain=signal_gain, tempo=1.0, pitch=100, reverb=0, lowpass=9000)
-    )
+    signal_params = dict(tempo=1.0, pitch=0, reverb=0)
+    signal_params["gain -n"] = 0
+    signal = build_sox_distortions(original, signal_params)
     interfere_signal = build_sox_distortions(
-        interfering, dict(gain=signal_gain-10, tempo=0.8, pitch=100, reverb=50)
+        interfering, dict(gain=signal_gain - 10, tempo=0.8, pitch=100, reverb=50)
     )
     noise = build_sox_noise(
-        original, noise_gain=signal_gain-60, lowpass_cutoff=6000, highpass_cutoff=10
+        original, noise_gain=signal_gain - 20, lowpass_cutoff=6000, highpass_cutoff=10
     )
     interf = build_sox_interference(interfering, interfere_signal)
     sox_cmd = add_signals_trim_to_len(original, [signal, noise, interf], augmented)
@@ -164,13 +168,12 @@ def augment_with_specific_params():
 if __name__ == "__main__":
     original = "/tmp/original.wav"
     augmented = "/tmp/augmented.wav"
-    interfering = "/tmp/interfere2.wav"
+    interfering = "/tmp/interfere.wav"
 
     # augment_with_specific_params()
 
-    #
     for k in range(9):
-        random_augmentation(original, [interfering], "/tmp/augmented_%d.wav"%k)
+        random_augmentation(original, [interfering], "/tmp/augmented_%d.wav" % k)
     # assert False
     # path = os.environ['HOME']+"/data/asr_data/SPANISH"
     # audio_files = librosa.util.find_files(path)
