@@ -5,6 +5,8 @@ import gzip
 import io
 import json
 import os
+
+from scipy.io.wavfile import read
 from tqdm import tqdm
 import subprocess
 import torch.distributed as dist
@@ -95,3 +97,14 @@ def reduce_tensor(tensor, world_size):
     dist.all_reduce(rt, op=dist.reduce_op.SUM)
     rt /= world_size
     return rt
+
+
+def load_audio(path):
+    sample_rate, sound = read(path)
+    sound = sound.astype("float32") / 32767  # normalize audio
+    if len(sound.shape) > 1:
+        if sound.shape[1] == 1:
+            sound = sound.squeeze()
+        else:
+            sound = sound.mean(axis=1)  # multiple channels, average
+    return sound

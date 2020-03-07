@@ -38,7 +38,10 @@ import librosa
 import librosa.display
 import numpy as np
 import random
-from .sparse_image_warp import sparse_image_warp
+
+from data_related.data_augmentation.sparse_image_warp import sparse_image_warp
+from data_related.feature_extraction import calc_stft_librosa
+from data_related.data_utils import load_audio
 import torch
 
 
@@ -142,4 +145,9 @@ def visualization_spectrogram(mel_spectrogram, title):
     plt.show()
 
 if __name__ == '__main__':
-    original = "/tmp/original.wav"
+    original = "../../original.wav"
+    y = load_audio(original)
+    spect = calc_stft_librosa(y,16_000,0.02,0.01,'hamming')
+    visualization_spectrogram(spect,'original')
+    # spect = spec_augment(spect)
+

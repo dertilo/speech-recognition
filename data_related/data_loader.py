@@ -1,4 +1,3 @@
-import os
 import subprocess
 from tempfile import NamedTemporaryFile
 
@@ -7,17 +6,17 @@ from torch.distributed import get_rank
 from torch.distributed import get_world_size
 from torch.utils.data.sampler import Sampler
 
-import librosa
 import numpy as np
 import scipy.signal
 import torch
-from scipy.io.wavfile import read
 import math
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 
-# from data_related.data_augmentation.spec_augment import spec_augment
+from data_related.data_augmentation.spec_augment import spec_augment
 from data_related.data_augmentation.signal_augment import random_augmentation
+from data_related.data_utils import load_audio
+from data_related.feature_extraction import calc_stft_librosa
 
 windows = {
     "hamming": scipy.signal.hamming,
@@ -27,17 +26,6 @@ windows = {
 }
 
 SAMPLE_RATE = 16_000
-
-
-def load_audio(path):
-    sample_rate, sound = read(path)
-    sound = sound.astype("float32") / 32767  # normalize audio
-    if len(sound.shape) > 1:
-        if sound.shape[1] == 1:
-            sound = sound.squeeze()
-        else:
-            sound = sound.mean(axis=1)  # multiple channels, average
-    return sound
 
 
 def get_feature_dim(audio_conf):
@@ -89,11 +77,7 @@ class AudioParser(object):
 
 class SpectrogramParser(AudioParser):
     def __init__(
-        self,
-        audio_conf,
-        normalize=False,
-        signal_augment=False,
-        spec_augment=False,
+        self, audio_conf, normalize=False, signal_augment=False, spec_augment=False,
     ):
         """
         Parses audio file into spectrogram with optional normalization and various augmentations
@@ -120,7 +104,7 @@ class SpectrogramParser(AudioParser):
             self.mel = torchaudio.transforms.MelSpectrogram(
                 sample_rate=SAMPLE_RATE, n_mels=get_feature_dim(audio_conf)
             )
-        if hasattr(self,'audio_text_files'):
+        if hasattr(self, "audio_text_files"):
             self.audio_files = [
                 f for f, _ in self.audio_text_files
             ]  # TODO accessing the child-classes attribute!!
@@ -149,22 +133,9 @@ class SpectrogramParser(AudioParser):
         return feat
 
     def _calc_stft(self, y):
-        n_fft = int(self.sample_rate * self.window_size)
-        win_length = n_fft
-        hop_length = int(self.sample_rate * self.window_stride)
-        # STFT
-        D = librosa.stft(
-            y,
-            n_fft=n_fft,
-            hop_length=hop_length,
-            win_length=win_length,
-            window=self.window,
+        spect = calc_stft_librosa(
+            y, self.sample_rate, self.window_size, self.window_stride, self.window
         )
-        spect, phase = librosa.magphase(D)
-        # S = log(S+1)
-        spect = np.log1p(spect)
-        spect = torch.FloatTensor(spect)
-
         if self.spec_augment:
             spect = spec_augment(spect)
 
@@ -373,5 +344,7 @@ def load_randomly_augmented_audio(path, audio_files):
     return audio
 
 
-if __name__ == '__main__':
-    x = load_randomly_augmented_audio('/tmp/original.wav',['/tmp/interfere.wav','/tmp/interfere2.wav'])
+if __name__ == "__main__":
+    x = load_randomly_augmented_audio(
+        "/tmp/original.wav", ["/tmp/interfere.wav", "/tmp/interfere2.wav"]
+    )
