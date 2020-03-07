@@ -38,10 +38,6 @@ import librosa
 import librosa.display
 import numpy as np
 import random
-import matplotlib
-
-matplotlib.use("TkAgg")
-import matplotlib.pyplot as plt
 from .sparse_image_warp import sparse_image_warp
 import torch
 
@@ -123,6 +119,10 @@ def spec_augment(
 
 
 def visualization_spectrogram(mel_spectrogram, title):
+    import matplotlib
+    matplotlib.use("TkAgg")
+    import matplotlib.pyplot as plt
+
     """visualizing result of SpecAugment
     # Arguments:
       mel_spectrogram(ndarray): mel_spectrogram to visualize.
@@ -140,3 +140,6 @@ def visualization_spectrogram(mel_spectrogram, title):
     plt.title(title)
     plt.tight_layout()
     plt.show()
+
+if __name__ == '__main__':
+    original = "/tmp/original.wav"
