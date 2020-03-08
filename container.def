@@ -20,4 +20,4 @@ From: /home/tilo/code/UTIL/containerizing/singularity/pytorch.sif #see https://g
     cd ctcdecode; pip install .  && cd ..
 
     git clone --recursive https://github.com/NVIDIA/apex.git
-    cd apex; pip install .  && cd ..
+    cd apex; pip install -v --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" ./  && cd ..
