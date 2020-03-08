@@ -6,6 +6,7 @@ from utils import calc_loss, check_loss
 from apex import amp
 from apex.parallel import DistributedDataParallel
 
+USE_GPU = torch.cuda.is_available()
 
 def train_one_epoch(
     model,
@@ -49,9 +50,9 @@ def train_one_epoch(
         if valid_loss:
             optimizer.zero_grad()
             # compute gradient
-
-            with amp.scale_loss(loss, optimizer) as scaled_loss:
-                scaled_loss.backward()
+            if USE_GPU:
+                with amp.scale_loss(loss, optimizer) as scaled_loss:
+                    scaled_loss.backward()
             torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), args.max_norm)
             optimizer.step()
         else:
