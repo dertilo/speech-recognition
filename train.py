@@ -25,7 +25,7 @@ from logger import TensorBoardLogger
 from model import DeepSpeech, supported_rnns
 from test import evaluate
 from train_util import train_one_epoch
-
+USE_GPU = torch.cuda.is_available()
 parser = argparse.ArgumentParser(description="DeepSpeech training")
 parser.add_argument(
     "--train-manifest",
@@ -75,7 +75,7 @@ parser.add_argument("--epochs", default=70, type=int, help="Number of training e
 parser.add_argument(
     "--cuda",
     dest="cuda",
-    default=True,
+    default=USE_GPU,
     action="store_true",
     help="Use cuda to train model",
 )
@@ -138,13 +138,6 @@ parser.add_argument(
     dest="finetune",
     action="store_true",
     help='Finetune the model from checkpoint "continue_from"',
-)
-parser.add_argument(
-    "--spec-augment",
-    default=False,
-    dest="spec_augment",
-    action="store_true",
-    help="Use simple spectral augmentation on mel spectograms.",
 )
 
 parser.add_argument(
@@ -214,7 +207,8 @@ parser.add_argument("--keep-batchnorm-fp32", type=str, default=None)
 parser.add_argument("--loss-scale", default=1, type=str)
 
 torch.manual_seed(123456)
-torch.cuda.manual_seed_all(123456)
+if USE_GPU:
+    torch.cuda.manual_seed_all(123456)
 
 
 def to_np(x):
@@ -283,7 +277,8 @@ if __name__ == "__main__":
 
     # Set seeds for determinism
     torch.manual_seed(args.seed)
-    torch.cuda.manual_seed_all(args.seed)
+    if USE_GPU:
+        torch.cuda.manual_seed_all(args.seed)
     np.random.seed(args.seed)
     random.seed(args.seed)
 
@@ -374,8 +369,8 @@ if __name__ == "__main__":
         manifest_filepath=args.train_manifest,
         labels=labels,
         normalize=True,
-        signal_augment=True,
-        spec_augment=args.spec_augment,
+        signal_augment=False,
+        spec_augment=True,
     )
     test_dataset = SpectrogramDataset(
         audio_conf=audio_conf,
@@ -427,7 +422,7 @@ if __name__ == "__main__":
 
     if args.distributed:
         model = DistributedDataParallel(model)
-    print(model)
+    # print(model)
     print("Number of parameters: %d" % DeepSpeech.get_param_size(model))
 
     criterion = CTCLoss(blank=labels.index(BLANK_CHAR))
