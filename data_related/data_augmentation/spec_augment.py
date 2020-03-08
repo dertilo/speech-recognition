@@ -39,9 +39,9 @@ import librosa.display
 import numpy as np
 import random
 
-from data_related.data_augmentation.sparse_image_warp import sparse_image_warp
-from data_related.feature_extraction import calc_stft_librosa
-from data_related.data_utils import load_audio
+# from data_related.data_augmentation.sparse_image_warp import sparse_image_warp
+# from tensorflow_addons.image import sparse_image_warp
+
 import torch
 
 
@@ -50,24 +50,24 @@ def time_warp(spec, W=5):
     spec_len = spec.shape[2]
 
     y = num_rows // 2
-    horizontal_line_at_ctr = spec[0][y]
+    # horizontal_line_at_ctr = spec[0][y] # TODO(tilo): what for?
     # assert len(horizontal_line_at_ctr) == spec_len
 
-    point_to_warp = horizontal_line_at_ctr[random.randrange(W, spec_len - W)]
+    point_to_warp = random.randrange(W, spec_len - W)
     # assert isinstance(point_to_warp, torch.Tensor)
 
     # Uniform distribution from (0,W) with chance to be up to W negative
     dist_to_warp = random.randrange(-W, W)
-    src_pts = torch.tensor([[[y, point_to_warp]]])
-    dest_pts = torch.tensor([[[y, point_to_warp + dist_to_warp]]])
-    warped_spectro, dense_flows = sparse_image_warp(spec, src_pts, dest_pts)
-
+    src_pts = np.array([[[y, point_to_warp]]],dtype=np.float)
+    dest_pts = np.array([[[y, point_to_warp + dist_to_warp]]],dtype=np.float)
+    warped_spectro, dense_flows = sparse_image_warp(spec.numpy(), src_pts, dest_pts,num_boundary_points=1)
+    warped_spectro = torch.from_numpy(warped_spectro.numpy())
     return warped_spectro.squeeze(3)
 
 
 def spec_augment(
     mel_spectrogram,
-    time_warping_para=40,
+    time_warping_para=5,#TODO(tilo): why 5 ?
     frequency_masking_para=27,
     time_masking_para=70,
     frequency_mask_num=1,
@@ -92,13 +92,14 @@ def spec_augment(
     # Returns
       mel_spectrogram(numpy array): warped and masked mel spectrogram.
     """
-    mel_spectrogram = mel_spectrogram.unsqueeze(0)
+    mel_spectrogram = mel_spectrogram.unsqueeze(0).unsqueeze(-1)
 
     v = mel_spectrogram.shape[1]
     tau = mel_spectrogram.shape[2]
 
     # Step 1 : Time warping
-    warped_mel_spectrogram = time_warp(mel_spectrogram, W=time_warping_para)
+    # warped_mel_spectrogram = time_warp(mel_spectrogram, W=time_warping_para)
+    warped_mel_spectrogram = mel_spectrogram
 
     # Step 2 : Frequency masking
     for i in range(frequency_mask_num):
@@ -134,8 +135,8 @@ def visualization_spectrogram(mel_spectrogram, title):
     # Show mel-spectrogram using librosa's specshow.
     plt.figure(figsize=(10, 4))
     librosa.display.specshow(
-        librosa.power_to_db(mel_spectrogram[0, :, :], ref=np.max),
-        y_axis="mel",
+        librosa.power_to_db(mel_spectrogram, ref=np.max),
+        # y_axis="mel",
         fmax=8000,
         x_axis="time",
     )
@@ -145,9 +146,18 @@ def visualization_spectrogram(mel_spectrogram, title):
     plt.show()
 
 if __name__ == '__main__':
-    original = "../../original.wav"
-    y = load_audio(original)
-    spect = calc_stft_librosa(y,16_000,0.02,0.01,'hamming')
-    visualization_spectrogram(spect,'original')
-    # spect = spec_augment(spect)
-
+    import matplotlib.pyplot as plt
+    x = np.array(np.arange(0,200,1) %10 ==0,dtype=np.float)
+    y = np.array(np.arange(0,101,1) %10 ==0,dtype=np.float)
+    xx, yy = np.meshgrid(x, y, sparse=True)
+    X = xx + yy
+    spect=torch.from_numpy(X)
+    # plt.imshow(X)
+    # plt.show()
+    # original = "../../original.wav"
+    # y = load_audio(original)
+    # y = torch.from_numpy()
+    # spect = calc_stft_librosa(y,16_000,0.02,0.01,'hamming')
+    # visualization_spectrogram(spect,'original')
+    spect = spec_augment(spect,time_warping_para=5)
+    visualization_spectrogram(spect,'augmented')
