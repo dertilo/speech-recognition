@@ -46,8 +46,8 @@ def train_one_epoch(
         )
 
         # Check to ensure valid loss was calculated
-        valid_loss, error = check_loss(loss, loss_value)
-        if valid_loss:
+        loss_is_valid, error = check_loss(loss, loss_value)
+        if loss_is_valid:
             optimizer.zero_grad()
             # compute gradient
             if USE_GPU:
