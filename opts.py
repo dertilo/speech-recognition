@@ -40,7 +40,7 @@ def add_decoder_args(parser):
 
 
 def add_inference_args(parser):
-    parser.add_argument("--cuda", action="store_true", help="Use cuda")
+    parser.add_argument("--cuda",default=True, action="store_true", help="Use cuda")
     parser.add_argument(
         "--half",
         action="store_true",

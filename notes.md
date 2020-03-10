@@ -38,9 +38,11 @@ for debug
 * debug
     python -m multiproc train.py --labels-path spanish_vocab.json --train-manifest spanish_some.csv --val-manifest spanish_some.csv --id debug
 
+* locally on laptop
+    python train.py --train-manifest spanish_train_laptop.csv --val-manifest spanish_eval_laptop.csv --id debug --hidden-layers 2 --hidden-size 128 --num-workers 2
+
 * full
- 
-    python -m multiproc train.py --id spanish_full_05_03_2020
+    python -m multiproc train.py --id spanish
     
 * mel
 
