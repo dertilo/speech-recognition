@@ -12,6 +12,7 @@ import torch
 import math
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
+from tqdm import tqdm
 
 from data_related.data_augmentation.spec_augment import spec_augment
 from data_related.data_augmentation.signal_augment import random_augmentation
@@ -172,33 +173,7 @@ class SpectrogramDataset(Dataset, SpectrogramParser):
         with open(manifest_filepath) as f:
             audio_text_files = f.readlines()
 
-        if (
-            "libri" in manifest_filepath
-        ):  # TODO(tilo): just too lazy to rebuild the csvs
-
-            def fix_path(wav_file, txt_file):
-                if "libri_train100_manifest.csv" == manifest_filepath:
-                    base_path = "LibriSpeech_train_100"
-                else:
-                    base_path = "LibriSpeech_dataset"
-
-                def splitit(s):
-                    tmp = s.split(base_path)
-                    if len(tmp) != 2:
-                        print(s)
-                        assert False
-                    _, f = tmp
-                    return f
-
-                wav_file = "/".join([base_path, splitit(wav_file)])
-                txt_file = "/".join([base_path, splitit(txt_file)])
-                return wav_file, txt_file
-
-            audio_text_files = [
-                fix_path(*x.strip().split(",")) for x in audio_text_files
-            ]
-        else:
-            audio_text_files = [x.strip().split(",") for x in audio_text_files]
+        audio_text_files = [x.strip().split(",") for x in audio_text_files]
 
         self.audio_text_files = audio_text_files
         self.size = len(audio_text_files)
@@ -345,6 +320,35 @@ def load_randomly_augmented_audio(path, audio_files):
 
 
 if __name__ == "__main__":
-    x = load_randomly_augmented_audio(
-        "/tmp/original.wav", ["/tmp/interfere.wav", "/tmp/interfere2.wav"]
+    audio_conf = dict(
+        sample_rate=16_000,
+        window_size=0.02,
+        window_stride=0.01,
+        window="hamming",
+        feature_type="stft",
     )
+    # fmt: off
+    labels = ["_", "'","A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z"," "]
+    # fmt: on
+
+    train_dataset = SpectrogramDataset(
+        audio_conf=audio_conf,
+        manifest_filepath='getting_datasets/libri_val_manifest.csv',
+        labels=labels,
+        normalize=True,
+        signal_augment=False,
+        spec_augment=False,
+    )
+
+    train_sampler = BucketingSampler(train_dataset, batch_size=32)
+
+    train_loader = AudioDataLoader(
+        train_dataset, num_workers=0, batch_sampler=train_sampler
+    )
+
+    for d in tqdm(train_loader):
+        pass
+
+    # x = load_randomly_augmented_audio(
+    #     "/tmp/original.wav", ["/tmp/interfere.wav", "/tmp/interfere2.wav"]
+    # )
