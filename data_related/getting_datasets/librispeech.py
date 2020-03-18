@@ -3,9 +3,10 @@ import wget
 import tarfile
 import argparse
 import subprocess
-from utils import create_manifest
 from tqdm import tqdm
 import shutil
+
+from data_related.data_utils import create_manifest
 
 parser = argparse.ArgumentParser(
     description="Processes and downloads LibriSpeech dataset."
@@ -19,10 +20,11 @@ parser.add_argument(
 parser.add_argument("--sample-rate", default=16000, type=int, help="Sample rate")
 parser.add_argument(
     "--files-to-use",
-    default="train-clean-100.tar.gz,"
-    "train-clean-360.tar.gz,train-other-500.tar.gz,"
-    "dev-clean.tar.gz,dev-other.tar.gz,"
-    "test-clean.tar.gz,test-other.tar.gz",
+    default=
+    # "train-clean-100.tar.gz,"
+    # "train-clean-360.tar.gz,train-other-500.tar.gz,"
+    "dev-clean.tar.gz,dev-other.tar.gz,",
+    # "test-clean.tar.gz,test-other.tar.gz",
     type=str,
     help="list of file names to download",
 )
@@ -41,17 +43,17 @@ parser.add_argument(
 args = parser.parse_args()
 
 LIBRI_SPEECH_URLS = {
-    "train": [
-        "http://www.openslr.org/resources/12/train-clean-100.tar.gz",
-        "http://www.openslr.org/resources/12/train-clean-360.tar.gz",
-        "http://www.openslr.org/resources/12/train-other-500.tar.gz",
-    ],
+    # "train": [
+    #     "http://www.openslr.org/resources/12/train-clean-100.tar.gz",
+    #     "http://www.openslr.org/resources/12/train-clean-360.tar.gz",
+    #     "http://www.openslr.org/resources/12/train-other-500.tar.gz",
+    # ],
     "val": [
         "http://www.openslr.org/resources/12/dev-clean.tar.gz",
         "http://www.openslr.org/resources/12/dev-other.tar.gz",
     ],
-    "test_clean": ["http://www.openslr.org/resources/12/test-clean.tar.gz"],
-    "test_other": ["http://www.openslr.org/resources/12/test-other.tar.gz"],
+    # "test_clean": ["http://www.openslr.org/resources/12/test-clean.tar.gz"],
+    # "test_other": ["http://www.openslr.org/resources/12/test-other.tar.gz"],
 }
 
 
@@ -89,6 +91,17 @@ def _process_file(wav_dir, txt_dir, base_filename, root_dir):
         f.write(_preprocess_transcript(transcriptions[key]))
         f.flush()
 
+def make_dirs(split_dir):
+    if not os.path.exists(split_dir):
+        os.makedirs(split_dir)
+    split_wav_dir = os.path.join(split_dir, "wav")
+    if not os.path.exists(split_wav_dir):
+        os.makedirs(split_wav_dir)
+    split_txt_dir = os.path.join(split_dir, "txt")
+    if not os.path.exists(split_txt_dir):
+        os.makedirs(split_txt_dir)
+    extracted_dir = os.path.join(split_dir, "LibriSpeech")
+    return extracted_dir, split_txt_dir, split_wav_dir
 
 def main():
     target_dl_dir = args.target_dir
@@ -97,15 +110,7 @@ def main():
     files_to_dl = args.files_to_use.strip().split(",")
     for split_type, lst_libri_urls in LIBRI_SPEECH_URLS.items():
         split_dir = os.path.join(target_dl_dir, split_type)
-        if not os.path.exists(split_dir):
-            os.makedirs(split_dir)
-        split_wav_dir = os.path.join(split_dir, "wav")
-        if not os.path.exists(split_wav_dir):
-            os.makedirs(split_wav_dir)
-        split_txt_dir = os.path.join(split_dir, "txt")
-        if not os.path.exists(split_txt_dir):
-            os.makedirs(split_txt_dir)
-        extracted_dir = os.path.join(split_dir, "LibriSpeech")
+        extracted_dir, split_txt_dir, split_wav_dir = make_dirs(split_dir)
         if os.path.exists(extracted_dir):
             shutil.rmtree(extracted_dir)
         for url in lst_libri_urls:
