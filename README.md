@@ -6,79 +6,19 @@ Implementation of DeepSpeech2 for PyTorch. Creates a network based on the [DeepS
 
 ### Docker
 
-There is no official Dockerhub image, however a Dockerfile is provided to build on your own systems.
-
 ```bash
-sudo nvidia-docker build -t  deepspeech2.docker .
-sudo nvidia-docker run -ti -v `pwd`/data:/workspace/data -p 8888:8888 --net=host --ipc=host deepspeech2.docker # Opens a Jupyter notebook, mounting the /data drive in the container
+DOCKER_SHARE=<some path>
+docker build -t deepspeech .
+docker run --shm-size 8G --runtime=nvidia --rm -it -v $DOCKER_SHARE:/docker-share --net=host --env JOBLIB_TEMP_FOLDER=/tmp/ deepspeech:latest bash
 ```
-
-Optionally you can use the command line by changing the entrypoint:
-
-```bash
-sudo nvidia-docker run -ti -v `pwd`/data:/workspace/data --entrypoint=/bin/bash --net=host --ipc=host deepspeech2.docker
-
-```
-
-### From Source
-
-Several libraries are needed to be installed for training to work. I will assume that everything is being installed in
-an Anaconda installation on Ubuntu, with Pytorch 1.0.
-
-Install [PyTorch](https://github.com/pytorch/pytorch#installation) if you haven't already.
-
-Install this fork for Warp-CTC bindings:
-```
-git clone https://github.com/SeanNaren/warp-ctc.git
-cd warp-ctc; mkdir build; cd build; cmake ..; make
-export CUDA_HOME="/usr/local/cuda"
-cd ../pytorch_binding && python setup.py install
-```
-
-Install NVIDIA apex:
-```
-git clone --recursive https://github.com/NVIDIA/apex.git
-cd apex && pip install .
-```
-
-If you want decoding to support beam search with an optional language model, install ctcdecode:
-```
-git clone --recursive https://github.com/parlance/ctcdecode.git
-cd ctcdecode && pip install .
-```
-
-Finally clone this repo and run this within the repo:
-```
-pip install -r requirements.txt
-```
-
 ## Training
 
 ### Datasets
-
-Currently supports AN4, TEDLIUM, Voxforge, Common Voice and LibriSpeech. Scripts will setup the dataset and create manifest files used in data-loading. The scripts can be found in the data/ folder. Many of the scripts allow you to download the raw datasets separately if you choose so.
-
-#### Custom Dataset
-
-To create a custom dataset you must create a CSV file containing the locations of the training data. This has to be in the format of:
-
+#### Librispeech
+* using fairseqs datapreprocessing-pipeline
 ```
-/path/to/audio.wav,/path/to/text.txt
-/path/to/audio2.wav,/path/to/text2.txt
-...
-```
-
-The first path is to the audio file, and the second path is to a text file containing the transcript on one line. This can then be used as stated below.
-
-
-#### Merging multiple manifest files
-
-To create bigger manifest files (to train/test on multiple datasets at once) we can merge manifest files together like below from a directory
-containing all the manifests you want to merge. You can also prune short and long clips out of the new manifest.
-
-```
-cd data/
-python merge_manifests.py --output-path merged_manifest.csv --merge-dir all-manifests/ --min-duration 1 --max-duration 15 # durations in seconds
+find train_960 -name '*.flac'| wc -l 
+281241
 ```
 
 ### Training a Model
