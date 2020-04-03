@@ -26,8 +26,8 @@ ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 
 # install apex
 RUN git clone --recursive https://github.com/NVIDIA/apex.git
-RUN cd apex; pip install .
+RUN cd apex; pip install -v --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" .
 
 # install deepspeech.pytorch
-ADD . /workspace/deepspeech.pytorch
-RUN cd deepspeech.pytorch; pip install -r requirements.txt
+ADD requirements.txt /workspace/requirements.txt
+RUN pip install -r requirements.txt
