@@ -1,6 +1,6 @@
 FROM pytorch/pytorch:1.2-cuda10.0-cudnn7-devel
 
-WORKDIR /workspace/
+WORKDIR /docker-share/
 
 # install basics
 RUN apt-get update -y
@@ -29,5 +29,5 @@ RUN git clone --recursive https://github.com/NVIDIA/apex.git
 RUN cd apex; pip install -v --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" .
 
 # install deepspeech.pytorch
-ADD requirements.txt /workspace/requirements.txt
-RUN pip install -r requirements.txt
+ADD requirements.txt /root/requirements.txt
+RUN pip install -r /root/requirements.txt
