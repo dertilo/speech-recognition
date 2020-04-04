@@ -1,7 +1,6 @@
 import os
 import subprocess
 
-import librosa
 import numpy as np
 from tqdm import tqdm
 from typing import Dict
@@ -96,13 +95,13 @@ def build_random_bandpass(min_low=50, min_band_width=100, max_high=1000) -> Dict
 def random_augmentation(original_file, audio_files, augmented_file):
     interfere_file = np.random.choice(audio_files)
     min_SNR = 20  # normal:20, less:30, evenless:40
-    min_SIR = 20  # normal:10, less:20, evenless:30
+    min_SIR = 5  # normal:10, less:20, evenless:30
 
     signal_gain = round(np.random.uniform(low=-10, high=0), 2)
     signal_params = {
-        "tempo": round(np.random.triangular(left=0.8, mode=1.0, right=1.2), 2),
+        "tempo": round(np.random.triangular(left=0.7, mode=1.0, right=1.3), 2),
         "pitch": int(
-            round(np.random.triangular(left=-100, mode=0, right=100))
+            round(np.random.triangular(left=-200, mode=0, right=200))
         ),  # normal 100, less: 50, evenless: 30
         "reverb": (int(round(np.random.uniform(low=0, high=50))), 50, 100, 100, 0, 0,),
         "gain -n": signal_gain,
@@ -166,9 +165,10 @@ def augment_with_specific_params():
 
 
 if __name__ == "__main__":
-    original = "/tmp/original.wav"
+    import librosa
+    original = "../../original.wav"
     augmented = "/tmp/augmented.wav"
-    interfering = "/tmp/interfere.wav"
+    interfering = "../../interference.wav"
 
     # augment_with_specific_params()
 
