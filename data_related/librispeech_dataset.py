@@ -7,6 +7,8 @@ import scipy.signal
 import torch
 import torchaudio
 from torch.utils.data import Dataset
+from typing import NamedTuple, List
+from util import data_io
 
 from data_related.data_augmentation.signal_augment import random_augmentation
 from data_related.data_augmentation.spec_augment import spec_augment
@@ -30,7 +32,8 @@ def get_feature_dim(audio_conf):
         assert False
     return FEATURE_DIM
 
-windows = {
+
+NAME2WINDOWTYPE = {
     "hamming": scipy.signal.hamming,
     "hann": scipy.signal.hann,
     "blackman": scipy.signal.blackman,
@@ -57,42 +60,31 @@ def load_randomly_augmented_audio(path, audio_files):
 
     return audio
 
-class AudioParser(object):
-    def parse_transcript(self, transcript_path):
-        """
-        :param transcript_path: Path where transcript is stored from the manifest file
-        :return: Transcript in training/testing format
-        """
-        raise NotImplementedError
 
-    def parse_audio(self, audio_path):
-        """
-        :param audio_path: Path where audio is stored from the manifest file
-        :return: Audio in training/testing format
-        """
-        raise NotImplementedError
+class AudioFeaturesConfig(NamedTuple):
+    sample_rate: int = 16_000
+    window_size: float = 0.02
+    window_stride: float = 0.01
+    window: str = "hamming"
+    feature_type: str = "stft"
+    normalize: bool = False
+    signal_augment: bool = False
+    spec_augment: bool = False
 
 
-class SpectrogramParser(AudioParser):
+class AudioFeatureExtractor:
     def __init__(
-        self, audio_conf, normalize=False, signal_augment=False, spec_augment=False,
+        self, audio_conf: AudioFeaturesConfig,
     ):
-        """
-        Parses audio file into spectrogram with optional normalization and various augmentations
-        :param audio_conf: Dictionary containing the sample rate, window and the window length/stride in seconds
-        :param normalize(default False):  Apply standard mean and deviation normalization to audio tensor
-        :param speed_volume_perturb(default False): Apply random tempo and gain perturbations
-        :param spec_augment(default False): Apply simple spectral augmentation to mel spectograms
-        """
-        super(SpectrogramParser, self).__init__()
-        self.feature_type = audio_conf.get("feature_type", "stft")
-        self.window_stride = audio_conf["window_stride"]
-        self.window_size = audio_conf["window_size"]
-        self.sample_rate = audio_conf["sample_rate"]
-        self.window = windows.get(audio_conf["window"], windows["hamming"])
-        self.normalize = normalize
-        self.signal_augment = signal_augment
-        self.spec_augment = spec_augment
+        super().__init__()
+        self.feature_type = audio_conf.feature_type
+        self.window_stride = audio_conf.window_stride
+        self.window_size = audio_conf.window_size
+        self.sample_rate = audio_conf.sample_rate
+        self.window = NAME2WINDOWTYPE[audio_conf.window]
+        self.normalize = audio_conf.normalize
+        self.signal_augment = audio_conf.signal_augment
+        self.spec_augment = audio_conf.spec_augment
 
         if self.feature_type == "mfcc":
             self.mfcc = torchaudio.transforms.MFCC(
@@ -107,7 +99,7 @@ class SpectrogramParser(AudioParser):
                 f for f, _ in self.audio_text_files
             ]  # TODO accessing the child-classes attribute!!
 
-    def parse_audio(self, audio_path):
+    def process(self, audio_path):
         if self.signal_augment:
             y = load_randomly_augmented_audio(audio_path, self.audio_files)
         else:
@@ -139,55 +131,57 @@ class SpectrogramParser(AudioParser):
 
         return spect
 
-    def parse_transcript(self, transcript_path):
-        raise NotImplementedError
+
+class DataConfig(NamedTuple):
+    dirs: List[str]
+    labels: List[str]
+    min_len: float = 1  # seconds
+    max_len: float = 20  # seconds
+
+
+from corpora.librispeech import generate_audiofile_text_tuples
+
+MILLISECONDS_TO_SECONDS = 0.001
+
+
+def get_length(audio_file):
+    si, ei = torchaudio.info(audio_file)
+    return si.length / si.channels / si.rate
+
+
+class Sample(NamedTuple):
+    audio_file: str
+    text: str
+    length: float  # in seconds
 
 
 class SpectrogramDataset(Dataset):
     def __init__(
-        self,
-        audio_conf,
-        manifest_filepath,
-        labels,
-        normalize=False,
-        signal_augment=False,
-        spec_augment=False,
+        self, conf: DataConfig, audio_conf: AudioFeaturesConfig,
     ):
-        """
-        Dataset that loads tensors via a csv containing file paths to audio files and transcripts separated by
-        a comma. Each new line is a different sample. Example below:
-
-        /path/to/audio.wav,/path/to/audio.txt
-        ...
-
-        :param audio_conf: Dictionary containing the sample rate, window and the window length/stride in seconds
-        :param manifest_filepath: Path to manifest csv as describe above
-        :param labels: String containing all the possible characters to map to
-        :param normalize: Apply standard mean and deviation normalization to audio tensor
-        :param speed_volume_perturb(default False): Apply random tempo and gain perturbations
-        :param spec_augment(default False): Apply simple spectral augmentation to mel spectograms
-        """
-        with open(manifest_filepath) as f:
-            audio_text_files = f.readlines()
-
-        audio_text_files = [x.strip().split(",") for x in audio_text_files]
-
-        self.audio_text_files = audio_text_files
-        self.size = len(audio_text_files)
-        self.labels_map = dict([(labels[i], i) for i in range(len(labels))])
-        super(SpectrogramDataset, self).__init__(
-            audio_conf, normalize, signal_augment, spec_augment
+        self.conf = conf
+        samples_g = (
+            Sample(audio_file, text, get_length(audio_file))
+            for f in conf.dirs
+            for audio_file, text in generate_audiofile_text_tuples(f)
         )
+        samples_g = filter(
+            lambda s: s.length > conf.min_len and s.length > conf.max_len, samples_g
+        )
+        sorted_samples = sorted(samples_g, key=lambda s: s.length)
+        self.samples = sorted_samples
+        self.size = len(self.samples)
+        self.labels_map = dict([(labels[i], i) for i in range(len(conf.labels))])
+        self.audio_fe = AudioFeatureExtractor(audio_conf)
+        super().__init__()
 
     def __getitem__(self, index):
-        audio_file, text_file = self.audio_text_files[index]
-        spect = self.parse_audio(audio_file)
-        transcript = self.parse_transcript(text_file)
-        return spect, transcript
+        s: Sample = self.samples[index]
+        feat = self.audio_fe.process(s.audio_file)
+        transcript = self.parse_transcript(s.text)
+        return feat, transcript
 
-    def parse_transcript(self, transcript_path):
-        with open(transcript_path, "r", encoding="utf8") as f:
-            transcript = f.read().replace("\n", "")
+    def parse_transcript(self, transcript: str) -> List[int]:
         transcript = list(
             filter(None, [self.labels_map.get(x) for x in list(transcript)])
         )  # TODO(tilo) like this it erases unknown letters
@@ -197,14 +191,8 @@ class SpectrogramDataset(Dataset):
     def __len__(self):
         return self.size
 
+
 if __name__ == "__main__":
-    audio_conf = dict(
-        sample_rate=16_000,
-        window_size=0.02,
-        window_stride=0.01,
-        window="hamming",
-        feature_type="stft",
-    )
     # fmt: off
     labels = ["_", "'","A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z"," "]
     # fmt: on
@@ -213,15 +201,8 @@ if __name__ == "__main__":
     asr_path = HOME + "/data/asr_data"
     raw_data_path = asr_path + "/ENGLISH/LibriSpeech"
 
-    manifest_file = raw_data_path +'/dev-clean_manifest.jsonl'
-    train_dataset = SpectrogramDataset(
-        audio_conf=audio_conf,
-        manifest_filepath=manifest_file,
-        labels=labels,
-        normalize=True,
-        signal_augment=False,
-        spec_augment=False,
-    )
-
+    conf = DataConfig([raw_data_path + "/dev-other"], labels)
+    audio_conf = AudioFeaturesConfig()
+    train_dataset = SpectrogramDataset(conf, audio_conf)
     datum = train_dataset[0]
     print()
