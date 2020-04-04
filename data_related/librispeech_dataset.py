@@ -6,7 +6,7 @@ import scipy.signal
 import torch
 import torchaudio
 from torch.utils.data import Dataset
-from typing import NamedTuple, List
+from typing import NamedTuple, List, Dict
 
 from data_related.data_augmentation.signal_augment import random_augmentation
 from data_related.data_augmentation.spec_augment import spec_augment
@@ -97,7 +97,9 @@ class AudioFeatureExtractor:
         else:
             si, _ = torchaudio.info(audio_path)
             normalize_denominator = 1 << si.precision
-            tensor, sample_rate = torchaudio.load(audio_path, normalization=normalize_denominator)
+            tensor, sample_rate = torchaudio.load(
+                audio_path, normalization=normalize_denominator
+            )
             y = tensor.squeeze().numpy()
 
         if self.feature_type == "mfcc":
@@ -128,7 +130,6 @@ class AudioFeatureExtractor:
 
 
 class DataConfig(NamedTuple):
-    dirs: List[str]
     labels: List[str]
     min_len: float = 1  # seconds
     max_len: float = 20  # seconds
@@ -150,15 +151,14 @@ class Sample(NamedTuple):
     length: float  # in seconds
 
 
-class SpectrogramDataset(Dataset):
+class LibriSpeechDataset(Dataset):
     def __init__(
-        self, conf: DataConfig, audio_conf: AudioFeaturesConfig,
+        self, corpus: Dict[str, str], conf: DataConfig, audio_conf: AudioFeaturesConfig,
     ):
         self.conf = conf
         samples_g = (
             Sample(audio_file, text, get_length(audio_file))
-            for f in conf.dirs
-            for audio_file, text in librispeech_corpus(f).items()
+            for audio_file, text in corpus.items()
         )
         samples_g = filter(
             lambda s: s.length > conf.min_len and s.length > conf.max_len, samples_g
@@ -196,8 +196,13 @@ if __name__ == "__main__":
     asr_path = HOME + "/data/asr_data"
     raw_data_path = asr_path + "/ENGLISH/LibriSpeech"
 
-    conf = DataConfig([raw_data_path + "/dev-other"], labels)
+    conf = DataConfig(labels)
     audio_conf = AudioFeaturesConfig()
-    train_dataset = SpectrogramDataset(conf, audio_conf)
+    corpus = {
+        k: v
+        for p in [raw_data_path + "/dev-other"]
+        for k, v in librispeech_corpus(p).items()
+    }
+    train_dataset = LibriSpeechDataset(corpus,conf, audio_conf)
     datum = train_dataset[0]
     print()
