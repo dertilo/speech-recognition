@@ -1,6 +1,5 @@
 import math
 import os
-import subprocess
 from tempfile import NamedTemporaryFile
 
 import scipy.signal
@@ -11,7 +10,6 @@ from typing import NamedTuple, List
 
 from data_related.data_augmentation.signal_augment import random_augmentation
 from data_related.data_augmentation.spec_augment import spec_augment
-from data_related.data_utils import load_audio
 from data_related.feature_extraction import calc_stft_librosa
 
 
@@ -39,11 +37,6 @@ NAME2WINDOWTYPE = {
     "bartlett": scipy.signal.bartlett,
 }
 SAMPLE_RATE = 16_000
-
-
-def get_audio_length(path):
-    output = subprocess.check_output(['soxi -D "%s"' % path.strip()], shell=True)
-    return float(output)
 
 
 def load_randomly_augmented_audio(path, audio_files):
@@ -141,7 +134,7 @@ class DataConfig(NamedTuple):
     max_len: float = 20  # seconds
 
 
-from corpora.librispeech import generate_audiofile_text_tuples
+from corpora.librispeech import librispeech_corpus
 
 MILLISECONDS_TO_SECONDS = 0.001
 
@@ -165,7 +158,7 @@ class SpectrogramDataset(Dataset):
         samples_g = (
             Sample(audio_file, text, get_length(audio_file))
             for f in conf.dirs
-            for audio_file, text in generate_audiofile_text_tuples(f)
+            for audio_file, text in librispeech_corpus(f).items()
         )
         samples_g = filter(
             lambda s: s.length > conf.min_len and s.length > conf.max_len, samples_g
