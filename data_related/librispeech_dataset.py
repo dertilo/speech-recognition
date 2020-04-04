@@ -8,7 +8,6 @@ import torch
 import torchaudio
 from torch.utils.data import Dataset
 from typing import NamedTuple, List
-from util import data_io
 
 from data_related.data_augmentation.signal_augment import random_augmentation
 from data_related.data_augmentation.spec_augment import spec_augment
@@ -103,7 +102,10 @@ class AudioFeatureExtractor:
         if self.signal_augment:
             y = load_randomly_augmented_audio(audio_path, self.audio_files)
         else:
-            y = load_audio(audio_path)
+            si, _ = torchaudio.info(audio_path)
+            normalize_denominator = 1 << si.precision
+            tensor, sample_rate = torchaudio.load(audio_path, normalization=normalize_denominator)
+            y = tensor.squeeze().numpy()
 
         if self.feature_type == "mfcc":
             feat = self.mfcc.forward(torch.from_numpy(y).unsqueeze(0)).data.squeeze(0)
