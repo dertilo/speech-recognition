@@ -8,7 +8,8 @@ import torchaudio
 from torch.utils.data import Dataset
 from typing import NamedTuple, List, Dict
 
-from data_related.data_augmentation.signal_augment import random_augmentation
+from audio_util import load_audio
+from data_related.data_augmentation.signal_augment import augment_with_sox
 from data_related.data_augmentation.spec_augment import spec_augment
 from data_related.feature_extraction import calc_stft_librosa
 
@@ -39,12 +40,17 @@ NAME2WINDOWTYPE = {
 SAMPLE_RATE = 16_000
 
 
-def load_randomly_augmented_audio(path, audio_files):
+def augment_and_load(original_audio_file, audio_files: List[str]):
+    """
+    :param original_audio_file:
+    :param audio_files: used for signal-inference-noise
+    :return:
+    """
     with NamedTemporaryFile(suffix=".wav") as augmented_file:
         augmented_filename = augmented_file.name
         while True:
             try:
-                random_augmentation(path, audio_files, augmented_filename)
+                augment_with_sox(original_audio_file, audio_files, augmented_filename)
                 audio = load_audio(augmented_filename)
                 break
             except:
@@ -65,10 +71,9 @@ class AudioFeaturesConfig(NamedTuple):
 
 
 class AudioFeatureExtractor:
-    def __init__(
-        self, audio_conf: AudioFeaturesConfig,
-    ):
+    def __init__(self, audio_conf: AudioFeaturesConfig, audio_files):
         super().__init__()
+        self.audio_files = audio_files
         self.feature_type = audio_conf.feature_type
         self.window_stride = audio_conf.window_stride
         self.window_size = audio_conf.window_size
@@ -86,21 +91,12 @@ class AudioFeatureExtractor:
             self.mel = torchaudio.transforms.MelSpectrogram(
                 sample_rate=SAMPLE_RATE, n_mels=get_feature_dim(audio_conf)
             )
-        if hasattr(self, "audio_text_files"):
-            self.audio_files = [
-                f for f, _ in self.audio_text_files
-            ]  # TODO accessing the child-classes attribute!!
 
     def process(self, audio_path):
         if self.signal_augment:
-            y = load_randomly_augmented_audio(audio_path, self.audio_files)
+            y = augment_and_load(audio_path, self.audio_files)
         else:
-            si, _ = torchaudio.info(audio_path)
-            normalize_denominator = 1 << si.precision
-            tensor, sample_rate = torchaudio.load(
-                audio_path, normalization=normalize_denominator
-            )
-            y = tensor.squeeze().numpy()
+            y = load_audio(audio_path)
 
         if self.feature_type == "mfcc":
             feat = self.mfcc.forward(torch.from_numpy(y).unsqueeze(0)).data.squeeze(0)
@@ -167,7 +163,9 @@ class LibriSpeechDataset(Dataset):
         self.samples = sorted_samples
         self.size = len(self.samples)
         self.labels_map = dict([(labels[i], i) for i in range(len(conf.labels))])
-        self.audio_fe = AudioFeatureExtractor(audio_conf)
+        self.audio_fe = AudioFeatureExtractor(
+            audio_conf, [s.audio_file for s in self.samples]
+        )
         super().__init__()
 
     def __getitem__(self, index):
@@ -203,6 +201,6 @@ if __name__ == "__main__":
         for p in [raw_data_path + "/dev-other"]
         for k, v in librispeech_corpus(p).items()
     }
-    train_dataset = LibriSpeechDataset(corpus,conf, audio_conf)
+    train_dataset = LibriSpeechDataset(corpus, conf, audio_conf)
     datum = train_dataset[0]
     print()

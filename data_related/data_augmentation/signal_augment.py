@@ -92,7 +92,7 @@ def build_random_bandpass(min_low=50, min_band_width=100, max_high=1000) -> Dict
     return d
 
 
-def random_augmentation(original_file, audio_files, augmented_file):
+def augment_with_sox(original_file, audio_files, augmented_file):
     interfere_file = np.random.choice(audio_files)
     min_SNR = 20  # normal:20, less:30, evenless:40
     min_SIR = 5  # normal:10, less:20, evenless:30
@@ -173,7 +173,7 @@ if __name__ == "__main__":
     # augment_with_specific_params()
 
     for k in range(9):
-        random_augmentation(original, [interfering], "/tmp/augmented_%d.wav" % k)
+        augment_with_sox(original, [interfering], "/tmp/augmented_%d.wav" % k)
     # assert False
     # path = os.environ['HOME']+"/data/asr_data/SPANISH"
     # audio_files = librosa.util.find_files(path)
