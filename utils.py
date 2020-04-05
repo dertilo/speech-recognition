@@ -1,4 +1,5 @@
 import torch
+import torch.cuda
 import torch.distributed as dist
 import torch.utils.data.distributed
 
@@ -63,3 +64,6 @@ def calc_loss(
         loss_value = loss.item()
 
     return loss, loss_value
+
+
+USE_GPU = torch.cuda.is_available()

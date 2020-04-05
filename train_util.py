@@ -2,11 +2,10 @@ import time
 
 import torch
 
-from utils import calc_loss, check_loss
+from utils import calc_loss, check_loss, USE_GPU
 from apex import amp
 from apex.parallel import DistributedDataParallel
 
-USE_GPU = torch.cuda.is_available()
 
 def train_one_epoch(
     model,

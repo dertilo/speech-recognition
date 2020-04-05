@@ -1,5 +1,4 @@
 import argparse
-import json
 import os
 import random
 import time
@@ -25,7 +24,7 @@ from logger import TensorBoardLogger
 from model import DeepSpeech, supported_rnns
 from test import evaluate
 from train_util import train_one_epoch
-USE_GPU = torch.cuda.is_available()
+from utils import USE_GPU
 
 torch.manual_seed(123456)
 if USE_GPU:
@@ -66,7 +65,7 @@ if __name__ == "__main__":
 
     args.distributed = args.world_size > 1
     main_proc = True
-    device = torch.device("cuda" if args.cuda else "cpu")
+    device = torch.device("cuda" if USE_GPU else "cpu")
     if args.distributed:
         if args.gpu_rank:
             torch.cuda.set_device(int(args.gpu_rank))
@@ -187,7 +186,7 @@ if __name__ == "__main__":
     optimizer = torch.optim.SGD(
         parameters, lr=args.lr, momentum=args.momentum, nesterov=True, weight_decay=1e-5
     )
-    if args.cuda and args.opt_level is not None:
+    if USE_GPU and args.opt_level is not None:
         model, optimizer = amp.initialize(
             model,
             optimizer,
