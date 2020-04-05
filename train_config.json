@@ -32,7 +32,7 @@
     "bidirectional": true,
     "dist_url": "tcp://127.0.0.1:1550",
     "dist_backend": "nccl",
-    "world_size": 1,
+    "world_size": -1,
     "rank": 0,
     "gpu_rank": null,
     "seed": 123456,

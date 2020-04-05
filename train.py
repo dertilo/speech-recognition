@@ -22,6 +22,7 @@ from data_related.data_loader import (
 from decoder import GreedyDecoder
 from logger import TensorBoardLogger
 from model import DeepSpeech, supported_rnns
+from multiproc import WORLD_SIZE
 from test import evaluate
 from train_util import train_one_epoch
 from utils import USE_GPU, BLANK_SYMBOL, SPACE
@@ -90,7 +91,8 @@ if __name__ == "__main__":
     np.random.seed(args.seed)
     random.seed(args.seed)
 
-    args.distributed = args.world_size > 1
+    world_size = WORLD_SIZE if args.world_size<0 else args.world_size
+    args.distributed = world_size > 1
     main_proc = True
     device = torch.device("cuda" if USE_GPU else "cpu")
     if args.distributed:
@@ -99,7 +101,7 @@ if __name__ == "__main__":
         dist.init_process_group(
             backend=args.dist_backend,
             init_method=args.dist_url,
-            world_size=args.world_size,
+            world_size=world_size,
             rank=args.rank,
         )
         main_proc = args.rank == 0  # Only the first proc should save models
@@ -166,7 +168,7 @@ if __name__ == "__main__":
         train_sampler = DistributedBucketingSampler(
             train_dataset,
             batch_size=args.batch_size,
-            num_replicas=args.world_size,
+            num_replicas=world_size,
             rank=args.rank,
         )
     train_loader = AudioDataLoader(
