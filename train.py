@@ -11,14 +11,14 @@ from apex.parallel import DistributedDataParallel
 from util import data_io
 
 from data_related.audio_feature_extraction import AudioFeaturesConfig
-from data_related.building_vocabulary import BLANK_CHAR
 from warpctc_pytorch import CTCLoss
 
 from data_related.char_stt_dataset import DataConfig, CharSTTDataset
 from data_related.data_loader import (
     BucketingSampler,
     DistributedBucketingSampler,
-    AudioDataLoader)
+    AudioDataLoader,
+)
 from decoder import GreedyDecoder
 from logger import TensorBoardLogger
 from model import DeepSpeech, supported_rnns
@@ -61,6 +61,7 @@ def build_datasets():
               "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", SPACE]
     # fmt: on
     from corpora.librispeech import librispeech_corpus
+
     HOME = os.environ["HOME"]
     asr_path = HOME + "/data/asr_data"
     raw_data_path = asr_path + "/ENGLISH/LibriSpeech"
@@ -82,16 +83,20 @@ def build_datasets():
     return train_dataset, eval_dataset
 
 
-if __name__ == "__main__":
-    args = argparse.Namespace(**data_io.read_json('train_config.json'))
-    # Set seeds for determinism
-    torch.manual_seed(args.seed)
+def set_seeds(seed):
+    torch.manual_seed(seed)
     if USE_GPU:
-        torch.cuda.manual_seed_all(args.seed)
-    np.random.seed(args.seed)
-    random.seed(args.seed)
+        torch.cuda.manual_seed_all(seed)
+    np.random.seed(seed)
+    random.seed(seed)
 
-    world_size = WORLD_SIZE if args.world_size<0 else args.world_size
+
+if __name__ == "__main__":
+    args = argparse.Namespace(**data_io.read_json("train_config.json"))
+    # Set seeds for determinism
+    set_seeds(args.seed)
+
+    world_size = WORLD_SIZE if args.world_size < 0 else args.world_size
     args.distributed = world_size > 1
     main_proc = True
     device = torch.device("cuda" if USE_GPU else "cpu")
@@ -129,7 +134,6 @@ if __name__ == "__main__":
         )
 
         model = DeepSpeech.load_model_package(package)
-        labels = model.labels
         if not args.finetune:  # Don't want to restart training
             optim_state = package["optim_dict"]
             amp_state = package["amp"]
@@ -207,7 +211,7 @@ if __name__ == "__main__":
     # print(model)
     print("Number of parameters: %d" % DeepSpeech.get_param_size(model))
 
-    criterion = CTCLoss(blank=labels.index(BLANK_CHAR))
+    criterion = CTCLoss(blank=train_dataset.char2idx[BLANK_SYMBOL])
     batch_time = AverageMeter()
     data_time = AverageMeter()
 
