@@ -15,10 +15,10 @@ def add_decoder_args(parser):
         help="Path to an (optional) kenlm language model for use with beam search (req'd with trie)",
     )
     beam_args.add_argument(
-        "--alpha", default=0.8, type=float, help="Language model weight"
+        "--alpha", default=0., type=float, help="Language model weight"
     )
     beam_args.add_argument(
-        "--beta", default=1, type=float, help="Language model word bonus (all words)"
+        "--beta", default=0.0, type=float, help="Language model word bonus (all words)"
     )
     beam_args.add_argument(
         "--cutoff-top-n",
@@ -48,7 +48,7 @@ def add_inference_args(parser):
     )
     parser.add_argument(
         "--decoder",
-        default="greedy",
+        default="beam",
         choices=["greedy", "beam"],
         type=str,
         help="Decoder to use",
