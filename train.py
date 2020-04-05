@@ -24,7 +24,7 @@ from logger import TensorBoardLogger
 from model import DeepSpeech, supported_rnns
 from test import evaluate
 from train_util import train_one_epoch
-from utils import USE_GPU, BLANK_SYMBOL
+from utils import USE_GPU, BLANK_SYMBOL, SPACE
 
 torch.manual_seed(123456)
 if USE_GPU:
@@ -57,7 +57,7 @@ class AverageMeter(object):
 def build_datasets():
     # fmt: off
     labels = [BLANK_SYMBOL, "'", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
-              "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", " "]
+              "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", SPACE]
     # fmt: on
     from corpora.librispeech import librispeech_corpus
     HOME = os.environ["HOME"]
@@ -159,7 +159,7 @@ if __name__ == "__main__":
             bidirectional=args.bidirectional,
         )
 
-    decoder = GreedyDecoder(labels)
+    decoder = GreedyDecoder(train_dataset.char2idx)
     if not args.distributed:
         train_sampler = BucketingSampler(train_dataset, batch_size=args.batch_size)
     else:

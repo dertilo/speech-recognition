@@ -18,32 +18,20 @@
 import Levenshtein as Lev
 import torch
 from six.moves import xrange
+from typing import Dict
+
+from utils import BLANK_SYMBOL, SPACE
 
 
 class Decoder(object):
-    """
-    Basic decoder class from which all other decoders inherit. Implements several
-    helper functions. Subclasses should implement the decode() method.
 
-    Arguments:
-        labels (string): mapping from integers to characters.
-        blank_index (int, optional): index for the blank '_' character. Defaults to 0.
-        space_index (int, optional): index for the space ' ' character. Defaults to 28.
-    """
+    def __init__(self, char2idx:Dict[str,int]):
+        self.char2idx = char2idx
+        self.idx2char = {v:k for k,v in char2idx.items()}
+        self.blank_index = char2idx[BLANK_SYMBOL]
+        self.space_index = char2idx[SPACE]
 
-    def __init__(self, labels, blank_index=0):
-        # e.g. labels = "_'ABCDEFGHIJKLMNOPQRSTUVWXYZ#"
-        self.labels = labels #TODO(tilo): thefuck! this should be done by some vocab-object!
-        self.int_to_char = dict([(i, c) for (i, c) in enumerate(labels)])
-        self.blank_index = blank_index
-        space_index = len(
-            labels
-        )  # To prevent errors in decode, we add an out of bounds index for the space
-        if " " in labels:
-            space_index = labels.index(" ")
-        self.space_index = space_index
-
-    def wer(self, s1, s2):
+    def wer(self, s1, s2): #TODO(tilo): the fuck!!
         """
         Computes the Word Error Rate, defined as the edit distance between the
         two provided sentences after tokenizing to words.
@@ -54,7 +42,7 @@ class Decoder(object):
 
         # build mapping of words to integers
         b = set(s1.split() + s2.split())
-        word2char = dict(zip(b, range(len(b))))
+        word2char = dict(zip(b, range(len(b)))) #TODO(tilo): whyTF!?
 
         # map the words to a char array (Levenshtein packages only accepts
         # strings)
@@ -92,7 +80,7 @@ class Decoder(object):
 class BeamCTCDecoder(Decoder):
     def __init__(
         self,
-        labels,
+        char2idx,
         lm_path=None,
         alpha=0,
         beta=0,
@@ -102,13 +90,13 @@ class BeamCTCDecoder(Decoder):
         num_processes=4,
         blank_index=0,
     ):
-        super(BeamCTCDecoder, self).__init__(labels)
+        super(BeamCTCDecoder, self).__init__(char2idx)
         try:
             from ctcdecode import CTCBeamDecoder
         except ImportError:
             raise ImportError("BeamCTCDecoder requires paddledecoder package.")
         self._decoder = CTCBeamDecoder(
-            labels,
+            char2idx,
             lm_path,
             alpha,
             beta,
@@ -127,7 +115,7 @@ class BeamCTCDecoder(Decoder):
                 size = seq_len[b][p]
                 if size > 0:
                     transcript = "".join(
-                        map(lambda x: self.int_to_char[x.item()], utt[0:size])
+                        map(lambda x: self.idx2char[x.item()], utt[0:size])
                     )
                 else:
                     transcript = ""
@@ -167,8 +155,8 @@ class BeamCTCDecoder(Decoder):
 
 
 class GreedyDecoder(Decoder):
-    def __init__(self, labels, blank_index=0):
-        super(GreedyDecoder, self).__init__(labels, blank_index)
+    def __init__(self, char2idx):
+        super(GreedyDecoder, self).__init__(char2idx)
 
     def convert_to_strings(
         self, sequences, sizes=None, remove_repetitions=False, return_offsets=False
@@ -193,16 +181,16 @@ class GreedyDecoder(Decoder):
         string = ""
         offsets = []
         for i in range(size):
-            char = self.int_to_char[sequence[i].item()]
-            if char != self.int_to_char[self.blank_index]:
+            char = self.idx2char[sequence[i].item()]
+            if char != self.idx2char[self.blank_index]:
                 # if this char is a repetition and remove_repetitions=true, then skip
                 if (
                     remove_repetitions
                     and i != 0
-                    and char == self.int_to_char[sequence[i - 1].item()]
+                    and char == self.idx2char[sequence[i - 1].item()]
                 ):
                     pass
-                elif char == self.labels[self.space_index]:
+                elif char == SPACE:
                     string += " "
                     offsets.append(i)
                 else:
