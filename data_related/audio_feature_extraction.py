@@ -67,14 +67,15 @@ class AudioFeatureExtractor:
         self.normalize = audio_conf.normalize
         self.signal_augment = audio_conf.signal_augment
         self.spec_augment = audio_conf.spec_augment
+        self.feature_dim = get_feature_dim(audio_conf)
 
         if self.feature_type == "mfcc":
             self.mfcc = torchaudio.transforms.MFCC(
-                sample_rate=SAMPLE_RATE, n_mfcc=get_feature_dim(audio_conf)
+                sample_rate=SAMPLE_RATE, n_mfcc=self.feature_dim
             )
         elif self.feature_type == "mel":
             self.mel = torchaudio.transforms.MelSpectrogram(
-                sample_rate=SAMPLE_RATE, n_mels=get_feature_dim(audio_conf)
+                sample_rate=SAMPLE_RATE, n_mels=self.feature_dim
             )
 
     def process(self, audio_path):

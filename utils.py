@@ -5,6 +5,7 @@ import torch.utils.data.distributed
 
 from model import DeepSpeech
 
+BLANK_SYMBOL = "■"
 
 def reduce_tensor(tensor, world_size, reduce_op_max=False):
     rt = tensor.clone()

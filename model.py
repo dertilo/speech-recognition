@@ -158,29 +158,24 @@ class Lookahead(nn.Module):
 class DeepSpeech(nn.Module):
     def __init__(
         self,
+        feature_dim,
         rnn_type=nn.LSTM,
         vocab_size="abc",
         rnn_hidden_size=768,
         nb_layers=5,
-        audio_conf=None,
         bidirectional=True,
         context=20,
+        **_kwargs # kwargs that no one cares about
     ):
         super(DeepSpeech, self).__init__()
 
-        # model metadata needed for serialization/deserialization
-        if audio_conf is None:
-            audio_conf = {}
         self.version = "0.0.1"
         self.hidden_size = rnn_hidden_size
         self.hidden_layers = nb_layers
         self.rnn_type = rnn_type
-        self.audio_conf = audio_conf or {}
         self.vocab_size = vocab_size
         self.bidirectional = bidirectional
 
-        # sample_rate = self.audio_conf.get("sample_rate", SAMPLE_RATE)
-        # window_size = self.audio_conf.get("window_size", 0.02)
 
         self.conv = MaskConv(
             nn.Sequential(
@@ -193,9 +188,7 @@ class DeepSpeech(nn.Module):
             )
         )
         # Based on above convolutions and spectrogram size using conv formula (W - F + 2P)/ S+1
-        rnn_input_size = get_feature_dim( #TODO(tilo): this is shitty
-            audio_conf
-        )  # int(math.floor((sample_rate * window_size) / 2) + 1)
+        rnn_input_size = feature_dim  # int(math.floor((sample_rate * window_size) / 2) + 1)
         rnn_input_size = int(math.floor(rnn_input_size + 2 * 20 - 41) / 2 + 1)
         rnn_input_size = int(math.floor(rnn_input_size + 2 * 10 - 21) / 2 + 1)
         rnn_input_size *= 32
@@ -277,14 +270,7 @@ class DeepSpeech(nn.Module):
     @classmethod
     def load_model(cls, path) -> "DeepSpeech":
         package = torch.load(path, map_location=lambda storage, loc: storage)
-        model = cls(
-            rnn_hidden_size=package["hidden_size"],
-            nb_layers=package["hidden_layers"],
-            labels=package["labels"],
-            audio_conf=package["audio_conf"],
-            rnn_type=supported_rnns[package["rnn_type"]],
-            bidirectional=package.get("bidirectional", True),
-        )
+        model = cls(**package)
         model.load_state_dict(package["state_dict"])
         for x in model.rnns:
             x.flatten_parameters()
@@ -292,14 +278,7 @@ class DeepSpeech(nn.Module):
 
     @classmethod
     def load_model_package(cls, package):
-        model = cls(
-            rnn_hidden_size=package["hidden_size"],
-            nb_layers=package["hidden_layers"],
-            labels=package["labels"],
-            audio_conf=package["audio_conf"],
-            rnn_type=supported_rnns[package["rnn_type"]],
-            bidirectional=package.get("bidirectional", True),
-        )
+        model = cls(**package)
         model.load_state_dict(package["state_dict"])
         return model
 

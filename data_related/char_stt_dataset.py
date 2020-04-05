@@ -40,7 +40,7 @@ class CharSTTDataset(Dataset):
         if len(self.samples)<len(corpus):
             print('%d of %d samples are suitable for training'%(len(self.samples),len(corpus)))
         self.size = len(self.samples)
-        self.labels_map = dict([(conf.labels[i], i) for i in range(len(conf.labels))])
+        self.char2idx = dict([(conf.labels[i], i) for i in range(len(conf.labels))])
         self.audio_fe = AudioFeatureExtractor(
             audio_conf, [s.audio_file for s in self.samples]
         )
@@ -54,7 +54,7 @@ class CharSTTDataset(Dataset):
 
     def parse_transcript(self, transcript: str) -> List[int]:
         transcript = list(
-            filter(None, [self.labels_map.get(x) for x in list(transcript)])
+            filter(None, [self.char2idx.get(x) for x in list(transcript)])
         )  # TODO(tilo) like this it erases unknown letters
         # transcript = [self.labels_map.get(x,UNK) for x in list(transcript)] # TODO(tilo) better like this?
         return transcript

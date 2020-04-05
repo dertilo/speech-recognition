@@ -24,7 +24,7 @@ from logger import TensorBoardLogger
 from model import DeepSpeech, supported_rnns
 from test import evaluate
 from train_util import train_one_epoch
-from utils import USE_GPU
+from utils import USE_GPU, BLANK_SYMBOL
 
 torch.manual_seed(123456)
 if USE_GPU:
@@ -54,6 +54,33 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 
+def build_datasets():
+    # fmt: off
+    labels = [BLANK_SYMBOL, "'", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
+              "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", " "]
+    # fmt: on
+    from corpora.librispeech import librispeech_corpus
+    HOME = os.environ["HOME"]
+    asr_path = HOME + "/data/asr_data"
+    raw_data_path = asr_path + "/ENGLISH/LibriSpeech"
+    conf = DataConfig(labels)
+    audio_conf = AudioFeaturesConfig()
+    corpus = {
+        k: v
+        for folder in ["train-clean-100"]
+        for k, v in librispeech_corpus(os.path.join(raw_data_path, folder)).items()
+    }
+    train_dataset = CharSTTDataset(corpus, conf, audio_conf)
+    audio_conf = AudioFeaturesConfig()
+    corpus = {
+        k: v
+        for folder in ["dev-clean", "dev-other"]
+        for k, v in librispeech_corpus(os.path.join(raw_data_path, folder)).items()
+    }
+    eval_dataset = CharSTTDataset(corpus, conf, audio_conf)
+    return train_dataset, eval_dataset
+
+
 if __name__ == "__main__":
     args = argparse.Namespace(**data_io.read_json('train_config.json'))
     # Set seeds for determinism
@@ -77,32 +104,7 @@ if __name__ == "__main__":
         )
         main_proc = args.rank == 0  # Only the first proc should save models
 
-    # fmt: off
-    labels = ["_", "'","A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z"," "]
-    # fmt: on
-    from corpora.librispeech import librispeech_corpus
-
-    HOME = os.environ["HOME"]
-    asr_path = HOME + "/data/asr_data"
-    raw_data_path = asr_path + "/ENGLISH/LibriSpeech"
-
-    conf = DataConfig(labels)
-    audio_conf = AudioFeaturesConfig()
-
-    corpus = {
-        k: v
-        for folder in ["train-clean-100"]
-        for k, v in librispeech_corpus(os.path.join(raw_data_path, folder)).items()
-    }
-    train_dataset = CharSTTDataset(corpus, conf, audio_conf)
-
-    audio_conf = AudioFeaturesConfig()
-    corpus = {
-        k: v
-        for folder in ["dev-clean","dev-other"]
-        for k, v in librispeech_corpus(os.path.join(raw_data_path, folder)).items()
-    }
-    eval_dataset = CharSTTDataset(corpus, conf, audio_conf)
+    train_dataset, eval_dataset = build_datasets()
 
     save_folder = os.path.join(args.save_folder, args.id)
     os.makedirs(save_folder, exist_ok=True)  # Ensure save folder exists
@@ -123,12 +125,9 @@ if __name__ == "__main__":
         package = torch.load(
             args.continue_from, map_location=lambda storage, loc: storage
         )
-        if "feature_type" not in package["audio_conf"]:
-            package["audio_conf"]["feature_type"] = "stft"
 
         model = DeepSpeech.load_model_package(package)
         labels = model.labels
-        audio_conf = model.audio_conf
         if not args.finetune:  # Don't want to restart training
             optim_state = package["optim_dict"]
             amp_state = package["amp"]
@@ -154,9 +153,9 @@ if __name__ == "__main__":
         model = DeepSpeech(
             rnn_hidden_size=args.hidden_size,
             nb_layers=args.hidden_layers,
-            vocab_size=len(train_dataset.labels_map),
+            vocab_size=len(train_dataset.char2idx),
             rnn_type=supported_rnns[rnn_type],
-            audio_conf=audio_conf,
+            feature_dim=train_dataset.audio_fe.feature_dim,
             bidirectional=args.bidirectional,
         )
 

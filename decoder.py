@@ -33,7 +33,7 @@ class Decoder(object):
 
     def __init__(self, labels, blank_index=0):
         # e.g. labels = "_'ABCDEFGHIJKLMNOPQRSTUVWXYZ#"
-        self.labels = labels
+        self.labels = labels #TODO(tilo): thefuck! this should be done by some vocab-object!
         self.int_to_char = dict([(i, c) for (i, c) in enumerate(labels)])
         self.blank_index = blank_index
         space_index = len(
