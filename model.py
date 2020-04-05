@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.parameter import Parameter
 
-from data_related.data_loader import SAMPLE_RATE, get_feature_dim
+from data_related.audio_feature_extraction import get_feature_dim
 
 supported_rnns = {"lstm": nn.LSTM, "rnn": nn.RNN, "gru": nn.GRU}
 supported_rnns_inv = dict((v, k) for k, v in supported_rnns.items())
@@ -194,7 +194,7 @@ class DeepSpeech(nn.Module):
             )
         )
         # Based on above convolutions and spectrogram size using conv formula (W - F + 2P)/ S+1
-        rnn_input_size = get_feature_dim(
+        rnn_input_size = get_feature_dim( #TODO(tilo): this is shitty
             audio_conf
         )  # int(math.floor((sample_rate * window_size) / 2) + 1)
         rnn_input_size = int(math.floor(rnn_input_size + 2 * 20 - 41) / 2 + 1)
