@@ -2,8 +2,11 @@ import os
 from torch.utils.data import Dataset
 from typing import NamedTuple, List, Dict
 
-from data_related.audio_feature_extraction import AudioFeaturesConfig, \
-    AudioFeatureExtractor, get_length
+from data_related.audio_feature_extraction import (
+    AudioFeaturesConfig,
+    AudioFeatureExtractor,
+    get_length,
+)
 
 
 class DataConfig(NamedTuple):
@@ -11,8 +14,6 @@ class DataConfig(NamedTuple):
     min_len: float = 1  # seconds
     max_len: float = 20  # seconds
 
-
-from corpora.librispeech import librispeech_corpus
 
 MILLISECONDS_TO_SECONDS = 0.001
 
@@ -33,11 +34,13 @@ class LibriSpeechDataset(Dataset):
             for audio_file, text in corpus.items()
         )
         samples_g = filter(
-            lambda s: s.length > conf.min_len and s.length > conf.max_len, samples_g
+            lambda s: s.length > conf.min_len and s.length < conf.max_len, samples_g
         )
-        self.samples:List[Sample] = sorted(samples_g, key=lambda s: s.length)
+        self.samples: List[Sample] = sorted(samples_g, key=lambda s: s.length)
+        if len(self.samples)<len(corpus):
+            print('%d of %d samples are suitable for training'%(len(self.samples),len(corpus)))
         self.size = len(self.samples)
-        self.labels_map = dict([(labels[i], i) for i in range(len(conf.labels))])
+        self.labels_map = dict([(conf.labels[i], i) for i in range(len(conf.labels))])
         self.audio_fe = AudioFeatureExtractor(
             audio_conf, [s.audio_file for s in self.samples]
         )
@@ -64,6 +67,7 @@ if __name__ == "__main__":
     # fmt: off
     labels = ["_", "'","A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z"," "]
     # fmt: on
+    from corpora.librispeech import librispeech_corpus
 
     HOME = os.environ["HOME"]
     asr_path = HOME + "/data/asr_data"

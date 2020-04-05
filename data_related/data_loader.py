@@ -124,25 +124,27 @@ class DistributedBucketingSampler(Sampler):
 
 
 if __name__ == "__main__":
-    audio_conf = dict(
-        sample_rate=16_000,
-        window_size=0.02,
-        window_stride=0.01,
-        window="hamming",
-        feature_type="stft",
-    )
     # fmt: off
     labels = ["_", "'","A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z"," "]
     # fmt: on
+    import os
+    from data_related.audio_feature_extraction import AudioFeaturesConfig
+    from data_related.librispeech_dataset import LibriSpeechDataset, DataConfig
+    from corpora.librispeech import librispeech_corpus
 
-    train_dataset = SpectrogramDataset(
-        audio_conf=audio_conf,
-        manifest_filepath='libri_val_manifest.csv',
-        labels=labels,
-        normalize=True,
-        signal_augment=False,
-        spec_augment=False,
-    )
+    HOME = os.environ["HOME"]
+    asr_path = HOME + "/data/asr_data"
+    raw_data_path = asr_path + "/ENGLISH/LibriSpeech"
+
+    conf = DataConfig(labels)
+    audio_conf = AudioFeaturesConfig()
+    corpus = {
+        k: v
+        for p in [raw_data_path + "/dev-other"]
+        for k, v in librispeech_corpus(p).items()
+    }
+    print('got %d audio-files in corpus'%len(corpus))
+    train_dataset = LibriSpeechDataset(corpus, conf, audio_conf)
 
     train_sampler = BucketingSampler(train_dataset, batch_size=32)
 
