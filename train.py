@@ -7,204 +7,23 @@ import time
 import numpy as np
 import torch.distributed as dist
 import torch.utils.data.distributed
-from apex import amp
-from apex.parallel import DistributedDataParallel
+# from apex import amp
+# from apex.parallel import DistributedDataParallel
+from util import data_io
 
 from data_related.building_vocabulary import BLANK_CHAR
-from warpctc_pytorch import CTCLoss
+# from warpctc_pytorch import CTCLoss
 
 from data_related.data_loader import (
-    AudioDataLoader,
-    SpectrogramDataset,
     BucketingSampler,
     DistributedBucketingSampler,
-)
-from data_related.data_utils import read_jsonl
+    AudioDataLoader)
 from decoder import GreedyDecoder
 from logger import TensorBoardLogger
 from model import DeepSpeech, supported_rnns
 from test import evaluate
 from train_util import train_one_epoch
 USE_GPU = torch.cuda.is_available()
-parser = argparse.ArgumentParser(description="DeepSpeech training")
-parser.add_argument(
-    "--train-manifest",
-    metavar="DIR",
-    help="path to train manifest csv",
-    default="spanish_train_manifest.csv",
-)
-parser.add_argument(
-    "--val-manifest",
-    metavar="DIR",
-    help="path to validation manifest csv",
-    default="spanish_eval_manifest.csv",
-)
-parser.add_argument("--sample-rate", default=16000, type=int, help="Sample rate")
-parser.add_argument(
-    "--batch-size", default=64, type=int, help="Batch size for training"
-)
-parser.add_argument(
-    "--num-workers", default=16, type=int, help="Number of workers used in data-loading"
-)
-parser.add_argument(
-    "--labels-path",
-    default="spanish_vocab.json",
-    help="Contains all characters for transcription",
-)
-parser.add_argument(
-    "--window-size",
-    default=0.02,
-    type=float,
-    help="Window size for spectrogram in seconds",
-)
-parser.add_argument(
-    "--window-stride",
-    default=0.01,
-    type=float,
-    help="Window stride for spectrogram in seconds",
-)
-parser.add_argument(
-    "--window", default="hamming", help="Window type for spectrogram generation"
-)
-parser.add_argument("--hidden-size", default=1024, type=int, help="Hidden size of RNNs")
-parser.add_argument("--hidden-layers", default=5, type=int, help="Number of RNN layers")
-parser.add_argument(
-    "--rnn-type", default="lstm", help="Type of the RNN. rnn|gru|lstm are supported"
-)
-parser.add_argument("--epochs", default=70, type=int, help="Number of training epochs")
-parser.add_argument(
-    "--cuda",
-    dest="cuda",
-    default=USE_GPU,
-    action="store_true",
-    help="Use cuda to train model",
-)
-parser.add_argument(
-    "--lr", "--learning-rate", default=3e-4, type=float, help="initial learning rate"
-)
-parser.add_argument("--momentum", default=0.9, type=float, help="momentum")
-parser.add_argument(
-    "--max-norm",
-    default=400,
-    type=int,
-    help="Norm cutoff to prevent explosion of gradients",
-)
-parser.add_argument(
-    "--learning-anneal",
-    default=1.01,
-    type=float,
-    help="Annealing applied to learning rate every epoch",
-)
-parser.add_argument(
-    "--silent",
-    dest="silent",
-    action="store_true",
-    help="Turn off progress tracking per iteration",
-)
-parser.add_argument(
-    "--checkpoint",
-    dest="checkpoint",
-    default=True,
-    action="store_true",
-    help="Enables checkpoint saving of model",
-)
-parser.add_argument(
-    "--tensorboard",
-    dest="tensorboard",
-    default=True,
-    action="store_true",
-    help="Turn on tensorboard graphing",
-)
-parser.add_argument(
-    "--log-dir", default="tensorboard_logdir", help="Location of tensorboard log"
-)
-parser.add_argument(
-    "--log-params",
-    dest="log_params",
-    action="store_true",
-    help="Log parameter values and gradients",
-)
-parser.add_argument(
-    "--id", default="Deepspeech training", help="Identifier for visdom/tensorboard run"
-)
-parser.add_argument(
-    "--save-folder", default="checkpoints", help="Location to save epoch models"
-)
-parser.add_argument(
-    "--continue-from", default="", help="Continue from checkpoint model"
-)
-parser.add_argument(
-    "--finetune",
-    dest="finetune",
-    action="store_true",
-    help='Finetune the model from checkpoint "continue_from"',
-)
-
-parser.add_argument(
-    "--noise-dir",
-    default=None,
-    help="Directory to inject noise into audio. If default, noise Inject not added",
-)
-parser.add_argument(
-    "--noise-prob", default=0.4, help="Probability of noise being added per sample"
-)
-parser.add_argument(
-    "--noise-min",
-    default=0.0,
-    help="Minimum noise level to sample from. (1.0 means all noise, not original signal)",
-    type=float,
-)
-parser.add_argument(
-    "--noise-max",
-    default=0.5,
-    help="Maximum noise levels to sample from. Maximum 1.0",
-    type=float,
-)
-parser.add_argument(
-    "--feature-type", default="stft", choices=["stft", "mfcc", "mel"], type=str,
-)
-parser.add_argument(
-    "--no-shuffle",
-    dest="no_shuffle",
-    action="store_true",
-    help="Turn off shuffling and sample from dataset based on sequence length (smallest to largest)",
-)
-parser.add_argument(
-    "--no-sortaGrad",
-    default=True,
-    dest="no_sorta_grad",
-    action="store_true",
-    help="Turn off ordering of dataset on sequence length for the first epoch.",
-)
-parser.add_argument(
-    "--no-bidirectional",
-    dest="bidirectional",
-    action="store_false",
-    default=True,
-    help="Turn off bi-directional RNNs, introduces lookahead convolution",
-)
-parser.add_argument(
-    "--dist-url",
-    default="tcp://127.0.0.1:1550",
-    type=str,
-    help="url used to set up distributed training",
-)
-parser.add_argument(
-    "--dist-backend", default="nccl", type=str, help="distributed backend"
-)
-parser.add_argument(
-    "--world-size", default=1, type=int, help="number of distributed processes"
-)
-parser.add_argument("--rank", default=0, type=int, help="The rank of this process")
-parser.add_argument(
-    "--gpu-rank",
-    default=None,
-    help="If using distributed parallel for multi-gpu, sets the GPU for the process",
-)
-parser.add_argument("--seed", default=123456, type=int, help="Seed to generators")
-parser.add_argument("--opt-level", default="O1", type=str)
-parser.add_argument("--keep-batchnorm-fp32", type=str, default=None)
-parser.add_argument("--loss-scale", default=1, type=str)
 
 torch.manual_seed(123456)
 if USE_GPU:
@@ -236,45 +55,18 @@ class AverageMeter(object):
 
 def get_labels(labels_path):
     if "spanish" in labels_path:
-        labels = str("".join(next(iter(read_jsonl(labels_path)))))
+        labels = str("".join(next(iter(data_io.read_jsonl(labels_path)))))
     else:
-        labels = [
-            "_",
-            "'",
-            "A",
-            "B",
-            "C",
-            "D",
-            "E",
-            "F",
-            "G",
-            "H",
-            "I",
-            "J",
-            "K",
-            "L",
-            "M",
-            "N",
-            "O",
-            "P",
-            "Q",
-            "R",
-            "S",
-            "T",
-            "U",
-            "V",
-            "W",
-            "X",
-            "Y",
-            "Z",
-            " ",
-        ]
+        # fmt: off
+        labels = ["_", "'", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L",
+                  "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
+                  " "]
+        # fmt: on
     return labels
 
 
 if __name__ == "__main__":
-    args = parser.parse_args()
-
+    args = argparse.Namespace(**data_io.read_json('train_config.json'))
     # Set seeds for determinism
     torch.manual_seed(args.seed)
     if USE_GPU:
