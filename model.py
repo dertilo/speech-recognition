@@ -159,7 +159,7 @@ class DeepSpeech(nn.Module):
     def __init__(
         self,
         rnn_type=nn.LSTM,
-        labels="abc",
+        vocab_size="abc",
         rnn_hidden_size=768,
         nb_layers=5,
         audio_conf=None,
@@ -176,12 +176,11 @@ class DeepSpeech(nn.Module):
         self.hidden_layers = nb_layers
         self.rnn_type = rnn_type
         self.audio_conf = audio_conf or {}
-        self.labels = labels
+        self.vocab_size = vocab_size
         self.bidirectional = bidirectional
 
         # sample_rate = self.audio_conf.get("sample_rate", SAMPLE_RATE)
         # window_size = self.audio_conf.get("window_size", 0.02)
-        num_classes = len(self.labels)
 
         self.conv = MaskConv(
             nn.Sequential(
@@ -231,7 +230,7 @@ class DeepSpeech(nn.Module):
 
         fully_connected = nn.Sequential(
             nn.BatchNorm1d(rnn_hidden_size),
-            nn.Linear(rnn_hidden_size, num_classes, bias=False),
+            nn.Linear(rnn_hidden_size, vocab_size, bias=False),
         )
         self.fc = nn.Sequential(SequenceWise(fully_connected),)
 
@@ -380,10 +379,9 @@ if __name__ == "__main__":
     print("  RNN Type:         ", model.rnn_type.__name__.lower())
     print("  RNN Layers:       ", model.hidden_layers)
     print("  RNN Size:         ", model.hidden_size)
-    print("  Classes:          ", len(model.labels))
+    print("  Classes:          ", model.vocab_size)
     print("")
     print("Model Features")
-    print("  Labels:           ", model.labels)
     print("  Sample Rate:      ", model.audio_conf.get("sample_rate", "n/a"))
     print("  Window Type:      ", model.audio_conf.get("window", "n/a"))
     print("  Window Size:      ", model.audio_conf.get("window_size", "n/a"))

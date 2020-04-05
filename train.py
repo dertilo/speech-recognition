@@ -7,13 +7,15 @@ import time
 import numpy as np
 import torch.distributed as dist
 import torch.utils.data.distributed
-# from apex import amp
-# from apex.parallel import DistributedDataParallel
+from apex import amp
+from apex.parallel import DistributedDataParallel
 from util import data_io
 
+from data_related.audio_feature_extraction import AudioFeaturesConfig
 from data_related.building_vocabulary import BLANK_CHAR
-# from warpctc_pytorch import CTCLoss
+from warpctc_pytorch import CTCLoss
 
+from data_related.char_stt_dataset import DataConfig, CharSTTDataset
 from data_related.data_loader import (
     BucketingSampler,
     DistributedBucketingSampler,
@@ -53,18 +55,6 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 
-def get_labels(labels_path):
-    if "spanish" in labels_path:
-        labels = str("".join(next(iter(data_io.read_jsonl(labels_path)))))
-    else:
-        # fmt: off
-        labels = ["_", "'", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L",
-                  "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
-                  " "]
-        # fmt: on
-    return labels
-
-
 if __name__ == "__main__":
     args = argparse.Namespace(**data_io.read_json('train_config.json'))
     # Set seeds for determinism
@@ -87,6 +77,34 @@ if __name__ == "__main__":
             rank=args.rank,
         )
         main_proc = args.rank == 0  # Only the first proc should save models
+
+    # fmt: off
+    labels = ["_", "'","A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z"," "]
+    # fmt: on
+    from corpora.librispeech import librispeech_corpus
+
+    HOME = os.environ["HOME"]
+    asr_path = HOME + "/data/asr_data"
+    raw_data_path = asr_path + "/ENGLISH/LibriSpeech"
+
+    conf = DataConfig(labels)
+    audio_conf = AudioFeaturesConfig()
+
+    corpus = {
+        k: v
+        for folder in ["train-clean-100"]
+        for k, v in librispeech_corpus(os.path.join(raw_data_path, folder)).items()
+    }
+    train_dataset = CharSTTDataset(corpus, conf, audio_conf)
+
+    audio_conf = AudioFeaturesConfig()
+    corpus = {
+        k: v
+        for folder in ["dev-clean","dev-other"]
+        for k, v in librispeech_corpus(os.path.join(raw_data_path, folder)).items()
+    }
+    eval_dataset = CharSTTDataset(corpus, conf, audio_conf)
+
     save_folder = os.path.join(args.save_folder, args.id)
     os.makedirs(save_folder, exist_ok=True)  # Ensure save folder exists
     things_to_monitor = [
@@ -131,47 +149,19 @@ if __name__ == "__main__":
             # if main_proc and args.tensorboard:  # Previous scores to tensorboard logs #TODO: should not be necessary!
             #     tensorboard_logger.load_previous_values(start_epoch, package)
     else:
-        labels = get_labels(args.labels_path)
-
-        audio_conf = dict(
-            sample_rate=args.sample_rate,
-            window_size=args.window_size,
-            window_stride=args.window_stride,
-            window=args.window,
-            noise_dir=args.noise_dir,
-            noise_prob=args.noise_prob,
-            noise_levels=(args.noise_min, args.noise_max),
-            feature_type=args.feature_type,
-        )
 
         rnn_type = args.rnn_type.lower()
         assert rnn_type in supported_rnns, "rnn_type should be either lstm, rnn or gru"
         model = DeepSpeech(
             rnn_hidden_size=args.hidden_size,
             nb_layers=args.hidden_layers,
-            labels=labels,
+            vocab_size=len(train_dataset.labels_map),
             rnn_type=supported_rnns[rnn_type],
             audio_conf=audio_conf,
             bidirectional=args.bidirectional,
         )
 
     decoder = GreedyDecoder(labels)
-    train_dataset = SpectrogramDataset(
-        audio_conf=audio_conf,
-        manifest_filepath=args.train_manifest,
-        labels=labels,
-        normalize=True,
-        signal_augment=False,
-        spec_augment=True,
-    )
-    test_dataset = SpectrogramDataset(
-        audio_conf=audio_conf,
-        manifest_filepath=args.val_manifest,
-        labels=labels,
-        normalize=True,
-        signal_augment=False,
-        spec_augment=False,
-    )
     if not args.distributed:
         train_sampler = BucketingSampler(train_dataset, batch_size=args.batch_size)
     else:
@@ -185,7 +175,7 @@ if __name__ == "__main__":
         train_dataset, num_workers=args.num_workers, batch_sampler=train_sampler
     )
     test_loader = AudioDataLoader(
-        test_dataset, batch_size=args.batch_size, num_workers=args.num_workers
+        eval_dataset, batch_size=args.batch_size, num_workers=args.num_workers
     )
 
     if (not args.no_shuffle and start_epoch != 0) or args.no_sorta_grad:
