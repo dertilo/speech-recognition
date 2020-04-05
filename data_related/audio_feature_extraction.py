@@ -30,9 +30,10 @@ def get_feature_dim(conf: AudioFeaturesConfig):
     elif feature_type == "mel":
         FEATURE_DIM = 161
     elif feature_type == "stft":
-        FEATURE_DIM = int(
-            math.floor((conf.sample_rate * conf.window_size) / 2) + 1
-        )  # 161
+        # FEATURE_DIM = int(
+        #     math.floor((conf.sample_rate * conf.window_size) / 2) + 1
+        # )  # 161 #TODO(tilo)
+        FEATURE_DIM = 161
     else:
         assert False
     return FEATURE_DIM
