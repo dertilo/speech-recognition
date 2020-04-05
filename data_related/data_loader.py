@@ -129,7 +129,7 @@ if __name__ == "__main__":
     # fmt: on
     import os
     from data_related.audio_feature_extraction import AudioFeaturesConfig
-    from data_related.librispeech_dataset import LibriSpeechDataset, DataConfig
+    from data_related.char_stt_dataset import CharSTTDataset, DataConfig
     from corpora.librispeech import librispeech_corpus
 
     HOME = os.environ["HOME"]
@@ -144,7 +144,7 @@ if __name__ == "__main__":
         for k, v in librispeech_corpus(p).items()
     }
     print('got %d audio-files in corpus'%len(corpus))
-    train_dataset = LibriSpeechDataset(corpus, conf, audio_conf)
+    train_dataset = CharSTTDataset(corpus, conf, audio_conf)
 
     train_sampler = BucketingSampler(train_dataset, batch_size=32)
 

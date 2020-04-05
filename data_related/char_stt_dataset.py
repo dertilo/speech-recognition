@@ -24,7 +24,7 @@ class Sample(NamedTuple):
     length: float  # in seconds
 
 
-class LibriSpeechDataset(Dataset):
+class CharSTTDataset(Dataset):
     def __init__(
         self, corpus: Dict[str, str], conf: DataConfig, audio_conf: AudioFeaturesConfig,
     ):
@@ -80,6 +80,6 @@ if __name__ == "__main__":
         for p in [raw_data_path + "/dev-other"]
         for k, v in librispeech_corpus(p).items()
     }
-    train_dataset = LibriSpeechDataset(corpus, conf, audio_conf)
+    train_dataset = CharSTTDataset(corpus, conf, audio_conf)
     datum = train_dataset[0]
     print()
