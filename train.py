@@ -68,7 +68,7 @@ def build_datasets():
     audio_conf = AudioFeaturesConfig()
     corpus = {
         k: v
-        for folder in ["dev-other"]
+        for folder in ["train-clean-100"]
         for k, v in librispeech_corpus(os.path.join(raw_data_path, folder)).items()
     }
     assert len(corpus) > 0
@@ -76,7 +76,7 @@ def build_datasets():
     audio_conf = AudioFeaturesConfig()
     corpus = {
         k: v
-        for folder in ["dev-clean"]
+        for folder in ["dev-clean","dev-other"]
         for k, v in librispeech_corpus(os.path.join(raw_data_path, folder)).items()
     }
     eval_dataset = CharSTTDataset(corpus, conf, audio_conf)

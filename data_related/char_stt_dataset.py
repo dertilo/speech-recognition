@@ -37,8 +37,8 @@ class CharSTTDataset(Dataset):
             lambda s: s.length > conf.min_len and s.length < conf.max_len, samples_g
         )
         self.samples: List[Sample] = sorted(samples_g, key=lambda s: s.length)
-        if len(self.samples)<len(corpus):
-            print('%d of %d samples are suitable for training'%(len(self.samples),len(corpus)))
+        assert len(self.samples)>0
+        print('%d of %d samples are suitable for training'%(len(self.samples),len(corpus)))
         self.size = len(self.samples)
         self.char2idx = dict([(conf.labels[i], i) for i in range(len(conf.labels))])
         self.audio_fe = AudioFeatureExtractor(

@@ -3,7 +3,7 @@
     "batch_size": 8,
     "num_workers": 8,
     "hidden_size": 512,
-    "hidden_layers": 2,
+    "hidden_layers": 5,
     "rnn_type": "lstm",
     "epochs": 70,
     "lr": 0.0003,
