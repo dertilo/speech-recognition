@@ -173,7 +173,7 @@ if __name__ == "__main__":
             nb_layers=args.hidden_layers,
             vocab_size=len(train_dataset.char2idx),
             rnn_type=supported_rnns[rnn_type],
-            feature_dim=train_dataset.audio_fe.feature_dim,
+            input_feature_dim=train_dataset.audio_fe.feature_dim,
             bidirectional=args.bidirectional,
         )
     if rank==0:
@@ -264,7 +264,7 @@ if __name__ == "__main__":
                 decoder=decoder,
                 target_decoder=decoder,
                 criterion=criterion,
-                args=args,
+                args=multiproc_args,
             )
         log_data["loss_results"][epoch] = avg_loss
         log_data["loss_eval_results"][epoch] = avg_val_loss

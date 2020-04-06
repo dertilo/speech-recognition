@@ -6,8 +6,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.parameter import Parameter
 
-from data_related.audio_feature_extraction import get_feature_dim
-
 supported_rnns = {"lstm": nn.LSTM, "rnn": nn.RNN, "gru": nn.GRU}
 supported_rnns_inv = dict((v, k) for k, v in supported_rnns.items())
 
@@ -158,7 +156,7 @@ class Lookahead(nn.Module):
 class DeepSpeech(nn.Module):
     def __init__(
         self,
-        feature_dim,
+        input_feature_dim,
         rnn_type=nn.LSTM,
         vocab_size="abc",
         rnn_hidden_size=768,
@@ -188,7 +186,8 @@ class DeepSpeech(nn.Module):
             )
         )
         # Based on above convolutions and spectrogram size using conv formula (W - F + 2P)/ S+1
-        rnn_input_size = feature_dim  # int(math.floor((sample_rate * window_size) / 2) + 1)
+        self.input_feature_dim = input_feature_dim
+        rnn_input_size = input_feature_dim  # int(math.floor((sample_rate * window_size) / 2) + 1)
         rnn_input_size = int(math.floor(rnn_input_size + 2 * 20 - 41) / 2 + 1)
         rnn_input_size = int(math.floor(rnn_input_size + 2 * 10 - 21) / 2 + 1)
         rnn_input_size *= 32
@@ -298,6 +297,8 @@ class DeepSpeech(nn.Module):
         if isinstance(model, DistributedDataParallel):
             model = model.module
 
+        model:DeepSpeech
+
         package = {
             "version": model.version,
             "hidden_size": model.hidden_size,
@@ -305,8 +306,8 @@ class DeepSpeech(nn.Module):
             "rnn_type": supported_rnns_inv.get(
                 model.rnn_type, model.rnn_type.__name__.lower()
             ),
-            "audio_conf": model.audio_conf,
-            "labels": model.labels,
+            "vocab_size": model.vocab_size,
+            "input_feature_dim": model.input_feature_dim,
             "state_dict": model.state_dict(),
             "bidirectional": model.bidirectional,
         }
@@ -360,11 +361,6 @@ if __name__ == "__main__":
     print("  RNN Size:         ", model.hidden_size)
     print("  Classes:          ", model.vocab_size)
     print("")
-    print("Model Features")
-    print("  Sample Rate:      ", model.audio_conf.get("sample_rate", "n/a"))
-    print("  Window Type:      ", model.audio_conf.get("window", "n/a"))
-    print("  Window Size:      ", model.audio_conf.get("window_size", "n/a"))
-    print("  Window Stride:    ", model.audio_conf.get("window_stride", "n/a"))
 
     if package.get("loss_results", None) is not None:
         print("")
