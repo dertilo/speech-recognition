@@ -28,35 +28,34 @@ class Sample(NamedTuple):
     length: float  # in seconds
 
 
+def sort_samples_in_corpus(corpus, min_len, max_len)->List[Sample]:
+    print("sort samples by length")
+    print("rank: %d" % get_rank(), flush=True)
+    samples_g = (
+        Sample(audio_file, text, get_length(audio_file))
+        for audio_file, text in tqdm(corpus.items())
+    )
+    samples_g = filter(lambda s: s.length > min_len and s.length < max_len, samples_g)
+    samples: List[Sample] = sorted(samples_g, key=lambda s: s.length)
+    assert len(samples) > 0
+    print("%d of %d samples are suitable for training" % (len(samples), len(corpus)))
+    return samples
+
+
 class CharSTTDataset(Dataset):
     def __init__(
         self, corpus: Dict[str, str], conf: DataConfig, audio_conf: AudioFeaturesConfig,
     ):
         self.conf = conf
 
-        self._build_length_sorted_samples(corpus)
+        self.samples = sort_samples_in_corpus(corpus, conf.min_len, conf.max_len)
+        self.size = len(self.samples)
+
         self.char2idx = dict([(conf.labels[i], i) for i in range(len(conf.labels))])
         self.audio_fe = AudioFeatureExtractor(
             audio_conf, [s.audio_file for s in self.samples]
         )
         super().__init__()
-
-    def _build_length_sorted_samples(self, corpus):
-        print('sort samples by length')
-        print('rank: %d'%get_rank(),flush=True)
-        samples_g = (
-            Sample(audio_file, text, get_length(audio_file))
-            for audio_file, text in tqdm(corpus.items())
-        )
-        samples_g = filter(
-            lambda s: s.length > conf.min_len and s.length < conf.max_len, samples_g
-        )
-        self.samples: List[Sample] = sorted(samples_g, key=lambda s: s.length)
-        # self.samples = self.samples[:1000]
-        assert len(self.samples) > 0
-        print('%d of %d samples are suitable for training' % (
-        len(self.samples), len(corpus)))
-        self.size = len(self.samples)
 
     def __getitem__(self, index):
         s: Sample = self.samples[index]
