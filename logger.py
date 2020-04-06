@@ -1,4 +1,6 @@
 import os
+import shutil
+from pathlib import Path
 
 import torch
 
@@ -8,13 +10,19 @@ def to_np(x):
 
 
 class TensorBoardLogger(object):
-    def __init__(self, id, log_dir, log_params):
+    def __init__(self, id, log_dir):
         os.makedirs(log_dir, exist_ok=True)
         from tensorboardX import SummaryWriter
 
         self.id = id
         self.tensorboard_writer = SummaryWriter(log_dir, max_queue=1, flush_secs=30)
-        self.log_params = log_params
+        self.log_params = ['train-loss','valid-loss','WER','CER']
+        self._clear_old_logs(log_dir)
+
+    def _clear_old_logs(self, log_dir):
+        for param_name in self.log_params:
+            for p in Path(os.path.join(log_dir, param_name)).rglob(self.id):
+                shutil.rmtree(str(p))
 
     def update(self, epoch, values, parameters=None):
         to_log = {

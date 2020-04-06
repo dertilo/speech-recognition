@@ -136,7 +136,7 @@ if __name__ == "__main__":
 
     if main_proc:
         tensorboard_logdir = HOME+'/data/tensorboard_logs'
-        tensorboard_logger = TensorBoardLogger(args.id, tensorboard_logdir, args.log_params)
+        tensorboard_logger = TensorBoardLogger(args.id, tensorboard_logdir)
 
     start_epoch, start_iter, optim_state, amp_state = 0, 0, None, None
     if args.continue_from:  # Starting from previous model
