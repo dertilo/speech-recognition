@@ -22,7 +22,7 @@ from data_related.data_loader import (
 from decoder import GreedyDecoder
 from logger import TensorBoardLogger
 from model import DeepSpeech, supported_rnns
-from test import evaluate
+from evaluation import evaluate
 from train_util import train_one_epoch
 from utils import USE_GPU, BLANK_SYMBOL, SPACE, HOME
 
