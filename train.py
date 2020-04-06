@@ -76,7 +76,7 @@ def build_datasets():
     audio_conf = AudioFeaturesConfig()
     corpus = {
         k: v
-        for folder in ["dev-clean","dev-other"]
+        for folder in ["dev-clean", "dev-other"]
         for k, v in librispeech_corpus(os.path.join(raw_data_path, folder)).items()
     }
     eval_dataset = CharSTTDataset(corpus, conf, audio_conf)
@@ -90,42 +90,16 @@ def set_seeds(seed):
     np.random.seed(seed)
     random.seed(seed)
 
-#fmt: off
+
+# fmt: off
 parser = argparse.ArgumentParser(description="multiproc_args")
 parser.add_argument("--rank", default=0, type=int, help="The rank of this process")
 parser.add_argument("--gpu-rank", default=None, help="If using distributed parallel for multi-gpu, sets the GPU for the process")
 parser.add_argument("--world-size",type=int, default=0)
-#fmt: on
+# fmt: on
 
-if __name__ == "__main__":
 
-    multiproc_args = parser.parse_args()
-    args = argparse.Namespace(**data_io.read_json("train_config.json"))
-    # Set seeds for determinism
-    set_seeds(args.seed)
-
-    world_size = multiproc_args.world_size
-    is_distributed = world_size > 1
-    multiproc_args.distributed=is_distributed
-    main_proc = True
-    device = torch.device("cuda" if USE_GPU else "cpu")
-    rank = multiproc_args.rank
-    if is_distributed:
-        gpu_rank = multiproc_args.gpu_rank
-        if gpu_rank:
-            torch.cuda.set_device(int(gpu_rank))
-        dist.init_process_group(
-            backend=args.dist_backend,
-            init_method=args.dist_url,
-            world_size=world_size,
-            rank=rank,
-        )
-        main_proc = rank == 0  # Only the first proc should save models
-
-    train_dataset, eval_dataset = build_datasets()
-
-    save_folder = os.path.join(args.save_folder, args.id)
-    os.makedirs(save_folder, exist_ok=True)  # Ensure save folder exists
+def build_model(args):
     things_to_monitor = [
         "loss_results",
         "cer_results",
@@ -133,10 +107,6 @@ if __name__ == "__main__":
         "loss_eval_results",
     ]
     log_data = {k: torch.Tensor(args.epochs) for k in things_to_monitor}
-
-    if main_proc:
-        tensorboard_logdir = HOME+'/data/tensorboard_logs'
-        tensorboard_logger = TensorBoardLogger(args.id, tensorboard_logdir)
 
     start_epoch, start_iter, optim_state, amp_state = 0, 0, None, None
     if args.continue_from:  # Starting from previous model
@@ -176,8 +146,47 @@ if __name__ == "__main__":
             input_feature_dim=train_dataset.audio_fe.feature_dim,
             bidirectional=args.bidirectional,
         )
-    if rank==0:
+    if rank == 0:
         print(model)
+
+    return start_epoch, start_iter, optim_state, amp_state, model, log_data
+
+
+if __name__ == "__main__":
+
+    multiproc_args = parser.parse_args()
+    args = argparse.Namespace(**data_io.read_json("train_config.json"))
+    # Set seeds for determinism
+    set_seeds(args.seed)
+
+    world_size = multiproc_args.world_size
+    is_distributed = world_size > 1
+    multiproc_args.distributed = is_distributed
+    main_proc = True
+    device = torch.device("cuda" if USE_GPU else "cpu")
+    rank = multiproc_args.rank
+    if is_distributed:
+        gpu_rank = multiproc_args.gpu_rank
+        if gpu_rank:
+            torch.cuda.set_device(int(gpu_rank))
+        dist.init_process_group(
+            backend=args.dist_backend,
+            init_method=args.dist_url,
+            world_size=world_size,
+            rank=rank,
+        )
+        main_proc = rank == 0  # Only the first proc should save models
+
+    train_dataset, eval_dataset = build_datasets()
+
+    save_folder = os.path.join(args.save_folder, args.id)
+    os.makedirs(save_folder, exist_ok=True)  # Ensure save folder exists
+
+    if main_proc:
+        tensorboard_logdir = HOME + "/data/tensorboard_logs"
+        tensorboard_logger = TensorBoardLogger(args.id, tensorboard_logdir)
+
+    start_epoch, start_iter, optim_state, amp_state, model, log_data = build_model(args)
 
     decoder = GreedyDecoder(train_dataset.char2idx)
     if not is_distributed:
