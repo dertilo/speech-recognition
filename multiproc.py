@@ -1,12 +1,17 @@
 import sys
 import subprocess
 
-from utils import WORLD_SIZE
+import torch
 
+WORLD_SIZE = torch.cuda.device_count()
 workers = []
 
 for i in range(WORLD_SIZE):
     argslist = ['train.py']
+
+    argslist.append("--world-size")
+    argslist.append(str(WORLD_SIZE))
+
     argslist.append("--rank")
     argslist.append(str(i))
 

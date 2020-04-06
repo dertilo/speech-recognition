@@ -24,7 +24,7 @@ from logger import TensorBoardLogger
 from model import DeepSpeech, supported_rnns
 from test import evaluate
 from train_util import train_one_epoch
-from utils import USE_GPU, BLANK_SYMBOL, SPACE, WORLD_SIZE
+from utils import USE_GPU, BLANK_SYMBOL, SPACE
 
 torch.manual_seed(123456)
 if USE_GPU:
@@ -93,6 +93,7 @@ def set_seeds(seed):
 parser = argparse.ArgumentParser(description="multiproc_args")
 parser.add_argument("--rank", default=0, type=int, help="The rank of this process")
 parser.add_argument("--gpu-rank", default=None, help="If using distributed parallel for multi-gpu, sets the GPU for the process")
+parser.add_argument("--world-size", default=0)
 #fmt: on
 
 if __name__ == "__main__":
@@ -102,7 +103,7 @@ if __name__ == "__main__":
     # Set seeds for determinism
     set_seeds(args.seed)
 
-    world_size = WORLD_SIZE if args.world_size < 0 else args.world_size
+    world_size = multiproc_args.world_size
     is_distributed = world_size > 1
     main_proc = True
     device = torch.device("cuda" if USE_GPU else "cpu")
