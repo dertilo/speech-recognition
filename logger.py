@@ -36,10 +36,10 @@ class TensorBoardLogger(object):
         for k,v in to_log.items():
             self.tensorboard_writer.add_scalars(k, {self.id:v}, epoch)
 
-        if self.log_params:
-            for tag, value in parameters():
-                tag = tag.replace(".", "/")
-                self.tensorboard_writer.add_histogram(tag, to_np(value), epoch)
-                self.tensorboard_writer.add_histogram(
-                    tag + "/grad", to_np(value.grad), epoch
-                )
+        # if self.log_params:#TODO(tilo) whats that for?
+        #     for tag, value in parameters():
+        #         tag = tag.replace(".", "/")
+        #         self.tensorboard_writer.add_histogram(tag, to_np(value), epoch)
+        #         self.tensorboard_writer.add_histogram(
+        #             tag + "/grad", to_np(value.grad), epoch
+        #         )

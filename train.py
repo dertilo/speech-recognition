@@ -276,7 +276,7 @@ if __name__ == "__main__":
             "Average CER {cer:.3f}\t".format(epoch + 1, wer=wer, cer=cer)
         )
 
-        if args.tensorboard and main_proc:
+        if main_proc:
             tensorboard_logger.update(epoch, log_data, model.named_parameters())
 
         if main_proc and args.checkpoint:
