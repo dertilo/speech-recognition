@@ -69,3 +69,4 @@ def calc_loss(
 
 
 USE_GPU = torch.cuda.is_available()
+WORLD_SIZE = torch.cuda.device_count()

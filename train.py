@@ -22,10 +22,9 @@ from data_related.data_loader import (
 from decoder import GreedyDecoder
 from logger import TensorBoardLogger
 from model import DeepSpeech, supported_rnns
-from multiproc import WORLD_SIZE
 from test import evaluate
 from train_util import train_one_epoch
-from utils import USE_GPU, BLANK_SYMBOL, SPACE
+from utils import USE_GPU, BLANK_SYMBOL, SPACE, WORLD_SIZE
 
 torch.manual_seed(123456)
 if USE_GPU:
@@ -96,7 +95,7 @@ if __name__ == "__main__":
     # Set seeds for determinism
     set_seeds(args.seed)
 
-    world_size = WORLD_SIZE if args.world_size < 0 else args.world_size
+    world_size = 1 # WORLD_SIZE if args.world_size < 0 else args.world_size
     args.distributed = world_size > 1
     main_proc = True
     device = torch.device("cuda" if USE_GPU else "cpu")

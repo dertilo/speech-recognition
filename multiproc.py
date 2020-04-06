@@ -1,9 +1,9 @@
-import torch
 import sys
 import subprocess
 
+from utils import WORLD_SIZE
+
 argslist = list(sys.argv)[1:]
-WORLD_SIZE = torch.cuda.device_count()
 device_ids = None
 if "--device-ids" in argslist:  # Manually specified GPU IDs
     device_ids = argslist[argslist.index("--device-ids") + 1].strip().split(",")
