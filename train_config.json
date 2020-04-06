@@ -13,7 +13,6 @@
     "momentum": 0.9,
     "max_norm": 400,
     "learning_anneal": 1.01,
-    "silent": false,
     "checkpoint": true,
     "tensorboard": true,
     "log_dir": "tensorboard_logdir",

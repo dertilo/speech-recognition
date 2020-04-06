@@ -6,6 +6,8 @@ from utils import calc_loss, check_loss, USE_GPU
 from apex import amp
 from apex.parallel import DistributedDataParallel
 
+MAX_NORM = 400
+SILENT = False
 
 def train_one_epoch(
     model,
@@ -52,7 +54,7 @@ def train_one_epoch(
             if USE_GPU:
                 with amp.scale_loss(loss, optimizer) as scaled_loss:
                     scaled_loss.backward()
-            torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), args.max_norm)
+            torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), MAX_NORM)
             optimizer.step()
         else:
             print(error)
@@ -64,7 +66,7 @@ def train_one_epoch(
         # measure elapsed time
         batch_time.update(time.time() - end)
         end = time.time()
-        if not args.silent and i % 100 == 0:
+        if not SILENT and i % 100 == 0:
             print(
                 "Epoch: [{0}][{1}/{2}]\t"
                 "Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t"

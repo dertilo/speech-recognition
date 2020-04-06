@@ -71,6 +71,7 @@ def build_datasets():
         for folder in ["train-clean-100"]
         for k, v in librispeech_corpus(os.path.join(raw_data_path, folder)).items()
     }
+    assert len(corpus) > 0
     train_dataset = CharSTTDataset(corpus, conf, audio_conf)
     audio_conf = AudioFeaturesConfig()
     corpus = {
@@ -93,7 +94,7 @@ def set_seeds(seed):
 parser = argparse.ArgumentParser(description="multiproc_args")
 parser.add_argument("--rank", default=0, type=int, help="The rank of this process")
 parser.add_argument("--gpu-rank", default=None, help="If using distributed parallel for multi-gpu, sets the GPU for the process")
-parser.add_argument("--world-size", default=0)
+parser.add_argument("--world-size",type=int, default=0)
 #fmt: on
 
 if __name__ == "__main__":
@@ -105,6 +106,7 @@ if __name__ == "__main__":
 
     world_size = multiproc_args.world_size
     is_distributed = world_size > 1
+    multiproc_args.distributed=is_distributed
     main_proc = True
     device = torch.device("cuda" if USE_GPU else "cpu")
     rank = multiproc_args.rank
@@ -173,6 +175,8 @@ if __name__ == "__main__":
             feature_dim=train_dataset.audio_fe.feature_dim,
             bidirectional=args.bidirectional,
         )
+    if rank==0:
+        print(model)
 
     decoder = GreedyDecoder(train_dataset.char2idx)
     if not is_distributed:
@@ -235,7 +239,7 @@ if __name__ == "__main__":
             data_time,
             batch_time,
             criterion,
-            args,
+            multiproc_args,
             optimizer,
             epoch,
             device,
