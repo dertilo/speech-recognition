@@ -1,3 +1,5 @@
+import os
+
 import torch
 import torch.cuda
 import torch.distributed as dist
@@ -7,6 +9,9 @@ from model import DeepSpeech
 
 BLANK_SYMBOL = "■"
 SPACE = ' '
+
+USE_GPU = torch.cuda.is_available()
+HOME = os.environ["HOME"]
 
 def reduce_tensor(tensor, world_size, reduce_op_max=False):
     rt = tensor.clone()
@@ -66,6 +71,3 @@ def calc_loss(
         loss_value = loss.item()
 
     return loss, loss_value
-
-
-USE_GPU = torch.cuda.is_available()

@@ -24,7 +24,7 @@ from logger import TensorBoardLogger
 from model import DeepSpeech, supported_rnns
 from test import evaluate
 from train_util import train_one_epoch
-from utils import USE_GPU, BLANK_SYMBOL, SPACE
+from utils import USE_GPU, BLANK_SYMBOL, SPACE, HOME
 
 torch.manual_seed(123456)
 if USE_GPU:
@@ -68,7 +68,7 @@ def build_datasets():
     audio_conf = AudioFeaturesConfig()
     corpus = {
         k: v
-        for folder in ["train-clean-100"]
+        for folder in ["dev-other"]
         for k, v in librispeech_corpus(os.path.join(raw_data_path, folder)).items()
     }
     assert len(corpus) > 0
@@ -76,7 +76,7 @@ def build_datasets():
     audio_conf = AudioFeaturesConfig()
     corpus = {
         k: v
-        for folder in ["dev-clean", "dev-other"]
+        for folder in ["dev-clean"]
         for k, v in librispeech_corpus(os.path.join(raw_data_path, folder)).items()
     }
     eval_dataset = CharSTTDataset(corpus, conf, audio_conf)
@@ -134,8 +134,9 @@ if __name__ == "__main__":
     ]
     log_data = {k: torch.Tensor(args.epochs) for k in things_to_monitor}
 
-    if main_proc and args.tensorboard:
-        tensorboard_logger = TensorBoardLogger(args.id, args.log_dir, args.log_params)
+    if main_proc:
+        tensorboard_logdir = HOME+'/data/tensorboard_logs'
+        tensorboard_logger = TensorBoardLogger(args.id, tensorboard_logdir, args.log_params)
 
     start_epoch, start_iter, optim_state, amp_state = 0, 0, None, None
     if args.continue_from:  # Starting from previous model
