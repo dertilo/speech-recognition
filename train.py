@@ -89,26 +89,35 @@ def set_seeds(seed):
     np.random.seed(seed)
     random.seed(seed)
 
+#fmt: off
+parser = argparse.ArgumentParser(description="multiproc_args")
+parser.add_argument("--rank", default=0, type=int, help="The rank of this process")
+parser.add_argument("--gpu-rank", default=None, help="If using distributed parallel for multi-gpu, sets the GPU for the process")
+#fmt: on
 
 if __name__ == "__main__":
+
+    multiproc_args = parser.parse_args()
     args = argparse.Namespace(**data_io.read_json("train_config.json"))
     # Set seeds for determinism
     set_seeds(args.seed)
 
-    world_size = 1 # WORLD_SIZE if args.world_size < 0 else args.world_size
-    args.distributed = world_size > 1
+    world_size = WORLD_SIZE if args.world_size < 0 else args.world_size
+    is_distributed = world_size > 1
     main_proc = True
     device = torch.device("cuda" if USE_GPU else "cpu")
-    if args.distributed:
-        if args.gpu_rank:
-            torch.cuda.set_device(int(args.gpu_rank))
+    rank = multiproc_args.rank
+    if is_distributed:
+        gpu_rank = multiproc_args.gpu_rank
+        if gpu_rank:
+            torch.cuda.set_device(int(gpu_rank))
         dist.init_process_group(
             backend=args.dist_backend,
             init_method=args.dist_url,
             world_size=world_size,
-            rank=args.rank,
+            rank=rank,
         )
-        main_proc = args.rank == 0  # Only the first proc should save models
+        main_proc = rank == 0  # Only the first proc should save models
 
     train_dataset, eval_dataset = build_datasets()
 
@@ -165,14 +174,14 @@ if __name__ == "__main__":
         )
 
     decoder = GreedyDecoder(train_dataset.char2idx)
-    if not args.distributed:
+    if not is_distributed:
         train_sampler = BucketingSampler(train_dataset, batch_size=args.batch_size)
     else:
         train_sampler = DistributedBucketingSampler(
             train_dataset,
             batch_size=args.batch_size,
             num_replicas=world_size,
-            rank=args.rank,
+            rank=rank,
         )
     train_loader = AudioDataLoader(
         train_dataset, num_workers=args.num_workers, batch_sampler=train_sampler
@@ -205,7 +214,7 @@ if __name__ == "__main__":
     if amp_state is not None:
         amp.load_state_dict(amp_state)
 
-    if args.distributed:
+    if is_distributed:
         model = DistributedDataParallel(model)
     # print(model)
     print("Number of parameters: %d" % DeepSpeech.get_param_size(model))

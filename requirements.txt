@@ -5,3 +5,4 @@ librosa
 tqdm
 tensorflow
 tensorflow-addons
+util@git+https://git@github.com/dertilo/util.git#egg=util
