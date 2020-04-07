@@ -10,6 +10,7 @@ from data_related.char_stt_dataset import CharSTTDataset, DataConfig
 from data_related.data_loader import AudioDataLoader
 from data_related.librispeech import build_librispeech_corpus
 from decoder import GreedyDecoder
+from metrics_calculation import calc_wer, calc_cer
 from transcribing.transcribe import build_decoder
 from utils import (
     load_model,
@@ -75,8 +76,8 @@ def evaluate(
             )
         for x in range(len(target_strings)):
             transcript, reference = decoded_output[x][0], target_strings[x][0]
-            wer_inst = decoder.wer(transcript, reference)
-            cer_inst = decoder.cer(transcript, reference)
+            wer_inst = calc_wer(transcript, reference)
+            cer_inst = calc_cer(transcript, reference)
             total_wer += wer_inst
             total_cer += cer_inst
             num_tokens += len(reference.split())
@@ -122,7 +123,7 @@ if __name__ == "__main__":
     audio_conf = AudioFeaturesConfig()
 
     test_dataset = CharSTTDataset(samples, conf=conf, audio_conf=audio_conf,)
-    test_loader = AudioDataLoader(test_dataset, batch_size=16, num_workers=4)
+    test_loader = AudioDataLoader(test_dataset, batch_size=16, num_workers=0)
     wer, cer, avg_loss, output_data = evaluate(
         test_loader=test_loader,
         device=device,

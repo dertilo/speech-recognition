@@ -20,7 +20,6 @@ import torch
 from six.moves import xrange
 from typing import Dict, NamedTuple
 
-from metrics_calculation import calc_wer, calc_cer
 from utils import BLANK_SYMBOL, SPACE
 
 
@@ -31,12 +30,6 @@ class Decoder(object):
         self.idx2char = {v:k for k,v in char2idx.items()}
         self.blank_index = char2idx[BLANK_SYMBOL]
         self.space_index = char2idx[SPACE]
-
-    def wer(self, s1, s2): #TODO(tilo): the fuck!!
-        return calc_wer(s1,s2)
-
-    def cer(self, s1, s2):
-        return calc_cer(s1,s2)
 
     def decode(self, probs, sizes=None):
         """
