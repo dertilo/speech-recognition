@@ -20,6 +20,7 @@ import torch
 from six.moves import xrange
 from typing import Dict, NamedTuple
 
+from metrics_calculation import calc_wer, calc_cer
 from utils import BLANK_SYMBOL, SPACE
 
 
@@ -32,35 +33,10 @@ class Decoder(object):
         self.space_index = char2idx[SPACE]
 
     def wer(self, s1, s2): #TODO(tilo): the fuck!!
-        """
-        Computes the Word Error Rate, defined as the edit distance between the
-        two provided sentences after tokenizing to words.
-        Arguments:
-            s1 (string): space-separated sentence
-            s2 (string): space-separated sentence
-        """
-
-        # build mapping of words to integers
-        b = set(s1.split() + s2.split())
-        word2char = dict(zip(b, range(len(b)))) #TODO(tilo): whyTF!?
-
-        # map the words to a char array (Levenshtein packages only accepts
-        # strings)
-        w1 = [chr(word2char[w]) for w in s1.split()]
-        w2 = [chr(word2char[w]) for w in s2.split()]
-
-        return Lev.distance("".join(w1), "".join(w2))
+        return calc_wer(s1,s2)
 
     def cer(self, s1, s2):
-        """
-        Computes the Character Error Rate, defined as the edit distance.
-
-        Arguments:
-            s1 (string): space-separated sentence
-            s2 (string): space-separated sentence
-        """
-        s1, s2, = s1.replace(" ", ""), s2.replace(" ", "")
-        return Lev.distance(s1, s2)
+        return calc_cer(s1,s2)
 
     def decode(self, probs, sizes=None):
         """
