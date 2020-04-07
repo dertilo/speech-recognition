@@ -1,5 +1,7 @@
 import os
+import random
 
+import numpy as np
 import torch
 import torch.cuda
 import torch.distributed as dist
@@ -60,3 +62,11 @@ def calc_loss(
         loss_value = loss.item()
 
     return loss, loss_value
+
+
+def set_seeds(seed):
+    torch.manual_seed(seed)
+    if USE_GPU:
+        torch.cuda.manual_seed_all(seed)
+    np.random.seed(seed)
+    random.seed(seed)

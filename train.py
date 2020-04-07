@@ -1,9 +1,7 @@
 import argparse
 import os
-import random
 import time
 
-import numpy as np
 import torch.distributed as dist
 import torch.utils.data.distributed
 from apex import amp
@@ -20,13 +18,13 @@ from data_related.data_loader import (
     DistributedBucketingSampler,
     AudioDataLoader,
 )
-from data_related.librispeech import build_librispeech_corpus
+from data_related.librispeech import build_librispeech_corpus, LIBRI_VOCAB
 from decoder import GreedyDecoder
 from logger import TensorBoardLogger
-from model import DeepSpeech, supported_rnns
+from model import DeepSpeech
 from evaluation import evaluate
 from train_util import train_one_epoch
-from utils import USE_GPU, BLANK_SYMBOL, SPACE, HOME
+from utils import USE_GPU, BLANK_SYMBOL, HOME, set_seeds
 
 torch.manual_seed(123456)
 if USE_GPU:
@@ -57,15 +55,11 @@ class AverageMeter(object):
 
 
 def build_datasets():
-    # fmt: off
-    labels = [BLANK_SYMBOL, "'", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
-              "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", SPACE]
-    # fmt: on
 
     HOME = os.environ["HOME"]
     asr_path = HOME + "/data/asr_data"
     raw_data_path = asr_path + "/ENGLISH/LibriSpeech"
-    conf = DataConfig(labels)
+    conf = DataConfig(LIBRI_VOCAB)
     audio_conf = AudioFeaturesConfig()
     train_samples = build_librispeech_corpus(
         raw_data_path,
@@ -81,14 +75,6 @@ def build_datasets():
 
     eval_dataset = CharSTTDataset(eval_samples, conf=conf, audio_conf=audio_conf,)
     return train_dataset, eval_dataset
-
-
-def set_seeds(seed):
-    torch.manual_seed(seed)
-    if USE_GPU:
-        torch.cuda.manual_seed_all(seed)
-    np.random.seed(seed)
-    random.seed(seed)
 
 
 # fmt: off
@@ -134,7 +120,7 @@ def build_model(args):
     else:
 
         model = DeepSpeech(
-            rnn_hidden_size=args.hidden_size,
+            hidden_size=args.hidden_size,
             nb_layers=args.hidden_layers,
             vocab_size=len(train_dataset.char2idx),
             input_feature_dim=train_dataset.audio_fe.feature_dim,
