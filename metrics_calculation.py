@@ -6,7 +6,7 @@ def calc_wer(s1:str, s2:str):
         return s.split()
 
     b = set(tokenize(s1) + tokenize(s2))
-    token2idx = {k: s for k, s in enumerate(b)}
+    token2idx = {t: k for k, t in enumerate(b)}
 
     # map the words to a char array (Levenshtein packages only accepts
     # strings)
