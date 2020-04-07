@@ -18,7 +18,7 @@
 import Levenshtein as Lev
 import torch
 from six.moves import xrange
-from typing import Dict
+from typing import Dict, NamedTuple
 
 from utils import BLANK_SYMBOL, SPACE
 
@@ -76,6 +76,15 @@ class Decoder(object):
         """
         raise NotImplementedError
 
+class DecoderConfig(NamedTuple):
+    lm_path = None
+    alpha = 0
+    beta = 0
+    cutoff_top_n = 40
+    cutoff_prob = 1.0
+    beam_width = 100
+    num_processes = 4
+    blank_index = 0
 
 class BeamCTCDecoder(Decoder):
     def __init__(
