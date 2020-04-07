@@ -1,51 +1,23 @@
 import argparse
 import warnings
-
-from opts import add_decoder_args, add_inference_args
-from utils import load_model
+from data_related.audio_feature_extraction import (
+    AudioFeatureExtractor,
+    AudioFeaturesConfig,
+)
+from utils import load_model, BLANK_SYMBOL, SPACE, HOME
 
 warnings.simplefilter("ignore")
 
-from decoder import GreedyDecoder
+from decoder import GreedyDecoder, DecoderConfig
 
 import torch
 
-from data_related.data_loader import SpectrogramParser
-import os.path
-import json
-
-
-def decode_results(decoded_output, decoded_offsets, args):
-    results = {
-        "output": [],
-        "_meta": {
-            "acoustic_model": {"name": os.path.basename(args.model_path)},
-            "language_model": {
-                "name": os.path.basename(args.lm_path) if args.lm_path else None,
-            },
-            "decoder": {
-                "lm": args.lm_path is not None,
-                "alpha": args.alpha if args.lm_path is not None else None,
-                "beta": args.beta if args.lm_path is not None else None,
-                "type": args.decoder,
-            },
-        },
-    }
-
-    for b in range(len(decoded_output)):
-        for pi in range(min(args.top_paths, len(decoded_output[b]))):
-            result = {"transcription": decoded_output[b][pi]}
-            if args.offsets:
-                result["offsets"] = decoded_offsets[b][pi].tolist()
-            results["output"].append(result)
-    return results
-
-
-def transcribe(audio_path, spect_parser, model, decoder, device, use_half):
-    spect = spect_parser.parse_audio(audio_path).contiguous()
+def transcribe(audio_path, fe: AudioFeatureExtractor, model, decoder, device, use_half):
+    spect = fe.process(audio_path).contiguous()
     spect = spect.view(1, 1, spect.size(0), spect.size(1))
     spect = spect.to(device)
     if use_half:
+        print("using half")
         spect = spect.half()
     input_sizes = torch.IntTensor([spect.size(3)]).int()
     out, output_sizes = model(spect, input_sizes)
@@ -54,50 +26,46 @@ def transcribe(audio_path, spect_parser, model, decoder, device, use_half):
 
 
 if __name__ == "__main__":
-    arg_parser = argparse.ArgumentParser(description="DeepSpeech transcription")
-    arg_parser = add_inference_args(arg_parser)
-    audio_file = "/home/tilo/code/SPEECH/speech-to-text/splits/1.wav"
-    arg_parser.add_argument(
-        "--audio-path", default=audio_file, help="Audio file to predict on"
-    )
-    arg_parser.add_argument(
-        "--offsets",
-        dest="offsets",
-        action="store_true",
-        help="Returns time offset information",
-    )
-    arg_parser = add_decoder_args(arg_parser)
-    args = arg_parser.parse_args()
-    device = torch.device("cuda" if args.cuda else "cpu")
-    model = load_model(
-        device, "/home/tilo/data/asr_data/SPANISH/deepspeech_42.pth.tar", args.half
+    use_half = False
+    use_beam_decoder = False
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model_file = "/tmp/deepspeech_9.pth.tar"
+    audio_file = (
+        HOME
+        + "/data/asr_data/ENGLISH/LibriSpeech/dev-other/8288/274162/8288-274162-0016.flac"
     )
 
-    if args.decoder == "beam":
+    model = load_model(device, model_file, use_half)
+
+    # fmt: off
+    labels = [BLANK_SYMBOL, "'", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
+              "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", SPACE]
+    # fmt: on
+    char2idx = dict([(labels[i], i) for i in range(len(labels))])
+
+    if use_beam_decoder == "beam":
         from decoder import BeamCTCDecoder
 
-        decoder = BeamCTCDecoder(
-            model.labels,
-            lm_path=args.lm_path,
-            alpha=args.alpha,
-            beta=args.beta,
-            cutoff_top_n=args.cutoff_top_n,
-            cutoff_prob=args.cutoff_prob,
-            beam_width=args.beam_width,
-            num_processes=args.lm_workers,
-        )
+        decoder = BeamCTCDecoder(char2idx, **DecoderConfig()._asdict())
     else:
-        decoder = GreedyDecoder(model.labels, blank_index=model.labels.index("_"))
+        decoder = GreedyDecoder(char2idx)
 
-    spect_parser = SpectrogramParser(model.audio_conf, normalize=True)
+    audio_conf = AudioFeaturesConfig()
+    audio_fe = AudioFeatureExtractor(audio_conf, [])
 
     decoded_output, decoded_offsets = transcribe(
-        audio_path=args.audio_path,
-        spect_parser=spect_parser,
+        audio_path=audio_file,
+        fe=audio_fe,
         model=model,
         decoder=decoder,
         device=device,
-        use_half=args.half,
+        use_half=use_half,
     )
-    print(decoded_output)
-    print(json.dumps(decode_results(decoded_output, decoded_offsets, args)))
+    print(decoded_output[0][0].encode("utf-8"))
+    with open("output.txt", "wb") as f:
+        f.write(decoded_output[0][0].encode("utf-8"))
+    # print()
+
+    # 'siseñora, ceramucho  de cuarita untaas , rectesart  nombre blan carian ayadías.'
+    # ['del pío del la de poretuio togamos, total porque e primero porque yo era una menificiaria del rezo gamoso, e mí.']
