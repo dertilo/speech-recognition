@@ -92,6 +92,7 @@ def set_seeds(seed):
 
 # fmt: off
 parser = argparse.ArgumentParser(description="multiproc_args")
+parser.add_argument("--id", type=str,required=True, help="experiment identifier")
 parser.add_argument("--rank", default=0, type=int, help="The rank of this process")
 parser.add_argument("--gpu-rank", default=None, help="If using distributed parallel for multi-gpu, sets the GPU for the process")
 parser.add_argument("--world-size",type=int, default=0)
@@ -154,6 +155,7 @@ def build_model(args):
 if __name__ == "__main__":
 
     multiproc_args = parser.parse_args()
+    experiment_id = multiproc_args.id
     args = argparse.Namespace(**data_io.read_json("train_config.json"))
     # Set seeds for determinism
     set_seeds(args.seed)
@@ -178,12 +180,12 @@ if __name__ == "__main__":
 
     train_dataset, eval_dataset = build_datasets()
 
-    save_folder = os.path.join(HOME,args.save_folder, args.id)
+    save_folder = os.path.join(HOME, args.save_folder, experiment_id)
     os.makedirs(save_folder, exist_ok=True)  # Ensure save folder exists
 
     if main_proc:
         tensorboard_logdir = HOME + "/data/tensorboard_logs"
-        tensorboard_logger = TensorBoardLogger(args.id, tensorboard_logdir)
+        tensorboard_logger = TensorBoardLogger(experiment_id, tensorboard_logdir)
 
     start_epoch, start_iter, optim_state, amp_state, model, log_data = build_model(args)
 

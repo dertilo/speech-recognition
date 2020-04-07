@@ -88,6 +88,7 @@ class BatchRNN(nn.Module):
         self.batch_norm = (
             SequenceWise(nn.BatchNorm1d(input_size)) if batch_norm else None
         )
+        rnn_type = nn.LSTM
         self.rnn = rnn_type(
             input_size=input_size,
             hidden_size=hidden_size,

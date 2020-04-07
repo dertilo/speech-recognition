@@ -1,3 +1,4 @@
+import argparse
 import sys
 import subprocess
 
@@ -6,8 +7,16 @@ import torch
 WORLD_SIZE = torch.cuda.device_count()
 workers = []
 
+parser = argparse.ArgumentParser(description="args")
+parser.add_argument("python_file", type=str, help="train.py")
+parser.add_argument("--id", type=str,required=True, help="experiment identifier")
+args = parser.parse_args()
+
 for i in range(WORLD_SIZE):
-    argslist = ['train.py']
+    argslist = [args.python_file]
+
+    argslist.append("--id")
+    argslist.append(args.id)
 
     argslist.append("--world-size")
     argslist.append(str(WORLD_SIZE))
