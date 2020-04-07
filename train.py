@@ -136,13 +136,10 @@ def build_model(args):
             #     tensorboard_logger.load_previous_values(start_epoch, package)
     else:
 
-        rnn_type = args.rnn_type.lower()
-        assert rnn_type in supported_rnns, "rnn_type should be either lstm, rnn or gru"
         model = DeepSpeech(
             rnn_hidden_size=args.hidden_size,
             nb_layers=args.hidden_layers,
             vocab_size=len(train_dataset.char2idx),
-            rnn_type=supported_rnns[rnn_type],
             input_feature_dim=train_dataset.audio_fe.feature_dim,
             bidirectional=args.bidirectional,
         )

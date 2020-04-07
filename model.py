@@ -77,7 +77,6 @@ class BatchRNN(nn.Module):
         self,
         input_size,
         hidden_size,
-        rnn_type=nn.LSTM,
         bidirectional=False,
         batch_norm=True,
     ):
@@ -88,8 +87,7 @@ class BatchRNN(nn.Module):
         self.batch_norm = (
             SequenceWise(nn.BatchNorm1d(input_size)) if batch_norm else None
         )
-        rnn_type = nn.LSTM
-        self.rnn = rnn_type(
+        self.rnn = nn.LSTM(
             input_size=input_size,
             hidden_size=hidden_size,
             bidirectional=bidirectional,
@@ -158,7 +156,6 @@ class DeepSpeech(nn.Module):
     def __init__(
         self,
         input_feature_dim,
-        rnn_type=nn.LSTM,
         vocab_size="abc",
         rnn_hidden_size=768,
         nb_layers=5,
@@ -171,7 +168,6 @@ class DeepSpeech(nn.Module):
         self.version = "0.0.1"
         self.hidden_size = rnn_hidden_size
         self.hidden_layers = nb_layers
-        self.rnn_type = rnn_type
         self.vocab_size = vocab_size
         self.bidirectional = bidirectional
 
@@ -197,7 +193,6 @@ class DeepSpeech(nn.Module):
         rnn = BatchRNN(
             input_size=rnn_input_size,
             hidden_size=rnn_hidden_size,
-            rnn_type=rnn_type,
             bidirectional=bidirectional,
             batch_norm=False,
         )
@@ -206,7 +201,6 @@ class DeepSpeech(nn.Module):
             rnn = BatchRNN(
                 input_size=rnn_hidden_size,
                 hidden_size=rnn_hidden_size,
-                rnn_type=rnn_type,
                 bidirectional=bidirectional,
             )
             rnns.append(("%d" % (x + 1), rnn))
@@ -304,9 +298,6 @@ class DeepSpeech(nn.Module):
             "version": model.version,
             "hidden_size": model.hidden_size,
             "hidden_layers": model.hidden_layers,
-            "rnn_type": supported_rnns_inv.get(
-                model.rnn_type, model.rnn_type.__name__.lower()
-            ),
             "vocab_size": model.vocab_size,
             "input_feature_dim": model.input_feature_dim,
             "state_dict": model.state_dict(),
