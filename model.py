@@ -264,6 +264,7 @@ class DeepSpeech(nn.Module):
     @classmethod
     def load_model(cls, path) -> "DeepSpeech":
         package = torch.load(path, map_location=lambda storage, loc: storage)
+        package['rnn_hidden_size']=package['hidden_size']#TODO(tilo):backward compatibility
         model = cls(**package)
         model.load_state_dict(package["state_dict"])
         for x in model.rnns:
