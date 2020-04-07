@@ -5,32 +5,21 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from opts_removeit import add_decoder_args, add_inference_args
-from utils import load_model, reduce_tensor, calc_loss
-
-parser = argparse.ArgumentParser(description="DeepSpeech transcription")
-parser = add_inference_args(parser)
-parser.add_argument(
-    "--test-manifest",
-    metavar="DIR",
-    help="path to validation manifest csv",
-    default="data/test_manifest.csv",
+from data_related.audio_feature_extraction import AudioFeaturesConfig
+from data_related.char_stt_dataset import CharSTTDataset, DataConfig
+from data_related.data_loader import AudioDataLoader
+from data_related.librispeech import build_librispeech_corpus
+from decoder import GreedyDecoder
+from transcribing.transcribe import build_decoder
+from utils import (
+    load_model,
+    reduce_tensor,
+    calc_loss,
+    BLANK_SYMBOL,
+    SPACE,
+    HOME,
+    USE_GPU,
 )
-parser.add_argument("--batch-size", default=64, type=int, help="Batch size for testing")
-parser.add_argument(
-    "--num-workers", default=16, type=int, help="Number of workers used in dataloading"
-)
-parser.add_argument(
-    "--verbose",
-    action="store_true",
-    help="print out decoded output and error of each sample",
-)
-parser.add_argument(
-    "--save-output",
-    default=None,
-    help="Saves output of model from test to this file_path",
-)
-parser = add_decoder_args(parser)
 
 
 def evaluate(
@@ -108,56 +97,45 @@ def evaluate(
     # print("avg valid loss %0.2f" % avg_loss)
     return wer * 100, cer * 100, avg_loss, output_data
 
-#TODO(tilo)
 
-# if __name__ == "__main__":
-#     args = parser.parse_args()
-#     torch.set_grad_enabled(False)
-#     device = torch.device("cuda" if args.cuda else "cpu")
-#     model = load_model(device, args.model_path, args.half)
-#
-#     if args.decoder == "beam":
-#         from decoder import BeamCTCDecoder
-#
-#         decoder = BeamCTCDecoder(
-#             model.vocab_size,
-#             lm_path=args.lm_path,
-#             alpha=args.alpha,
-#             beta=args.beta,
-#             cutoff_top_n=args.cutoff_top_n,
-#             cutoff_prob=args.cutoff_prob,
-#             beam_width=args.beam_width,
-#             num_processes=args.lm_workers,
-#         )
-#     elif args.decoder == "greedy":
-#         decoder = GreedyDecoder(model.vocab_size, blank_index=model.vocab_size.index("_"))
-#     else:
-#         decoder = None
-#     target_decoder = GreedyDecoder(model.vocab_size, blank_index=model.vocab_size.index("_"))
-#     test_dataset = CharSTTDataset(
-#         audio_conf=model.audio_conf,
-#         manifest_filepath=args.test_manifest,
-#         labels=model.vocab_size,
-#         normalize=True,
-#     )
-#     test_loader = AudioDataLoader(
-#         test_dataset, batch_size=args.batch_size, num_workers=args.num_workers
-#     )
-#     wer, cer, avg_loss, output_data = evaluate(
-#         test_loader=test_loader,
-#         device=device,
-#         model=model,
-#         decoder=decoder,
-#         target_decoder=target_decoder,
-#         save_output=args.save_output,
-#         verbose=args.verbose,
-#         half=args.half,
-#     )
-#
-#     print(
-#         "Test Summary \t"
-#         "Average WER {wer:.3f}\t"
-#         "Average CER {cer:.3f}\t".format(wer=wer, cer=cer)
-#     )
-#     if args.save_output is not None:
-#         np.save(args.save_output, output_data)
+if __name__ == "__main__":
+    torch.set_grad_enabled(False)
+    device = torch.device("cuda" if USE_GPU else "cpu")
+    use_half = False
+    model = load_model(device, "/tmp/deepspeech_9.pth.tar", use_half)
+
+    # fmt: off
+    labels = [BLANK_SYMBOL, "'", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
+              "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", SPACE]
+    # fmt: on
+    char2idx = dict([(labels[i], i) for i in range(len(labels))])
+    conf = DataConfig(labels)
+
+    decoder = build_decoder(char2idx)
+
+    target_decoder = GreedyDecoder(char2idx)
+
+    asr_path = HOME + "/data/asr_data"
+    raw_data_path = asr_path + "/ENGLISH/LibriSpeech"
+    samples = build_librispeech_corpus(raw_data_path, "eval", ["dev-clean"])
+    samples = samples[:100]
+    audio_conf = AudioFeaturesConfig()
+
+    test_dataset = CharSTTDataset(samples, conf=conf, audio_conf=audio_conf,)
+    test_loader = AudioDataLoader(test_dataset, batch_size=16, num_workers=4)
+    wer, cer, avg_loss, output_data = evaluate(
+        test_loader=test_loader,
+        device=device,
+        model=model,
+        decoder=decoder,
+        target_decoder=target_decoder,
+        save_output=False,
+        verbose=False,
+        half=use_half,
+    )
+
+    print(
+        "Test Summary \t"
+        "Average WER {wer:.3f}\t"
+        "Average CER {cer:.3f}\t".format(wer=wer, cer=cer)
+    )
