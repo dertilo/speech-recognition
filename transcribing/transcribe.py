@@ -4,7 +4,8 @@ from data_related.audio_feature_extraction import (
     AudioFeatureExtractor,
     AudioFeaturesConfig,
 )
-from utils import load_model, BLANK_SYMBOL, SPACE, HOME
+from utils import BLANK_SYMBOL, SPACE, HOME
+from asr_checkpoint import load_evaluatable_checkpoint
 
 warnings.simplefilter("ignore")
 
@@ -47,17 +48,12 @@ if __name__ == "__main__":
         + "/data/asr_data/ENGLISH/LibriSpeech/dev-other/8288/274162/8288-274162-0016.flac"
     )
 
-    model = load_model(device, model_file, use_half)
+    model,data_conf,audio_conf = load_evaluatable_checkpoint(device, model_file, use_half)
 
-    # fmt: off
-    labels = [BLANK_SYMBOL, "'", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
-              "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", SPACE]
-    # fmt: on
-    char2idx = dict([(labels[i], i) for i in range(len(labels))])
+    char2idx = dict([(data_conf.labels[i], i) for i in range(len(data_conf.labels))])
 
     decoder = build_decoder(char2idx,use_beam_decoder)
 
-    audio_conf = AudioFeaturesConfig()
     audio_fe = AudioFeatureExtractor(audio_conf, [])
 
     decoded_output, decoded_offsets = transcribe(

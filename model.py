@@ -6,6 +6,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.parameter import Parameter
 
+from asr_checkpoint import build_checkpoint_package
+
 supported_rnns = {"lstm": nn.LSTM, "rnn": nn.RNN, "gru": nn.GRU}
 supported_rnns_inv = dict((v, k) for k, v in supported_rnns.items())
 
@@ -157,7 +159,7 @@ class DeepSpeech(nn.Module):
         self,
         input_feature_dim,
         vocab_size="abc",
-        rnn_hidden_size=768,
+        hidden_size=768,
         nb_layers=5,
         bidirectional=True,
         context=20,
@@ -166,7 +168,7 @@ class DeepSpeech(nn.Module):
         super(DeepSpeech, self).__init__()
 
         self.version = "0.0.1"
-        self.hidden_size = rnn_hidden_size
+        self.hidden_size = hidden_size
         self.hidden_layers = nb_layers
         self.vocab_size = vocab_size
         self.bidirectional = bidirectional
@@ -262,13 +264,11 @@ class DeepSpeech(nn.Module):
         return seq_len.int()
 
     @classmethod
-    def load_model(cls, path) -> "DeepSpeech":
-        package = torch.load(path, map_location=lambda storage, loc: storage)
-        package['rnn_hidden_size']=package['hidden_size']#TODO(tilo):backward compatibility
+    def load_model(cls, package) -> "DeepSpeech":
         model = cls(**package)
         model.load_state_dict(package["state_dict"])
         for x in model.rnns:
-            x.flatten_parameters()
+            x.flatten_parameters() #TODO(tilo): why?
         return model
 
     @classmethod
@@ -276,49 +276,6 @@ class DeepSpeech(nn.Module):
         model = cls(**package)
         model.load_state_dict(package["state_dict"])
         return model
-
-    @staticmethod
-    def serialize(
-        model,
-        optimizer=None,
-        amp=None,
-        epoch=None,
-        iteration=None,
-        log_data=None,
-        avg_loss=None,
-        meta=None,
-    ):
-        from apex.parallel import DistributedDataParallel
-
-        if isinstance(model, DistributedDataParallel):
-            model = model.module
-
-        model:DeepSpeech
-
-        package = {
-            "version": model.version,
-            "hidden_size": model.hidden_size,
-            "hidden_layers": model.hidden_layers,
-            "vocab_size": model.vocab_size,
-            "input_feature_dim": model.input_feature_dim,
-            "state_dict": model.state_dict(),
-            "bidirectional": model.bidirectional,
-        }
-        if optimizer is not None:
-            package["optim_dict"] = optimizer.state_dict()
-        if amp is not None:
-            package["amp"] = amp.state_dict()
-        if avg_loss is not None:
-            package["avg_loss"] = avg_loss
-        if epoch is not None:
-            package["epoch"] = epoch + 1  # increment for readability
-        if iteration is not None:
-            package["iteration"] = iteration
-        if log_data is not None:
-            package.update(log_data)
-        if meta is not None:
-            package["meta"] = meta
-        return package
 
     @staticmethod
     def get_param_size(model):

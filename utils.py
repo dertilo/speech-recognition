@@ -5,8 +5,6 @@ import torch.cuda
 import torch.distributed as dist
 import torch.utils.data.distributed
 
-from model import DeepSpeech
-
 BLANK_SYMBOL = "■"
 SPACE = ' '
 
@@ -40,15 +38,6 @@ def check_loss(loss, loss_value):
         loss_valid = False
         error = "WARNING: received a negative loss"
     return loss_valid, error
-
-
-def load_model(device, model_path, use_half) -> DeepSpeech:
-    model: DeepSpeech = DeepSpeech.load_model(model_path)
-    model.eval()
-    model = model.to(device)
-    if use_half:
-        model = model.half()
-    return model
 
 
 def calc_loss(

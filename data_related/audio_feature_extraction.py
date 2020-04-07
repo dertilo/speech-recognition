@@ -62,6 +62,7 @@ class AudioFeatureExtractor:
     def __init__(self, audio_conf: AudioFeaturesConfig, audio_files):
         super().__init__()
         self.audio_files = audio_files
+        self.conf = audio_conf
         self.feature_type = audio_conf.feature_type
         self.sample_rate = audio_conf.sample_rate
         self.normalize = audio_conf.normalize

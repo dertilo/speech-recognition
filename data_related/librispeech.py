@@ -6,7 +6,7 @@ from util import data_io
 from corpora.librispeech import librispeech_corpus
 from data_related.audio_util import Sample
 from data_related.processing_corpora import process_samples
-from utils import HOME
+from utils import HOME, BLANK_SYMBOL, SPACE
 
 
 def load_samples(file: str, base_path: str):
@@ -42,6 +42,11 @@ def build_librispeech_corpus(raw_data_path, name: str, folders: List[str]):
         data_io.write_jsonl(file, (s._asdict() for s in samples))
 
     return samples
+
+# fmt: off
+LIBRI_VOCAB = [BLANK_SYMBOL, "'", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
+          "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", SPACE]
+# fmt: on
 
 
 if __name__ == "__main__":

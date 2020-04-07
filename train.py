@@ -10,6 +10,7 @@ from apex import amp
 from apex.parallel import DistributedDataParallel
 from util import data_io
 
+from asr_checkpoint import build_checkpoint_package, load_trainable_checkpoint
 from data_related.audio_feature_extraction import AudioFeaturesConfig
 from warpctc_pytorch import CTCLoss
 
@@ -111,11 +112,7 @@ def build_model(args):
     start_epoch, start_iter, optim_state, amp_state = 0, 0, None, None
     if args.continue_from:  # Starting from previous model
         print("Loading checkpoint model %s" % args.continue_from)
-        package = torch.load(
-            args.continue_from, map_location=lambda storage, loc: storage
-        )
-
-        model = DeepSpeech.load_model_package(package)
+        package, model = load_trainable_checkpoint(args.continue_from)
         if not args.finetune:  # Don't want to restart training
             optim_state = package["optim_dict"]
             amp_state = package["amp"]
@@ -289,8 +286,9 @@ if __name__ == "__main__":
         if main_proc and args.checkpoint:
             file_path = "%s/deepspeech_%d.pth.tar" % (save_folder, epoch + 1)
             torch.save(
-                DeepSpeech.serialize(
-                    model, optimizer=optimizer, amp=amp, epoch=epoch, log_data=log_data,
+                build_checkpoint_package(
+                    model, optimizer, amp, epoch, None, log_data, avg_loss, None,
+                    train_dataset.conf,train_dataset.audio_fe.conf
                 ),
                 file_path,
             )

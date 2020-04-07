@@ -13,7 +13,6 @@ from decoder import GreedyDecoder
 from metrics_calculation import calc_wer, calc_cer
 from transcribing.transcribe import build_decoder
 from utils import (
-    load_model,
     reduce_tensor,
     calc_loss,
     BLANK_SYMBOL,
@@ -21,6 +20,7 @@ from utils import (
     HOME,
     USE_GPU,
 )
+from asr_checkpoint import load_evaluatable_checkpoint
 
 
 def evaluate(
@@ -103,26 +103,20 @@ if __name__ == "__main__":
     torch.set_grad_enabled(False)
     device = torch.device("cuda" if USE_GPU else "cpu")
     use_half = False
-    model = load_model(device, "/tmp/deepspeech_9.pth.tar", use_half)
+    model,data_conf,audio_conf = load_evaluatable_checkpoint(device, HOME + "/data/asr_data/checkpoints/librispeech_960_07_April/deepspeech_9.pth.tar", use_half)
 
-    # fmt: off
-    labels = [BLANK_SYMBOL, "'", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
-              "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", SPACE]
-    # fmt: on
-    char2idx = dict([(labels[i], i) for i in range(len(labels))])
-    conf = DataConfig(labels)
+    char2idx = dict([(data_conf.labels[i], i) for i in range(len(data_conf.labels))])
 
-    decoder = build_decoder(char2idx)
+    decoder = build_decoder(char2idx,use_beam_decoder=True)
 
     target_decoder = GreedyDecoder(char2idx)
 
     asr_path = HOME + "/data/asr_data"
     raw_data_path = asr_path + "/ENGLISH/LibriSpeech"
-    samples = build_librispeech_corpus(raw_data_path, "eval", ["dev-clean"])
-    samples = samples[:100]
-    audio_conf = AudioFeaturesConfig()
+    samples = build_librispeech_corpus(raw_data_path, "test-clean", ["test-clean"])
+    samples = samples
 
-    test_dataset = CharSTTDataset(samples, conf=conf, audio_conf=audio_conf,)
+    test_dataset = CharSTTDataset(samples, conf=data_conf, audio_conf=audio_conf,)
     test_loader = AudioDataLoader(test_dataset, batch_size=16, num_workers=0)
     wer, cer, avg_loss, output_data = evaluate(
         test_loader=test_loader,

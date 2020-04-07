@@ -16,32 +16,29 @@ from data_related.audio_util import Sample
 from data_related.librispeech import build_librispeech_corpus
 from model import DeepSpeech
 from transcribing.transcribe import transcribe, build_decoder
-from utils import load_model, USE_GPU, BLANK_SYMBOL, SPACE
+from utils import USE_GPU, BLANK_SYMBOL, SPACE
+from asr_checkpoint import load_evaluatable_checkpoint
 
 warnings.simplefilter("ignore")
 
 
 import torch
 
+
 def run_transcribtion(
     samples: Iterable[Sample], model_path, use_beam_decoder=False, use_half=False
 ):
 
     device = torch.device("cuda" if USE_GPU else "cpu")
-    model: DeepSpeech = load_model(device, model_path, use_half)
+    model,data_conf,audio_conf = load_evaluatable_checkpoint(device, model_path, use_half)
 
-    # fmt: off
-    labels = [BLANK_SYMBOL, "'", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
-              "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", SPACE]
-    # fmt: on
-    char2idx = dict([(labels[i], i) for i in range(len(labels))])
+    char2idx = dict([(data_conf.labels[i], i) for i in range(len(data_conf.labels))])
     decoder = build_decoder(char2idx, use_beam_decoder)
 
-    audio_conf = AudioFeaturesConfig()
     audio_fe = AudioFeatureExtractor(audio_conf, [])
 
     def do_transcribe(audio_file):
-        decoded_output, decoded_offsets = transcribe(
+        decoded_output, decoded_offsets = prediction(
             audio_path=audio_file,
             fe=audio_fe,
             model=model,
@@ -52,8 +49,10 @@ def run_transcribtion(
         candidate_idx = 0
         return [x[candidate_idx] for x in decoded_output][0]
 
-    g = ((do_transcribe(s.audio_file), s.text) for s in tqdm(samples))
-    return list(g)
+    for s in tqdm(samples):
+        prediction = do_transcribe(s.audio_file)
+        target = s.text
+        yield prediction, target
 
 
 if __name__ == "__main__":
@@ -64,15 +63,8 @@ if __name__ == "__main__":
         raw_data_path, "eval", ["dev-clean", "dev-other"]
     )
 
-    transcribed = [
-        (a, b)
-        for a, b in [("---", "---")]
-        + run_transcribtion(samples[:100], "/tmp/deepspeech_9.pth.tar")
-    ]
-
-    lines = (
-        ["| " + " | ".join(["prediction", "target"])]
-        + ["| " + " | ".join(["---", "---"])]
-        + ["| " + " | ".join([a, b]) for a, b in transcribed]
+    transcribtions = run_transcribtion(samples[:100], "/tmp/deepspeech_9.pth.tar")
+    data_io.write_jsonl(
+        "/tmp/predictions.jsonl",
+        ({"prediction": p, "target": t} for p, t in transcribtions),
     )
-    data_io.write_lines("/tmp/test.txt", lines)
