@@ -178,7 +178,7 @@ if __name__ == "__main__":
 
     train_dataset, eval_dataset = build_datasets()
 
-    save_folder = os.path.join(args.save_folder, args.id)
+    save_folder = os.path.join(HOME,args.save_folder, args.id)
     os.makedirs(save_folder, exist_ok=True)  # Ensure save folder exists
 
     if main_proc:
