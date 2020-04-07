@@ -5,12 +5,14 @@ from torch.utils.data import Dataset
 from typing import NamedTuple, List, Dict
 
 from tqdm import tqdm
+from util import data_io
 
 from data_related.audio_feature_extraction import (
     AudioFeaturesConfig,
     AudioFeatureExtractor,
     get_length,
 )
+from utils import HOME
 
 
 class DataConfig(NamedTuple):
@@ -28,7 +30,7 @@ class Sample(NamedTuple):
     length: float  # in seconds
 
 
-def sort_samples_in_corpus(corpus, min_len, max_len)->List[Sample]:
+def sort_samples_in_corpus(corpus, min_len, max_len) -> List[Sample]:
     print("sort samples by length")
     print("rank: %d" % get_rank(), flush=True)
     samples_g = (
@@ -42,13 +44,28 @@ def sort_samples_in_corpus(corpus, min_len, max_len)->List[Sample]:
     return samples
 
 
+def load_samples(file: str):
+    def process(d):
+        d["audio_file"] = d["audio_file"].replace("/docker-share", HOME)
+        return Sample(**d)
+
+    return [process(d) for d in data_io.read_jsonl(file)]
+
+
 class CharSTTDataset(Dataset):
     def __init__(
-        self, corpus: Dict[str, str], conf: DataConfig, audio_conf: AudioFeaturesConfig,
+        self,
+        conf: DataConfig,
+        audio_conf: AudioFeaturesConfig,
+        corpus: Dict[str, str] = None,
+        corpus_file=None,
     ):
+        assert corpus or corpus_file
         self.conf = conf
-
-        self.samples = sort_samples_in_corpus(corpus, conf.min_len, conf.max_len)
+        if corpus_file is not None:
+            self.samples = load_samples(corpus_file)
+        else:
+            self.samples = sort_samples_in_corpus(corpus, conf.min_len, conf.max_len)
         self.size = len(self.samples)
 
         self.char2idx = dict([(conf.labels[i], i) for i in range(len(conf.labels))])
@@ -80,7 +97,6 @@ if __name__ == "__main__":
     # fmt: on
     from corpora.librispeech import librispeech_corpus
 
-    HOME = os.environ["HOME"]
     asr_path = HOME + "/data/asr_data"
     raw_data_path = asr_path + "/ENGLISH/LibriSpeech"
 
@@ -91,6 +107,6 @@ if __name__ == "__main__":
         for p in [raw_data_path + "/dev-other"]
         for k, v in librispeech_corpus(p).items()
     }
-    train_dataset = CharSTTDataset(corpus, conf, audio_conf)
+    train_dataset = CharSTTDataset(corpus=corpus, conf=conf, audio_conf=audio_conf)
     datum = train_dataset[0]
     print()

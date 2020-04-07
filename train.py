@@ -8,11 +8,13 @@ import torch.distributed as dist
 import torch.utils.data.distributed
 from apex import amp
 from apex.parallel import DistributedDataParallel
+from typing import List
 from util import data_io
 
 from data_related.audio_feature_extraction import AudioFeaturesConfig
 from warpctc_pytorch import CTCLoss
 
+from data_related.build_sorted_corpus import dump_sorted_corpus
 from data_related.char_stt_dataset import DataConfig, CharSTTDataset
 from data_related.data_loader import (
     BucketingSampler,
@@ -66,20 +68,35 @@ def build_datasets():
     raw_data_path = asr_path + "/ENGLISH/LibriSpeech"
     conf = DataConfig(labels)
     audio_conf = AudioFeaturesConfig()
-    corpus = {
-        k: v
-        for folder in ["train-clean-100"]
-        for k, v in librispeech_corpus(os.path.join(raw_data_path, folder)).items()
-    }
-    assert len(corpus) > 0
-    train_dataset = CharSTTDataset(corpus, conf, audio_conf)
+    def merge_corpora(folders:List[str]):
+        return {
+            k: v
+            for folder in folders
+            for k, v in librispeech_corpus(os.path.join(raw_data_path, folder)).items()
+        }
+    train_corpus = merge_corpora(["train-clean-100","train-clean-360","train-clean-500"])
+    assert len(train_corpus) > 0
+    file = raw_data_path + "/%s_sorted_samples.jsonl" % 'train'
+    if not os.path.isfile(file):
+        dump_sorted_corpus(train_corpus, file)
+
+    train_dataset = CharSTTDataset(
+        corpus_file=file,
+        conf=conf,
+        audio_conf=audio_conf,
+    )
     audio_conf = AudioFeaturesConfig()
-    corpus = {
-        k: v
-        for folder in ["dev-clean", "dev-other"]
-        for k, v in librispeech_corpus(os.path.join(raw_data_path, folder)).items()
-    }
-    eval_dataset = CharSTTDataset(corpus, conf, audio_conf)
+    eval_corpus = merge_corpora(["dev-clean", "dev-other"])
+    assert len(eval_corpus) > 0
+    file = raw_data_path + "/%s_sorted_samples.jsonl" % 'eval'
+    if not os.path.isfile(file):
+        dump_sorted_corpus(eval_corpus, file)
+
+    eval_dataset = CharSTTDataset(
+        corpus_file=file,
+        conf=conf,
+        audio_conf=audio_conf,
+    )
     return train_dataset, eval_dataset
 
 
