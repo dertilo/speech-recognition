@@ -4,9 +4,6 @@ from collections import OrderedDict
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn.parameter import Parameter
-
-from asr_checkpoint import build_checkpoint_package
 
 supported_rnns = {"lstm": nn.LSTM, "rnn": nn.RNN, "gru": nn.GRU}
 supported_rnns_inv = dict((v, k) for k, v in supported_rnns.items())
@@ -194,15 +191,15 @@ class DeepSpeech(nn.Module):
         rnns = []
         rnn = BatchRNN(
             input_size=rnn_input_size,
-            hidden_size=rnn_hidden_size,
+            hidden_size=hidden_size,
             bidirectional=bidirectional,
             batch_norm=False,
         )
         rnns.append(("0", rnn))
         for x in range(nb_layers - 1):
             rnn = BatchRNN(
-                input_size=rnn_hidden_size,
-                hidden_size=rnn_hidden_size,
+                input_size=hidden_size,
+                hidden_size=hidden_size,
                 bidirectional=bidirectional,
             )
             rnns.append(("%d" % (x + 1), rnn))
@@ -210,7 +207,7 @@ class DeepSpeech(nn.Module):
         self.lookahead = (
             nn.Sequential(
                 # consider adding batch norm?
-                Lookahead(rnn_hidden_size, context=context),
+                Lookahead(hidden_size, context=context),
                 nn.Hardtanh(0, 20, inplace=True),
             )
             if not bidirectional
@@ -218,8 +215,8 @@ class DeepSpeech(nn.Module):
         )
 
         fully_connected = nn.Sequential(
-            nn.BatchNorm1d(rnn_hidden_size),
-            nn.Linear(rnn_hidden_size, vocab_size, bias=False),
+            nn.BatchNorm1d(hidden_size),
+            nn.Linear(hidden_size, vocab_size, bias=False),
         )
         self.fc = nn.Sequential(SequenceWise(fully_connected),)
 
