@@ -8,19 +8,18 @@ import torch.distributed as dist
 import torch.utils.data.distributed
 from apex import amp
 from apex.parallel import DistributedDataParallel
-from typing import List
 from util import data_io
 
 from data_related.audio_feature_extraction import AudioFeaturesConfig
 from warpctc_pytorch import CTCLoss
 
-from data_related.build_sorted_corpus import dump_sorted_corpus
 from data_related.char_stt_dataset import DataConfig, CharSTTDataset
 from data_related.data_loader import (
     BucketingSampler,
     DistributedBucketingSampler,
     AudioDataLoader,
 )
+from data_related.librispeech import build_librispeech_corpus
 from decoder import GreedyDecoder
 from logger import TensorBoardLogger
 from model import DeepSpeech, supported_rnns
@@ -61,42 +60,25 @@ def build_datasets():
     labels = [BLANK_SYMBOL, "'", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
               "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", SPACE]
     # fmt: on
-    from corpora.librispeech import librispeech_corpus
 
     HOME = os.environ["HOME"]
     asr_path = HOME + "/data/asr_data"
     raw_data_path = asr_path + "/ENGLISH/LibriSpeech"
     conf = DataConfig(labels)
     audio_conf = AudioFeaturesConfig()
-    def merge_corpora(folders:List[str]):
-        return {
-            k: v
-            for folder in folders
-            for k, v in librispeech_corpus(os.path.join(raw_data_path, folder)).items()
-        }
-    train_corpus = merge_corpora(["train-clean-100","train-clean-360","train-clean-500"])
-    assert len(train_corpus) > 0
-    file = raw_data_path + "/%s_sorted_samples.jsonl" % 'train'
-    if not os.path.isfile(file):
-        dump_sorted_corpus(train_corpus, file)
-
-    train_dataset = CharSTTDataset(
-        corpus_file=file,
-        conf=conf,
-        audio_conf=audio_conf,
+    train_samples = build_librispeech_corpus(
+        raw_data_path,
+        "train",
+        ["train-clean-100", "train-clean-360", "train-clean-500"],
     )
+
+    train_dataset = CharSTTDataset(train_samples, conf=conf, audio_conf=audio_conf,)
     audio_conf = AudioFeaturesConfig()
-    eval_corpus = merge_corpora(["dev-clean", "dev-other"])
-    assert len(eval_corpus) > 0
-    file = raw_data_path + "/%s_sorted_samples.jsonl" % 'eval'
-    if not os.path.isfile(file):
-        dump_sorted_corpus(eval_corpus, file)
-
-    eval_dataset = CharSTTDataset(
-        corpus_file=file,
-        conf=conf,
-        audio_conf=audio_conf,
+    eval_samples = build_librispeech_corpus(
+        raw_data_path, "eval", ["dev-clean", "dev-other"]
     )
+
+    eval_dataset = CharSTTDataset(eval_samples, conf=conf, audio_conf=audio_conf,)
     return train_dataset, eval_dataset
 
 

@@ -71,11 +71,7 @@ if __name__ == "__main__":
 
     conf = DataConfig(labels)
     audio_conf = AudioFeaturesConfig()
-    corpus = {
-        k: v
-        for p in [raw_data_path + "/dev-other"]
-        for k, v in librispeech_corpus(p).items()
-    }
+
     samples = build_librispeech_corpus(
         HOME + "/data/asr_data/ENGLISH/LibriSpeech", "eval", ["dev-clean", "dev-other"]
     )
