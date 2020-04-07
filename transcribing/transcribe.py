@@ -12,6 +12,7 @@ from decoder import GreedyDecoder, DecoderConfig
 
 import torch
 
+
 def transcribe(audio_path, fe: AudioFeatureExtractor, model, decoder, device, use_half):
     spect = fe.process(audio_path).contiguous()
     spect = spect.view(1, 1, spect.size(0), spect.size(1))
@@ -23,6 +24,16 @@ def transcribe(audio_path, fe: AudioFeatureExtractor, model, decoder, device, us
     out, output_sizes = model(spect, input_sizes)
     decoded_output, decoded_offsets = decoder.decode(out, output_sizes)
     return decoded_output, decoded_offsets
+
+
+def build_decoder(char2idx, use_beam_decoder=False, config=DecoderConfig()):
+    if use_beam_decoder:
+        from decoder import BeamCTCDecoder
+
+        decoder = BeamCTCDecoder(char2idx, **config._asdict())
+    else:
+        decoder = GreedyDecoder(char2idx)
+    return decoder
 
 
 if __name__ == "__main__":
@@ -44,12 +55,7 @@ if __name__ == "__main__":
     # fmt: on
     char2idx = dict([(labels[i], i) for i in range(len(labels))])
 
-    if use_beam_decoder == "beam":
-        from decoder import BeamCTCDecoder
-
-        decoder = BeamCTCDecoder(char2idx, **DecoderConfig()._asdict())
-    else:
-        decoder = GreedyDecoder(char2idx)
+    decoder = build_decoder(char2idx,use_beam_decoder)
 
     audio_conf = AudioFeaturesConfig()
     audio_fe = AudioFeatureExtractor(audio_conf, [])
