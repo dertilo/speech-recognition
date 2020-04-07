@@ -1,24 +1,10 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
-from scipy.sparse import (
-    csr_matrix,
-)  # TODO(tilo): if not imported before torch on HPC-cluster it throws: ImportError: /lib64/libstdc++.so.6: version `CXXABI_1.3.9' not found
-
-import concurrent.futures
-import multiprocessing
-import os
-
-from tqdm import tqdm
-from typing import Dict
-
-from corpora.librispeech import librispeech_corpus
-from data_related.audio_feature_extraction import get_length
 
 import os
-from pathlib import Path
-from typing import Dict, List
+from typing import List
 from util import data_io
-
-from data_related.char_stt_dataset import Sample
+from corpora.librispeech import librispeech_corpus
+from data_related.audio_util import Sample
 from data_related.processing_corpora import process_samples
 from utils import HOME
 

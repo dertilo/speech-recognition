@@ -10,7 +10,7 @@ import os
 from tqdm import tqdm
 from typing import Dict
 from data_related.audio_feature_extraction import get_length
-from data_related.char_stt_dataset import Sample
+from data_related.audio_util import Sample
 
 
 def process_sample(audio_file, text):

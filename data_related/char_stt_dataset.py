@@ -1,17 +1,13 @@
-import os
-
 from torch.distributed import get_rank
 from torch.utils.data import Dataset
-from typing import NamedTuple, List, Dict
-
-from tqdm import tqdm
-from util import data_io
+from typing import NamedTuple, List
 
 from data_related.audio_feature_extraction import (
     AudioFeaturesConfig,
     AudioFeatureExtractor,
-    get_length,
 )
+from data_related.audio_util import Sample
+from data_related.librispeech import build_librispeech_corpus
 from utils import HOME
 
 
@@ -24,48 +20,21 @@ class DataConfig(NamedTuple):
 MILLISECONDS_TO_SECONDS = 0.001
 
 
-class Sample(NamedTuple):
-    audio_file: str
-    text: str
-    length: float  # in seconds
-
-
-def sort_samples_in_corpus(corpus, min_len, max_len) -> List[Sample]:
+def sort_samples_in_corpus(samples: List[Sample], min_len, max_len) -> List[Sample]:
     print("sort samples by length")
-    print("rank: %d" % get_rank(), flush=True)
-    samples_g = (
-        Sample(audio_file, text, get_length(audio_file))
-        for audio_file, text in tqdm(corpus.items())
-    )
-    samples_g = filter(lambda s: s.length > min_len and s.length < max_len, samples_g)
-    samples: List[Sample] = sorted(samples_g, key=lambda s: s.length)
-    assert len(samples) > 0
-    print("%d of %d samples are suitable for training" % (len(samples), len(corpus)))
-    return samples
-
-
-def load_samples(file: str):
-    def process(d):
-        d["audio_file"] = d["audio_file"].replace("/docker-share", HOME)
-        return Sample(**d)
-
-    return [process(d) for d in data_io.read_jsonl(file)]
+    f_samples_g = filter(lambda s: s.length > min_len and s.length < max_len, samples)
+    s_samples: List[Sample] = sorted(f_samples_g, key=lambda s: s.length)
+    assert len(s_samples) > 0
+    print("%d of %d samples are suitable for training" % (len(s_samples), len(samples)))
+    return s_samples
 
 
 class CharSTTDataset(Dataset):
     def __init__(
-        self,
-        conf: DataConfig,
-        audio_conf: AudioFeaturesConfig,
-        corpus: Dict[str, str] = None,
-        corpus_file=None,
+        self, samples: List[Sample], conf: DataConfig, audio_conf: AudioFeaturesConfig,
     ):
-        assert corpus or corpus_file
         self.conf = conf
-        if corpus_file is not None:
-            self.samples = load_samples(corpus_file)
-        else:
-            self.samples = sort_samples_in_corpus(corpus, conf.min_len, conf.max_len)
+        self.samples = sort_samples_in_corpus(samples, conf.min_len, conf.max_len)
         self.size = len(self.samples)
 
         self.char2idx = dict([(conf.labels[i], i) for i in range(len(conf.labels))])
@@ -107,6 +76,10 @@ if __name__ == "__main__":
         for p in [raw_data_path + "/dev-other"]
         for k, v in librispeech_corpus(p).items()
     }
-    train_dataset = CharSTTDataset(corpus=corpus, conf=conf, audio_conf=audio_conf)
+    samples = build_librispeech_corpus(
+        HOME + "/data/asr_data/ENGLISH/LibriSpeech", "eval", ["dev-clean", "dev-other"]
+    )
+
+    train_dataset = CharSTTDataset(samples, conf=conf, audio_conf=audio_conf)
     datum = train_dataset[0]
     print()
