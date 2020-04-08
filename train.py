@@ -97,8 +97,9 @@ def build_model(args):
 
     start_epoch, start_iter, optim_state, amp_state = 0, 0, None, None
     if args.continue_from:  # Starting from previous model
-        print("Loading checkpoint model %s" % args.continue_from)
-        package, model = load_trainable_checkpoint(args.continue_from)
+        checkpoint_file = os.path.join(HOME,args.continue_from)
+        print("Loading checkpoint model %s" % checkpoint_file)
+        package, model = load_trainable_checkpoint(checkpoint_file)
         if not args.finetune:  # Don't want to restart training
             optim_state = package["optim_dict"]
             amp_state = package["amp"]
