@@ -99,21 +99,36 @@ def evaluate(
     return wer * 100, cer * 100, avg_loss, output_data
 
 
+# fmt: off
+parser = argparse.ArgumentParser(description="args")
+parser.add_argument("--model", required=True, type=str,default='libri_960_1024_32/deepspeech_8.pth.tar')
+parser.add_argument("--datasets", type=str,required=True,nargs='+', default='test-clean')
+# fmt: on
+
 if __name__ == "__main__":
+    '''
+    python evaluation.py --model libri_960_1024_32/deepspeech_8.pth.tar --datasets test-clean
+    '''
+    args = parser.parse_args()
+
     torch.set_grad_enabled(False)
     device = torch.device("cuda" if USE_GPU else "cpu")
     use_half = False
-    model,data_conf,audio_conf = load_evaluatable_checkpoint(device, HOME + "/data/asr_data/checkpoints/librispeech_960_07_April/deepspeech_9.pth.tar", use_half)
+    model, data_conf, audio_conf = load_evaluatable_checkpoint(
+        device, HOME + "/data/asr_data/checkpoints/%s" % args.model, use_half
+    )
 
     char2idx = dict([(data_conf.labels[i], i) for i in range(len(data_conf.labels))])
 
-    decoder = build_decoder(char2idx,use_beam_decoder=True)
+    decoder = build_decoder(char2idx, use_beam_decoder=True)
 
     target_decoder = GreedyDecoder(char2idx)
 
     asr_path = HOME + "/data/asr_data"
     raw_data_path = asr_path + "/ENGLISH/LibriSpeech"
-    samples = build_librispeech_corpus(raw_data_path, "test-clean", ["test-clean"])
+    samples = build_librispeech_corpus(
+        raw_data_path, "_".join(args.datasets), args.datasets
+    )
     samples = samples
 
     test_dataset = CharSTTDataset(samples, conf=data_conf, audio_conf=audio_conf,)
