@@ -46,14 +46,14 @@ class Decoder(object):
         raise NotImplementedError
 
 class DecoderConfig(NamedTuple):
-    lm_path = None
-    alpha = 0
-    beta = 0
-    cutoff_top_n = 40
-    cutoff_prob = 1.0
-    beam_width = 100
-    num_processes = 4
-    blank_index = 0
+    lm_path:str = None
+    alpha:float = 0
+    beta:float = 0
+    cutoff_top_n:int = 40
+    cutoff_prob:float = 1.0
+    beam_width:int = 10
+    num_processes:int = 4
+    blank_index:int = 0
 
 class BeamCTCDecoder(Decoder):
     def __init__(
