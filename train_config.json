@@ -1,11 +1,11 @@
 {
     "sample_rate": 16000,
-    "batch_size": 16,
+    "batch_size": 32,
     "num_workers": 8,
     "hidden_size": 1024,
     "hidden_layers": 5,
     "epochs": 70,
-    "lr": 0.0003,
+    "lr": 0.001,
     "momentum": 0.9,
     "learning_anneal": 1.01,
     "checkpoint": true,
