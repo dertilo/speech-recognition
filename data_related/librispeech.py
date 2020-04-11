@@ -25,19 +25,19 @@ def load_samples(file: str, base_path: str):
 
 
 def build_librispeech_corpus(raw_data_path, name: str, folders: List[str]):
-    corpus = {
-        k: v
-        for folder in folders
-        for k, v in librispeech_corpus(os.path.join(raw_data_path, folder)).items()
-    }
-
-    assert len(corpus) > 0
     file = raw_data_path + "/%s_sorted_samples.jsonl" % name
 
     if os.path.isfile(file):
         print('loading processed samples from %s'%file)
         samples = load_samples(file, raw_data_path)
     else:
+        corpus = {
+            k: v
+            for folder in folders
+            for k, v in librispeech_corpus(os.path.join(raw_data_path, folder)).items()
+        }
+
+        assert len(corpus) > 0
         samples = list(process_samples(corpus))
         data_io.write_jsonl(file, (s._asdict() for s in samples))
 
@@ -50,10 +50,11 @@ LIBRI_VOCAB = [BLANK_SYMBOL, "'", "A", "B", "C", "D", "E", "F", "G", "H", "I", "
 
 
 if __name__ == "__main__":
-    # datasets = [
-    #     ("train", ["train-clean-100", "train-clean-360", "train-clean-500"]),
-    #     ("eval", ["dev-clean", "dev-other"]),
-    #     ("test", ["test-clean", "test-other"]),
-    # ]
-    samples = build_librispeech_corpus(HOME+'/data/asr_data/ENGLISH/LibriSpeech','eval',["dev-clean", "dev-other"])
-    print()
+    datasets = [
+        ("train", ["train-clean-100", "train-clean-360", "train-clean-500"]),
+        ("eval", ["dev-clean", "dev-other"]),
+        ("test", ["test-clean", "test-other"]),
+    ]
+    for name, folders in datasets:
+        samples = build_librispeech_corpus(HOME+'/data/asr_data/ENGLISH/LibriSpeech',name,folders)
+        print('got %d samples'%len(samples))
