@@ -64,7 +64,7 @@ def build_datasets():
     train_samples = build_librispeech_corpus(
         raw_data_path,
         "train",
-        ["train-clean-100", "train-clean-360", "train-clean-500"],
+        ["train-clean-100", "train-clean-360", "train-other-500"],
     )
 
     train_dataset = CharSTTDataset(train_samples, conf=conf, audio_conf=audio_conf,)
@@ -193,8 +193,11 @@ if __name__ == "__main__":
 
     model = model.to(device)
     parameters = model.parameters()
-    optimizer = torch.optim.SGD(
-        parameters, lr=args.lr, momentum=args.momentum, nesterov=True, weight_decay=1e-5
+    # optimizer = torch.optim.SGD(
+    #     parameters, lr=args.lr, momentum=args.momentum, nesterov=True, weight_decay=1e-5
+    # )
+    optimizer = torch.optim.Adam(
+        parameters, lr=args.lr, weight_decay=1e-5
     )
     if USE_GPU and args.opt_level is not None:
         model, optimizer = amp.initialize(
