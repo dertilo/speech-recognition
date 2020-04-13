@@ -51,7 +51,7 @@ LIBRI_VOCAB = [BLANK_SYMBOL, "'", "A", "B", "C", "D", "E", "F", "G", "H", "I", "
 
 if __name__ == "__main__":
     datasets = [
-        ("train", ["train-clean-100", "train-clean-360", "train-clean-500"]),
+        ("train", ["train-clean-100", "train-clean-360", "train-other-500"]),
         ("eval", ["dev-clean", "dev-other"]),
         ("test", ["test-clean", "test-other"]),
     ]
