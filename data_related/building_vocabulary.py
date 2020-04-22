@@ -3,10 +3,9 @@ from collections import Counter
 from pprint import pprint
 
 from tqdm import tqdm
+from util import data_io
 
-from data_related.data_utils import read_jsonl, write_json
-
-BLANK_CHAR = "_"
+from utils import BLANK_SYMBOL
 
 
 def build_vocabulary(
@@ -14,14 +13,14 @@ def build_vocabulary(
     vocab_file="data/labels/vocabulary.json",
     min_freq=1000,
 ):
-    text_g = (t for _, t in read_jsonl(corpus_file))
+    text_g = (t for _, t in data_io.read_jsonl(corpus_file))
     counter = Counter((c.lower() for t in tqdm(text_g) for c in t))
     vocab = counter.most_common(200)
-    write_json(
+    data_io.write_json(
         vocab_file.replace(".json", "_freqs.json"),
         [(c, f) for c, f in vocab if f > min_freq],
     )
-    write_json(vocab_file, [BLANK_CHAR] + [c for c, f in vocab if f > min_freq])
+    data_io.write_json(vocab_file, [BLANK_SYMBOL] + [c for c, f in vocab if f > min_freq])
 
 
 if __name__ == "__main__":

@@ -1,4 +1,14 @@
-### singularity image
+### gunther
+
+    rsync -avz -e "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" --exclude=.git --exclude=data --max-size=1m /home/tilo/code/SPEECH/speech-recognition gunther@gunther:/home/gunther/tilo_data/SPEECH/
+    docker build -t deepspeech .
+    docker run --shm-size 8G --runtime=nvidia --rm -it -v /home/gunther/tilo_data:/docker-share --net=host --env JOBLIB_TEMP_FOLDER=/tmp/ deepspeech:latest bash
+    export PYTHONPATH=$HOME/SPEECH/speech-to-text:$HOME/SPEECH/speech-recognition:$HOME/UTIL/util
+
+    python -m multiproc train.py
+
+### on hpc
+#### singularity image
 
 * locally build singularity image
 
@@ -8,31 +18,29 @@
 
     scp /home/tilo/code/SPEECH/deepspeech.pytorch/deepspeech.simg tilo-himmelsbach@gateway.hpc.tu-berlin.de:/home/users/t/tilo-himmelsbach/
 
-### on hpc
+    rsync -avz -e "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" --exclude=.git --exclude=data --max-size=1m /home/tilo/code/SPEECH tilo-himmelsbach@gateway.hpc.tu-berlin.de:/home/users/t/tilo-himmelsbach/
+
+#### setup  
+  
     module load singularity/2.5.2
     singularity shell --nv deepspeech.sif
-    
-#### evaluation
-    python test.py --model-path librispeech_pretrained_v2.pth --test-manifest data/libri_test_clean.csv --cuda --half
+    export PYTHONPATH=$HOME/SPEECH/speech-to-text:$HOME/SPEECH/speech-recognition:$HOME/UTIL/util
 
-#### transcribing 
-    python transcribe.py --model-path librispeech_models/libri_full_final.pth --audio-path LibriSpeech_dataset/train/wav/4133-6541-0035.wav
+#### train 
+    python -m multiproc train.py --id libri_960_1024_32_11_04_2020
     
+#### evaluate
+
+    python evaluation.py --model libri_960_1024_32_11_04_2020/deepspeech_9.pth.tar --datasets test-clean 
+
+evaluate original 
+    
+    python test.py --model-path ~/data/asr_data/checkpoints/librispeech_pretrained_v2.pth --test-manifest libri_test_other_manifest.csv --cuda --half
+
 # RUNS
 
-librispeech-clean-100
+* batch-size 50 and lr = 2e-3 does not converge + crashes
 
-    python -m multiproc train.py --train-manifest libri_train100_manifest.csv --val-manifest libri_val_manifest.csv --id libri_100_new
-
-librispeech-clean-100 new on gpu006
-
-python -m multiproc train.py --train-manifest libri_train100_manifest.csv --log-dir tensorboard_logdir/libri_100_new --hidden-layers 5 --opt-level O1 --loss-scale 1 --id libri_100_new --checkpoint --save-folder librispeech_save/100_new
-python -m multiproc train.py --continue-from librispeech_save/100_new/deepspeech_1.pth.tar --train-manifest libri_train100_manifest.csv --log-dir tensorboard_logdir/libri_100_new --hidden-layers 5 --opt-level O1 --loss-scale 1 --id libri_100_new --checkpoint --save-folder librispeech_save/100_new
-
-for debug
-    
-    python -m multiproc train.py --log-dir tensorboard_logdir/debug --train-manifest libri_train_manifest_some.csv --val-manifest libri_train_manifest_some.csv --hidden-layers 2 --opt-level O1 --loss-scale 1 --id debug --checkpoint --save-folder librispeech_save/debug --model-path librispeech_models/deepspeech_debug.pth
-    python train.py --log-dir tensorboard_logdir/debug --train-manifest libri_train_manifest_some.csv --val-manifest libri_train_manifest_some.csv --hidden-layers 2 --opt-level O1 --loss-scale 1 --id debug --checkpoint --save-folder librispeech_save/debug --model-path librispeech_models/deepspeech_debug.pth
 
 ### spanish
 * debug

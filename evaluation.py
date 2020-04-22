@@ -101,8 +101,8 @@ def evaluate(
 
 # fmt: off
 parser = argparse.ArgumentParser(description="args")
-parser.add_argument("--model", required=True, type=str,default='libri_960_1024_32/deepspeech_8.pth.tar')
-parser.add_argument("--datasets", type=str,required=True,nargs='+', default='test-clean')
+parser.add_argument("--model", type=str,default='deepspeech_9.pth.tar')
+parser.add_argument("--datasets", type=str,nargs='+', default='test-clean')
 # fmt: on
 
 if __name__ == "__main__":
@@ -132,7 +132,7 @@ if __name__ == "__main__":
     samples = samples
 
     test_dataset = CharSTTDataset(samples, conf=data_conf, audio_conf=audio_conf,)
-    test_loader = AudioDataLoader(test_dataset, batch_size=16, num_workers=0)
+    test_loader = AudioDataLoader(test_dataset, batch_size=20, num_workers=4)
     wer, cer, avg_loss, output_data = evaluate(
         test_loader=test_loader,
         device=device,
