@@ -35,11 +35,9 @@ SS : Switchboard strong
 """
 
 import librosa
-import librosa.display
 import numpy as np
 import random
 
-# from data_related.data_augmentation.sparse_image_warp import sparse_image_warp
 # from tensorflow_addons.image import sparse_image_warp
 
 import torch
@@ -69,7 +67,7 @@ def spec_augment(
     mel_spectrogram,
     time_warping_para=5,#TODO(tilo): why 5 ?
     frequency_masking_para=27,
-    time_masking_para=70,
+    time_masking_para=30,
     frequency_mask_num=1,
     time_mask_num=1,
 ):
@@ -98,8 +96,8 @@ def spec_augment(
     tau = mel_spectrogram.shape[2]
 
     # Step 1 : Time warping
-    # warped_mel_spectrogram = time_warp(mel_spectrogram, W=time_warping_para)
-    warped_mel_spectrogram = mel_spectrogram
+    warped_mel_spectrogram = time_warp(mel_spectrogram, W=time_warping_para)
+    # warped_mel_spectrogram = mel_spectrogram
 
     # Step 2 : Frequency masking
     for i in range(frequency_mask_num):
@@ -110,19 +108,20 @@ def spec_augment(
         f0 = random.randint(0, v - f)
         warped_mel_spectrogram[:, f0 : f0 + f, :] = 0
 
-    # Step 3 : Time masking
-    for i in range(time_mask_num):
-        t = np.random.uniform(low=0.0, high=time_masking_para)
-        t = int(t)
-        if tau - t < 0:
-            continue
-        t0 = random.randint(0, tau - t)
-        warped_mel_spectrogram[:, :, t0 : t0 + t] = 0
+    # # Step 3 : Time masking
+    # for i in range(time_mask_num):
+    #     t = np.random.uniform(low=0.0, high=time_masking_para)
+    #     t = int(t)
+    #     if tau - t < 0:
+    #         continue
+    #     t0 = random.randint(0, tau - t)
+    #     warped_mel_spectrogram[:, :, t0 : t0 + t] = 0
 
     return warped_mel_spectrogram.squeeze()
 
 
 def visualization_spectrogram(mel_spectrogram, title):
+    import librosa.display
     import matplotlib
     matplotlib.use("TkAgg")
     import matplotlib.pyplot as plt
@@ -145,19 +144,25 @@ def visualization_spectrogram(mel_spectrogram, title):
     plt.tight_layout()
     plt.show()
 
-if __name__ == '__main__':
-    import matplotlib.pyplot as plt
-    x = np.array(np.arange(0,200,1) %10 ==0,dtype=np.float)
-    y = np.array(np.arange(0,101,1) %10 ==0,dtype=np.float)
+
+def build_grid_array():
+    x = np.array(np.arange(0, 200, 1) % 10 == 0, dtype=np.float)
+    y = np.array(np.arange(0, 101, 1) % 10 == 0, dtype=np.float)
     xx, yy = np.meshgrid(x, y, sparse=True)
     X = xx + yy
-    spect=torch.from_numpy(X)
-    # plt.imshow(X)
-    # plt.show()
-    # original = "../../original.wav"
-    # y = load_audio(original)
-    # y = torch.from_numpy()
-    # spect = calc_stft_librosa(y,16_000,0.02,0.01,'hamming')
+    spect = torch.from_numpy(X)
+    return spect
+
+
+if __name__ == '__main__':
+    # spect = build_grid_array()
+
+    original = "../../original.wav"
+    from data_related.data_utils import load_audio
+    from data_related.feature_extraction import calc_stft_librosa
+
+    y = load_audio(original)
+    spect = calc_stft_librosa(y,16_000,0.02,0.01,'hamming')
     # visualization_spectrogram(spect,'original')
-    spect = spec_augment(spect,time_warping_para=5)
-    visualization_spectrogram(spect,'augmented')
+    aug_spec = spec_augment(spect,time_warping_para=5)
+    visualization_spectrogram(aug_spec,'augmented')
