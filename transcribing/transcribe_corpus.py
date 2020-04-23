@@ -1,4 +1,5 @@
 import argparse
+import os
 
 import torch
 from tqdm import tqdm
@@ -46,6 +47,8 @@ def run_transcription(
 parser = argparse.ArgumentParser(description="args")
 parser.add_argument("--model", type=str,default='deepspeech_9.pth.tar')
 parser.add_argument("--datasets", type=str,nargs='+', default=['test-clean'])
+parser.add_argument("--batch-size", type=int, default=32)
+parser.add_argument("--out-dir", type=str, default='transcriptions')
 # fmt: on
 
 if __name__ == "__main__":
@@ -68,15 +71,17 @@ if __name__ == "__main__":
     target_decoder = GreedyDecoder(char2idx)
 
     asr_path = HOME + "/data/asr_data"
+    out_path = os.path.join(asr_path, args.out_dir)
+    os.makedirs(out_path, exist_ok=True)
     raw_data_path = asr_path + "/ENGLISH/LibriSpeech"
     samples = build_librispeech_corpus(
         raw_data_path, "_".join(args.datasets), args.datasets
     )
     samples = samples
 
-    test_dataset = CharSTTDataset(samples, conf=data_conf, audio_conf=audio_conf,)
-    test_loader = AudioDataLoader(test_dataset, batch_size=3, num_workers=4)
-    batches = run_transcription(
+    dataset = CharSTTDataset(samples, conf=data_conf, audio_conf=audio_conf, )
+    test_loader = AudioDataLoader(dataset, batch_size=args.batch_size, num_workers=4)
+    g = run_transcription(
         test_loader=test_loader,
         device=device,
         model=model,
@@ -85,6 +90,7 @@ if __name__ == "__main__":
         half=use_half,
     )
     # i = iter(g)
-    # batchs = [next(i) for _ in range(5)]
-    data_io.write_lines('hypos.txt', (h for hs,ts in batches for h in hs))
-    data_io.write_lines('targets.txt', (t for hs,ts in batches for t in ts))
+    # batches = [next(i) for _ in range(5)]
+    batches = list(g)
+    data_io.write_lines(os.path.join(out_path,'hypos.txt'), (h for hs,ts in batches for h in hs))
+    data_io.write_lines(os.path.join(out_path,'targets.txt'), (t for hs,ts in batches for t in ts))
