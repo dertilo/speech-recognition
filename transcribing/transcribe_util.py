@@ -8,13 +8,24 @@ from utils import BLANK_SYMBOL, SPACE, HOME
 from asr_checkpoint import load_evaluatable_checkpoint
 
 warnings.simplefilter("ignore")
-
+import torch.nn.functional as F
 from decoder import GreedyDecoder, DecoderConfig
 
 import torch
 
+def transcribe_batch(decoder, device, half:bool, input_len_proportions, inputs, model):
+    input_sizes = input_len_proportions.mul_(int(inputs.size(3))).int()
+    inputs = inputs.to(device)
+    if half:
+        inputs = inputs.half()
+    out, output_sizes = model(inputs, input_sizes)
+    probs = F.softmax(out, dim=-1)
+    decoded_output, _ = decoder.decode(probs, output_sizes)
+    return decoded_output, out, output_sizes
 
-def transcribe(audio_path, fe: AudioFeatureExtractor, model, decoder, device, use_half):
+def transcribe_single(
+    audio_path, fe: AudioFeatureExtractor, model, decoder, device, use_half
+):
     spect = fe.process(audio_path).contiguous()
     spect = spect.view(1, 1, spect.size(0), spect.size(1))
     spect = spect.to(device)
@@ -23,7 +34,8 @@ def transcribe(audio_path, fe: AudioFeatureExtractor, model, decoder, device, us
         spect = spect.half()
     input_sizes = torch.IntTensor([spect.size(3)]).int()
     out, output_sizes = model(spect, input_sizes)
-    decoded_output, decoded_offsets = decoder.decode(out, output_sizes)
+    probs = F.softmax(out, dim=-1)
+    decoded_output, decoded_offsets = decoder.decode(probs, output_sizes)
     return decoded_output, decoded_offsets
 
 
@@ -48,15 +60,17 @@ if __name__ == "__main__":
         + "/data/asr_data/ENGLISH/LibriSpeech/dev-other/8288/274162/8288-274162-0016.flac"
     )
 
-    model,data_conf,audio_conf = load_evaluatable_checkpoint(device, model_file, use_half)
+    model, data_conf, audio_conf = load_evaluatable_checkpoint(
+        device, model_file, use_half
+    )
 
     char2idx = dict([(data_conf.labels[i], i) for i in range(len(data_conf.labels))])
 
-    decoder = build_decoder(char2idx,use_beam_decoder)
+    decoder = build_decoder(char2idx, use_beam_decoder)
 
     audio_fe = AudioFeatureExtractor(audio_conf, [])
 
-    decoded_output, decoded_offsets = transcribe(
+    decoded_output, decoded_offsets = transcribe_single(
         audio_path=audio_file,
         fe=audio_fe,
         model=model,

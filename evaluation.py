@@ -11,7 +11,7 @@ from data_related.data_loader import AudioDataLoader
 from data_related.librispeech import build_librispeech_corpus
 from decoder import GreedyDecoder
 from metrics_calculation import calc_num_word_errors, calc_num_char_erros
-from transcribing.transcribe import build_decoder
+from transcribing.transcribe_util import build_decoder, transcribe_batch
 from utils import (
     reduce_tensor,
     calc_loss,
@@ -21,17 +21,6 @@ from utils import (
     USE_GPU,
 )
 from asr_checkpoint import load_evaluatable_checkpoint
-
-
-def transcribe_batch(decoder, device, half, input_percentages, inputs, model):
-    input_sizes = input_percentages.mul_(int(inputs.size(3))).int()
-    inputs = inputs.to(device)
-    if half:
-        inputs = inputs.half()
-    out, output_sizes = model(inputs, input_sizes)
-    probs = F.softmax(out, dim=-1)
-    decoded_output, _ = decoder.decode(probs, output_sizes)
-    return decoded_output, out, output_sizes
 
 
 def evaluate(
