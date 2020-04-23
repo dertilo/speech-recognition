@@ -9,11 +9,11 @@ from asr_checkpoint import load_evaluatable_checkpoint
 
 warnings.simplefilter("ignore")
 import torch.nn.functional as F
-from decoder import GreedyDecoder, DecoderConfig
+from decoder import GreedyDecoder, DecoderConfig, Decoder
 
 import torch
 
-def transcribe_batch(decoder, device, half:bool, input_len_proportions, inputs, model):
+def transcribe_batch(decoder:Decoder, device, half:bool, input_len_proportions, inputs, model):
     input_sizes = input_len_proportions.mul_(int(inputs.size(3))).int()
     inputs = inputs.to(device)
     if half:
