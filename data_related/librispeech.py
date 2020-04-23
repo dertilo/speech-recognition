@@ -9,12 +9,12 @@ from data_related.processing_corpora import process_samples
 from utils import HOME, BLANK_SYMBOL, SPACE
 
 
-def load_samples(file: str, base_path: str):
+def load_samples(file: str, base_path: str) -> List[Sample]:
     def process(d):
-        split_str = 'asr_data/'
-        if split_str in d['audio_file']: # TODO(tilo):only for backward compatibility
-            _,s = d["audio_file"].split(split_str)
-            p,_ = base_path.split(split_str)
+        split_str = "asr_data/"
+        if split_str in d["audio_file"]:  # TODO(tilo):only for backward compatibility
+            _, s = d["audio_file"].split(split_str)
+            p, _ = base_path.split(split_str)
             file = os.path.join(p, split_str, s)
         else:
             file = os.path.join(base_path, d["audio_file"])
@@ -24,11 +24,13 @@ def load_samples(file: str, base_path: str):
     return [process(d) for d in data_io.read_jsonl(file)]
 
 
-def build_librispeech_corpus(raw_data_path, name: str, folders: List[str]):
+def build_librispeech_corpus(
+    raw_data_path, name: str, folders: List[str]
+) -> List[Sample]:
     file = raw_data_path + "/%s_sorted_samples.jsonl" % name
 
     if os.path.isfile(file):
-        print('loading processed samples from %s'%file)
+        print("loading processed samples from %s" % file)
         samples = load_samples(file, raw_data_path)
     else:
         corpus = {
@@ -43,6 +45,7 @@ def build_librispeech_corpus(raw_data_path, name: str, folders: List[str]):
 
     return samples
 
+
 # fmt: off
 LIBRI_VOCAB = [BLANK_SYMBOL, "'", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
           "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", SPACE]
@@ -51,10 +54,12 @@ LIBRI_VOCAB = [BLANK_SYMBOL, "'", "A", "B", "C", "D", "E", "F", "G", "H", "I", "
 
 if __name__ == "__main__":
     datasets = [
-        ("train", ["train-clean-100", "train-clean-360", "train-other-500"]),
+        # ("train", ["train-clean-100", "train-clean-360", "train-other-500"]),
         ("eval", ["dev-clean", "dev-other"]),
-        ("test", ["test-clean", "test-other"]),
+        # ("test", ["test-clean", "test-other"]),
     ]
     for name, folders in datasets:
-        samples = build_librispeech_corpus(HOME+'/data/asr_data/ENGLISH/LibriSpeech',name,folders)
-        print('got %d samples'%len(samples))
+        samples = build_librispeech_corpus(
+            HOME + "/data/asr_data/ENGLISH/LibriSpeech", name, folders
+        )
+        print("got %d samples" % len(samples))
