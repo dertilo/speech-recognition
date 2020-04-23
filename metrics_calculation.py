@@ -1,7 +1,7 @@
 import Levenshtein
 
 
-def calc_wer(s1:str, s2:str):
+def calc_num_word_errors(s1:str, s2:str)->int:
     def tokenize(s):
         return s.split()
 
@@ -14,6 +14,6 @@ def calc_wer(s1:str, s2:str):
     w2 = [chr(token2idx[w]) for w in s2.split()]
     return Levenshtein.distance("".join(w1), "".join(w2))
 
-def calc_cer(s1:str, s2:str):
+def calc_num_char_erros(s1:str, s2:str):
     s1, s2, = s1.replace(" ", ""), s2.replace(" ", "") # TODO(tilo): why removing spaces?
     return Levenshtein.distance(s1, s2)

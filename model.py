@@ -239,7 +239,6 @@ class DeepSpeech(nn.Module):
 
         x = self.fc(x)
         x = x.transpose(0, 1)
-        # identity in training mode, softmax in eval mode
         return x, output_lengths
 
     def get_seq_lens(self, input_length):
