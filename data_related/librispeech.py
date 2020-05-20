@@ -2,10 +2,11 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import os
 from typing import List
+from tqdm import tqdm
 from util import data_io
 from corpora.librispeech import librispeech_corpus
+from data_related.audio_feature_extraction import get_length
 from data_related.audio_util import Sample
-from data_related.processing_corpora import process_samples
 from utils import HOME, BLANK_SYMBOL, SPACE
 
 
@@ -27,7 +28,7 @@ def load_samples(file: str, base_path: str) -> List[Sample]:
 def build_librispeech_corpus(
     raw_data_path, name: str, folders: List[str]
 ) -> List[Sample]:
-    file = raw_data_path + "/%s_sorted_samples.jsonl" % name
+    file = raw_data_path + "/%s_samples.jsonl.gz" % name
 
     if os.path.isfile(file):
         print("loading processed samples from %s" % file)
@@ -40,7 +41,10 @@ def build_librispeech_corpus(
         }
 
         assert len(corpus) > 0
-        samples = list(process_samples(corpus))
+        samples = [
+            Sample(audio_file, text, get_length(audio_file))
+            for audio_file, text in tqdm(corpus.items())
+        ]
         data_io.write_jsonl(file, (s._asdict() for s in samples))
 
     return samples
@@ -54,12 +58,18 @@ LIBRI_VOCAB = [BLANK_SYMBOL, "'", "A", "B", "C", "D", "E", "F", "G", "H", "I", "
 
 if __name__ == "__main__":
     datasets = [
-        # ("train", ["train-clean-100", "train-clean-360", "train-other-500"]),
+        ("train", ["train-clean-100", "train-clean-360", "train-other-500"]),
         ("eval", ["dev-clean", "dev-other"]),
-        # ("test", ["test-clean", "test-other"]),
+        ("test", ["test-clean", "test-other"]),
     ]
     for name, folders in datasets:
         samples = build_librispeech_corpus(
             HOME + "/data/asr_data/ENGLISH/LibriSpeech", name, folders
         )
-        print("got %d samples" % len(samples))
+        print("%s got %d samples" % (name,len(samples)))
+
+'''
+train got 25014 samples
+eval got 5567 samples
+test got 5559 samples
+'''
