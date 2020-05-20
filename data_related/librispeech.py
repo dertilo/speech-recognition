@@ -4,6 +4,7 @@ import os
 from typing import List
 from tqdm import tqdm
 from util import data_io
+from util.util_methods import process_with_threadpool
 from corpora.librispeech import librispeech_corpus
 from data_related.audio_feature_extraction import get_length
 from data_related.audio_util import Sample
@@ -41,10 +42,19 @@ def build_librispeech_corpus(
         }
 
         assert len(corpus) > 0
-        samples = [
-            Sample(audio_file, text, get_length(audio_file))
-            for audio_file, text in tqdm(corpus.items())
-        ]
+
+        def build_sample(audio_file, text):
+            return Sample(audio_file, text, get_length(audio_file))
+
+        samples = list(
+            tqdm(
+                process_with_threadpool(
+                    [{"audio_file": f, "text": t} for f, t in corpus.items()],
+                    build_sample,
+                    max_workers=10,
+                )
+            )
+        )
         data_io.write_jsonl(file, (s._asdict() for s in samples))
 
     return samples
@@ -66,10 +76,4 @@ if __name__ == "__main__":
         samples = build_librispeech_corpus(
             HOME + "/data/asr_data/ENGLISH/LibriSpeech", name, folders
         )
-        print("%s got %d samples" % (name,len(samples)))
-
-'''
-train got 25014 samples
-eval got 5567 samples
-test got 5559 samples
-'''
+        print("%s got %d samples" % (name, len(samples)))
