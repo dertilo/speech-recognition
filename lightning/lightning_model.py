@@ -6,11 +6,12 @@ from test_tube import HyperOptArgumentParser
 from collections import OrderedDict
 import torch as t
 import numpy as np
-
+import torch.nn.functional as F
 from data_related.audio_feature_extraction import AudioFeaturesConfig
 from data_related.char_stt_dataset import DataConfig, CharSTTDataset
 from data_related.librispeech import LIBRI_VOCAB, build_librispeech_corpus
 from model import DeepSpeech
+from utils import BLANK_SYMBOL
 
 
 class Params(NamedTuple):
@@ -34,30 +35,8 @@ class LitSTTModel(pl.LightningModule):
             bidirectional=hparams.bidirectional,
         )
 
-    def forward(self, feature, feature_length, target, target_length, cal_ce_loss=True):
-        (
-            output,
-            output_token,
-            spec_output,
-            feature_length,
-            ori_token,
-            ori_token_length,
-            ce_loss,
-            switch_loss,
-        ) = self.transformer.forward(
-            feature, feature_length, target, target_length, cal_ce_loss
-        )
-
-        return (
-            output,
-            output_token,
-            spec_output,
-            feature_length,
-            ori_token,
-            ori_token_length,
-            ce_loss,
-            switch_loss,
-        )
+    def forward(self, inputs, input_sizes):
+        return self.model(inputs, input_sizes)
 
     def decode(self, feature, feature_length, decode_type="greedy"):
         assert decode_type in ["greedy", "beam"]
@@ -67,124 +46,29 @@ class LitSTTModel(pl.LightningModule):
         return output
 
     def training_step(self, batch, batch_nb):
-        feature, feature_length, target, target_length = (
-            batch[0],
-            batch[1],
-            batch[2],
-            batch[3],
-        )
-        (
-            model_output,
-            output_token,
-            spec_output,
-            feature_length,
-            ori_token,
-            ori_token_length,
-            ce_loss,
-            switch_loss,
-        ) = self.forward(feature, feature_length, target, target_length, True)
-        ctc_loss = self.transformer.cal_ctc_loss(
-            spec_output, feature_length, ori_token, ori_token_length
-        )
-        loss = (
-            self.hparams.loss_lambda * ce_loss
-            + (1 - self.hparams.loss_lambda) * ctc_loss
-            + switch_loss / 2
-        )
+
+        inputs, targets, input_percentages, target_sizes = batch
+        input_sizes = input_percentages.mul_(int(inputs.size(3))).int()
+
+        out, output_sizes = self(inputs, input_sizes)
+
+        prob = F.log_softmax(out, -1)
+        ctc_loss = F.ctc_loss(
+            prob.transpose(0, 1), targets, input_sizes, output_sizes, blank=BLANK_INDEX, zero_infinity=True)
+
+        loss = ctc_loss / out.size(0)  # average the loss by minibatch
+
         tqdm_dict = {
             "train-loss": loss,
-            "ce": ce_loss,
-            "switch": switch_loss,
-            "lr": self.lr,
         }
         output = OrderedDict(
             {
                 "loss": loss,
-                "ce": ce_loss,
-                # 'ctc_loss': ctc_loss,
-                "switch": switch_loss,
                 "progress_bar": tqdm_dict,
                 "log": tqdm_dict,
             }
         )
         return output
-
-    def validation_step(self, batch, batch_nb):
-        feature, feature_length, target, target_length = (
-            batch[0],
-            batch[1],
-            batch[2],
-            batch[3],
-        )
-        (
-            model_output,
-            output_token,
-            spec_output,
-            feature_length,
-            ori_token,
-            ori_token_length,
-            ce_loss,
-            switch_loss,
-        ) = self.forward(feature, feature_length, target, target_length, True)
-        result_string_list = [
-            " ".join(tokenize(i))
-            for i in self.transformer.inference(feature, feature_length)
-        ]
-        target_string_list = [
-            " ".join(tokenize(self.transformer.vocab.id2string(i.tolist())))
-            for i in output_token
-        ]
-        print(result_string_list[0])
-        print(target_string_list[0])
-        mers = [
-            cal_wer(i[0], i[1]) for i in zip(target_string_list, result_string_list)
-        ]
-        mer = np.mean(mers)
-        ctc_loss = self.transformer.cal_ctc_loss(
-            spec_output, feature_length, ori_token, ori_token_length
-        )
-        loss = (
-            self.hparams.loss_lambda * ce_loss
-            + (1 - self.hparams.loss_lambda) * ctc_loss
-            + switch_loss / 2
-        )
-        tqdm_dict = {
-            "val-loss": loss,
-            "ce": ce_loss,
-            "switch": switch_loss,
-            "mer": mer,
-            "lr": self.lr,
-        }
-        output = OrderedDict(
-            {
-                "loss": loss,
-                "ce": ce_loss,
-                # 'ctc_loss': ctc_loss,
-                "switch": switch_loss,
-                "mer": mer,
-                "progress_bar": tqdm_dict,
-                "log": tqdm_dict,
-            }
-        )
-        return output
-
-    def validation_epoch_end(self, outputs):
-        val_loss = t.stack([i["loss"] for i in outputs]).mean()
-        ce_loss = t.stack([i["ce"] for i in outputs]).mean()
-        # ctc_loss = t.stack([i['ctc_loss'] for i in outputs]).mean()
-        switch_loss = t.stack([i["switch"] for i in outputs]).mean()
-        mer = np.mean([i["mer"] for i in outputs])
-        print("val_loss", val_loss.item())
-        print("ce", ce_loss.item())
-        # print('ctc', ctc_loss.item())
-        print("switch_loss", switch_loss.item())
-        print("mer", mer)
-        return {
-            "val_loss": val_loss,
-            "val_ce_loss": ce_loss,
-            "val_mer": mer,
-            "log": {"val_loss": val_loss, "val_ce_loss": ce_loss, "val_mer": mer},
-        }
 
     def train_dataloader(self):
         # dataloader = build_multi_dataloader(
@@ -218,38 +102,6 @@ class LitSTTModel(pl.LightningModule):
             batch_size=self.hparams.train_batch_size,
             num_workers=self.hparams.train_loader_num_workers,
             speed_perturb=True,
-            max_duration=15,
-        )
-        return dataloader
-
-    def val_dataloader(self):
-        # dataloader = build_multi_dataloader(
-        #     record_root='data/tfrecords/{}.tfrecord',
-        #     index_root='data/tfrecord_index/{}.index',
-        #     data_name_list=[
-        #         'magic_data_test_small_2852',
-        #         'data_aishell_test_small_589',
-        #         # 'c_500_test_small_2245',
-        #         'ce_20_dev_small_814'
-        #     ],
-        #     batch_size=self.hparams.train_batch_size,
-        #     num_workers=self.hparams.train_loader_num_workers
-        #
-        # )
-        dataloader = build_raw_data_loader(
-            [
-                data_path + "/lightning_manifests/dev-clean.csv",
-                data_path + "/lightning_manifests/dev-other.csv",
-                # 'data/manifest/ce_20_dev.csv',
-                # 'data/filterd_manifest/c_500_test.csv',
-                # 'data/manifest/ce_20_dev_small.csv',
-                # 'aishell2_testing/manifest1.csv',
-                # 'data/filterd_manifest/data_aishell_test.csv'
-            ],
-            vocab_path=self.hparams.vocab_path,
-            batch_size=self.hparams.train_batch_size,
-            num_workers=self.hparams.train_loader_num_workers,
-            speed_perturb=False,
             max_duration=15,
         )
         return dataloader
@@ -325,6 +177,7 @@ if __name__ == "__main__":
 
     train_dataset = CharSTTDataset(train_samples, conf=conf, audio_conf=audio_conf,)
     vocab_size = len(train_dataset.char2idx)
+    BLANK_INDEX = train_dataset.char2idx[BLANK_SYMBOL]
     audio_feature_dim = train_dataset.audio_fe.feature_dim
 
     litmodel = LitSTTModel(
