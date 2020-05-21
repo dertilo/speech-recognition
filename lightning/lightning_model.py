@@ -1,47 +1,37 @@
 import os
+from typing import NamedTuple
 
 import pytorch_lightning as pl
 from test_tube import HyperOptArgumentParser
 from collections import OrderedDict
 import torch as t
-from src.data_loader.load_data.build_data_loader import build_single_dataloader, build_multi_dataloader
-from src.data_loader.load_data.build_raw_loader import build_raw_data_loader
-from src.model.transformer.transformer import Transformer
-from src.utils.radam import AdamW, RAdam
-from src.utils.lookahead import Lookahead
-from src.utils.score import cal_wer
-from src.utils.tokenizer import tokenize
 import numpy as np
 
+from data_related.audio_feature_extraction import AudioFeaturesConfig
+from data_related.char_stt_dataset import DataConfig, CharSTTDataset
+from data_related.librispeech import LIBRI_VOCAB, build_librispeech_corpus
+from model import DeepSpeech
 
-class LightningModel(pl.LightningModule):
-    def __init__(self, hparams):
-        super(LightningModel, self).__init__()
+class Params(NamedTuple):
+    hidden_size:int
+    hidden_layers:int
+    audio_feature_dim:int
+    vocab_size:int
+    bidirectional:bool=True
+
+class LitSTTModel(pl.LightningModule):
+    def __init__(self, hparams:Params):
+        super().__init__()
         self.hparams = hparams
-        self.__build_model()
         self.lr = 0
-
-    def __build_model(self):
-        self.transformer = Transformer(
-            num_time_mask=self.hparams.num_time_mask,
-            num_freq_mask=self.hparams.num_freq_mask,
-            freq_mask_length=self.hparams.freq_mask_length,
-            time_mask_length=self.hparams.time_mask_length,
-            feature_dim=self.hparams.feature_dim,
-            model_size=self.hparams.model_size,
-            feed_forward_size=self.hparams.feed_forward_size,
-            hidden_size=self.hparams.hidden_size,
-            dropout=self.hparams.dropout,
-            num_head=self.hparams.num_head,
-            num_encoder_layer=self.hparams.num_encoder_layer,
-            num_decoder_layer=self.hparams.num_decoder_layer,
-            vocab_path=self.hparams.vocab_path,
-            max_feature_length=self.hparams.max_feature_length,
-            max_token_length=self.hparams.max_token_length,
-            enable_spec_augment=self.hparams.enable_spec_augment,
-            share_weight=self.hparams.share_weight,
-            smoothing=self.hparams.smoothing,
+        self.model = DeepSpeech(
+            hidden_size=hparams.hidden_size,
+            nb_layers=hparams.hidden_layers,
+            vocab_size=hparams.vocab_size,
+            input_feature_dim=hparams.audio_feature_dim,
+            bidirectional=hparams.bidirectional,
         )
+
 
     def forward(self, feature, feature_length, target, target_length, cal_ce_loss=True):
         output, output_token, spec_output, feature_length, ori_token, ori_token_length, ce_loss, switch_loss = self.transformer.forward(
@@ -225,3 +215,23 @@ class LightningModel(pl.LightningModule):
         parser.add_argument('--val_loader_num_workers', default=8, type=int)
 
         return parser
+
+
+if __name__ == '__main__':
+
+    HOME = os.environ["HOME"]
+    asr_path = HOME + "/data/asr_data"
+    raw_data_path = asr_path + "/ENGLISH/LibriSpeech"
+    conf = DataConfig(LIBRI_VOCAB)
+    audio_conf = AudioFeaturesConfig()
+    train_samples = build_librispeech_corpus(
+        raw_data_path,
+        "debug",
+        ["dev-clean"],
+    )
+
+    train_dataset = CharSTTDataset(train_samples, conf=conf, audio_conf=audio_conf,)
+    vocab_size = len(train_dataset.char2idx)
+    audio_feature_dim = train_dataset.audio_fe.feature_dim
+
+    litmodel = LitSTTModel(Params(hidden_size=64,hidden_layers=2,audio_feature_dim=audio_feature_dim,vocab_size=vocab_size))
