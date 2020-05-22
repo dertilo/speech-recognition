@@ -6,7 +6,6 @@ import torch
 from pytorch_lightning import Trainer
 from test_tube import HyperOptArgumentParser
 from collections import OrderedDict
-import torch as t
 import numpy as np
 import torch.nn.functional as F
 from torch import Tensor
@@ -81,21 +80,21 @@ class LitSTTModel(pl.LightningModule):
             # "debug",
             # ["dev-clean"],
         )
-        dataloader = AudioDataLoader(
+        dataloader = DataLoader(
             dataset,
             num_workers=self.hparams.num_workers,
-            batch_size=self.hparams.batch_size
-            # batch_sampler=train_sampler # TODO: is lightning providing this?
+            batch_size=self.hparams.batch_size,
+            collate_fn=_collate_fn
         )
         return dataloader
 
     def val_dataloader(self) -> Union[DataLoader, List[DataLoader]]:
         dataset = build_dataset("eval", ["dev-clean", "dev-other"])
-        dataloader = AudioDataLoader(
+        dataloader = DataLoader(
             dataset,
             num_workers=self.hparams.num_workers,
-            batch_size=self.hparams.batch_size
-            # batch_sampler=train_sampler # TODO: is lightning providing this?
+            batch_size=self.hparams.batch_size,
+            collate_fn = _collate_fn
         )
         return dataloader
 
@@ -234,15 +233,6 @@ def _collate_fn(batch):
     padded_target = pad_sequence(targets, batch_first=True)
 
     return inputs, padded_target, input_len_proportion, target_sizes
-
-
-class AudioDataLoader(DataLoader):
-    def __init__(self, *args, **kwargs):
-        """
-        Creates a data loader for AudioDatasets.
-        """
-        super().__init__(*args, **kwargs)
-        self.collate_fn = _collate_fn
 
 
 def build_dataset(name="debug", files=["dev-clean"]):
