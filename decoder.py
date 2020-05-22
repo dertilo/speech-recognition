@@ -133,7 +133,7 @@ class BeamCTCDecoder(Decoder):
         return strings, offsets
 
 
-def process_string(idx2char, blank_index, remove_repetitions, sequence, size):
+def process_string(idx2char, blank_index,sequence,size, remove_repetitions=False):
     string = ""
     offsets = []
     for i in range(size):
@@ -156,7 +156,7 @@ def process_string(idx2char, blank_index, remove_repetitions, sequence, size):
 
 
 def convert_to_strings(
-    idx2char, blank_index, remove_repetitions, return_offsets, sequences, sizes
+    idx2char, blank_index,sequences, remove_repetitions=False, return_offsets=False, sizes=None
 ):
     """Given a list of numeric sequences, returns the corresponding strings"""
     strings = []
@@ -185,15 +185,15 @@ class GreedyDecoder(Decoder):
         return convert_to_strings(
             self.idx2char,
             self.blank_index,
+            sequences,
             remove_repetitions,
             return_offsets,
-            sequences,
             sizes,
         )
 
     def process_string(self, sequence, size, remove_repetitions=False):
         return process_string(
-            self.idx2char, self.blank_index, remove_repetitions, sequence, size
+            self.idx2char, self.blank_index, sequence, size,remove_repetitions
         )
 
     def decode(self, probs, sizes=None):
