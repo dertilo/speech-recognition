@@ -25,10 +25,8 @@ def build_librispeech_corpus(
 ) -> List[Sample]:
     file = raw_data_path + "/%s_samples.jsonl.gz" % name
 
-    if os.path.isfile(file) and not reprocess:
-        print("loading processed samples from %s" % file)
-        samples = load_samples(file, raw_data_path)
-    else:
+    if not os.path.isfile(file) or reprocess:
+        print("preprocessing samples from file: %s" % file)
         corpus = {
             k: v
             for folder in folders
@@ -44,7 +42,7 @@ def build_librispeech_corpus(
                 get_length(audio_file),
             )
 
-        samples = list(
+        samples_to_dump = list(
             tqdm(
                 process_with_threadpool(  # TODO(tilo): still not sure whether this is necessary
                     [{"audio_file": f, "text": t} for f, t in corpus.items()],
@@ -53,7 +51,9 @@ def build_librispeech_corpus(
                 )
             )
         )
-        data_io.write_jsonl(file, (s._asdict() for s in samples))
+        data_io.write_jsonl(file, (s._asdict() for s in samples_to_dump))
+
+    samples = load_samples(file, raw_data_path)
 
     return samples
 
