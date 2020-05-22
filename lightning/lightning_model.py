@@ -70,7 +70,7 @@ class LitSTTModel(pl.LightningModule):
         out, output_sizes = self(inputs, input_sizes)
 
         loss = self.calc_loss(out, output_sizes, targets, target_sizes)
-        tqdm_dict = {"train-loss": loss}
+        tqdm_dict = {"train-loss": loss.item()}
         output = OrderedDict(
             {"loss": loss, "progress_bar": tqdm_dict, "log": tqdm_dict,}
         )
@@ -255,3 +255,26 @@ def build_dataset(name="debug", files=["dev-clean"]):
     samples = build_librispeech_corpus(raw_data_path, name, files,)
     dataset = CharSTTDataset(samples, conf=conf, audio_conf=audio_conf,)
     return dataset
+
+
+if __name__ == '__main__':
+
+    data_path = os.environ["HOME"] + "/data/asr_data/"
+
+    train_dataset = build_dataset()
+    vocab_size = len(train_dataset.char2idx)
+    BLANK_INDEX = train_dataset.char2idx[BLANK_SYMBOL]
+    audio_feature_dim = train_dataset.audio_fe.feature_dim
+
+    model = LitSTTModel(
+        Params(
+            hidden_size=1024,
+            hidden_layers=5,
+            audio_feature_dim=audio_feature_dim,
+            vocab_size=vocab_size,
+            batch_size=4,
+            num_workers=0,
+        )
+    )
+    trainer = Trainer(logger=False, checkpoint_callback=False, max_epochs=3)
+    trainer.fit(model)
