@@ -23,6 +23,23 @@ from utils import (
 from asr_checkpoint import load_evaluatable_checkpoint
 
 
+def calc_loss_value(args, criterion, device, out, output_sizes, target_sizes, targets):
+    if criterion is not None:
+        _, loss_value = calc_loss(
+            out,
+            output_sizes,
+            criterion,
+            targets,
+            target_sizes,
+            device,
+            args.distributed,
+            args.world_size,
+        )
+    else:
+        loss_value = 0
+    return loss_value
+
+
 def evaluate(
     test_loader,
     device,
@@ -34,6 +51,7 @@ def evaluate(
     save_output=False,
     verbose=False,
     half=False,
+    calc_loss_value_fun=calc_loss_value,
 ):
     model.eval()
     total_cer, total_wer, num_tokens, num_chars = 0, 0, 0, 0
@@ -41,60 +59,121 @@ def evaluate(
     output_data = []
     for i, (data) in tqdm(enumerate(test_loader), total=len(test_loader)):
         inputs, targets, input_percentages, target_sizes = data
-        decoded_output, out, output_sizes = transcribe_batch(
-            decoder, device, half, input_percentages, inputs, model
+
+        (
+            loss_value,
+            num_chars_step,
+            num_tokens_step,
+            total_cer_step,
+            total_wer_step,
+        ) = validation_step(
+            args,
+            calc_loss_value_fun,
+            criterion,
+            decoder,
+            device,
+            half,
+            input_percentages,
+            inputs,
+            model,
+            output_data,
+            save_output,
+            target_decoder,
+            target_sizes,
+            targets,
+            verbose,
         )
+        avg_loss += loss_value
+        num_chars += num_chars_step
+        num_tokens += num_tokens_step
+        total_cer += total_cer_step
+        total_wer += total_wer_step
 
-        if criterion is not None:
-            _, loss_value = calc_loss(
-                out,
-                output_sizes,
-                criterion,
-                targets,
-                target_sizes,
-                device,
-                args.distributed,
-                args.world_size,
-            )
-            avg_loss += loss_value
-
-        # unflatten targets
-        split_targets = []
-        offset = 0
-        for size in target_sizes:
-            split_targets.append(targets[offset : offset + size])
-            offset += size
-
-        target_strings = target_decoder.convert_to_strings(split_targets)
-
-        if save_output is not None:
-            # add output to data array, and continue
-            output_data.append(
-                (out.cpu().numpy(), output_sizes.numpy(), target_strings)
-            )
-        for x in range(len(target_strings)):
-            transcript, reference = decoded_output[x][0], target_strings[x][0]
-            wer_inst = calc_num_word_errors(transcript, reference)
-            cer_inst = calc_num_char_erros(transcript, reference)
-            total_wer += wer_inst
-            total_cer += cer_inst
-            num_tokens += len(reference.split())
-            num_chars += len(reference.replace(" ", ""))
-            if verbose:
-                print("Ref:", reference.lower())
-                print("Hyp:", transcript.lower())
-                print(
-                    "WER:",
-                    float(wer_inst) / len(reference.split()),
-                    "CER:",
-                    float(cer_inst) / len(reference.replace(" ", "")),
-                    "\n",
-                )
     wer = float(total_wer) / num_tokens
     cer = float(total_cer) / num_chars
     avg_loss /= i
     # print("avg valid loss %0.2f" % avg_loss)
     return wer * 100, cer * 100, avg_loss, output_data
+
+
+def validation_step(
+    args,
+    calc_loss_value_fun,
+    criterion,
+    decoder,
+    device,
+    half,
+    input_percentages,
+    inputs,
+    model,
+    output_data,
+    save_output,
+    target_decoder,
+    target_sizes,
+    targets,
+    verbose,
+):
+    decoded_output, out, output_sizes = transcribe_batch(
+        decoder, device, half, input_percentages, inputs, model
+    )
+    loss_value = calc_loss_value_fun(
+        args, criterion, device, out, output_sizes, target_sizes, targets
+    )
+    (num_chars_step, num_tokens_step, total_cer_step, total_wer_step,) = calc_errors(
+        decoded_output,
+        out,
+        output_data,
+        output_sizes,
+        save_output,
+        target_decoder,
+        target_sizes,
+        targets,
+        verbose,
+    )
+    return loss_value, num_chars_step, num_tokens_step, total_cer_step, total_wer_step
+
+
+def calc_errors(
+    decoded_output,
+    out,
+    output_data,
+    output_sizes,
+    save_output,
+    target_decoder,
+    target_sizes,
+    targets,
+    verbose,
+):
+    total_cer, total_wer, num_tokens, num_chars = 0, 0, 0, 0
+    # unflatten targets
+    split_targets = []
+    offset = 0
+    for size in target_sizes:
+        split_targets.append(targets[offset : offset + size])
+        offset += size
+    target_strings = target_decoder.convert_to_strings(split_targets)
+    if save_output is not None:
+        # add output to data array, and continue
+        output_data.append((out.cpu().numpy(), output_sizes.numpy(), target_strings))
+    for x in range(len(target_strings)):
+        transcript, reference = decoded_output[x][0], target_strings[x][0]
+        wer_inst = calc_num_word_errors(transcript, reference)
+        cer_inst = calc_num_char_erros(transcript, reference)
+        total_wer += wer_inst
+        total_cer += cer_inst
+        num_tokens += len(reference.split())
+        num_chars += len(reference.replace(" ", ""))
+        if verbose:
+            print("Ref:", reference.lower())
+            print("Hyp:", transcript.lower())
+            print(
+                "WER:",
+                float(wer_inst) / len(reference.split()),
+                "CER:",
+                float(cer_inst) / len(reference.replace(" ", "")),
+                "\n",
+            )
+    return num_chars, num_tokens, total_cer, total_wer
 
 
 # fmt: off
