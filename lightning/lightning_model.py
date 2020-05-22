@@ -30,7 +30,7 @@ class Params(NamedTuple):
     bidirectional: bool = True
     num_workers: int = 0
     batch_size: int = 4
-    lr:float=0.0003
+    lr: float = 0.0003
 
 
 class LitSTTModel(pl.LightningModule):
@@ -62,8 +62,7 @@ class LitSTTModel(pl.LightningModule):
 
     def training_step(self, batch, batch_nb):
 
-        inputs, targets, input_percentages, target_sizes = batch
-        input_sizes = input_percentages.mul_(int(inputs.size(3))).int()
+        inputs, targets, input_sizes, target_sizes = batch
 
         out, output_sizes = self(inputs, input_sizes)
 
@@ -76,7 +75,8 @@ class LitSTTModel(pl.LightningModule):
 
     def train_dataloader(self) -> Union[DataLoader, List[DataLoader]]:
         dataset = build_dataset(
-            "train-100", ["train-clean-100"]#, "train-clean-360", "train-other-500"]
+            "train-100",
+            ["train-clean-100"]  # , "train-clean-360", "train-other-500"]
             # "debug",
             # ["dev-clean"],
         )
@@ -84,7 +84,7 @@ class LitSTTModel(pl.LightningModule):
             dataset,
             num_workers=self.hparams.num_workers,
             batch_size=self.hparams.batch_size,
-            collate_fn=_collate_fn
+            collate_fn=_collate_fn,
         )
         return dataloader
 
@@ -94,12 +94,12 @@ class LitSTTModel(pl.LightningModule):
             dataset,
             num_workers=self.hparams.num_workers,
             batch_size=self.hparams.batch_size,
-            collate_fn = _collate_fn
+            collate_fn=_collate_fn,
         )
         return dataloader
 
     def calc_loss(
-            self,out, output_sizes, targets, target_sizes,
+        self, out, output_sizes, targets, target_sizes,
     ):
         prob = F.log_softmax(out, -1)
         ctc_loss = F.ctc_loss(
@@ -129,10 +129,10 @@ class LitSTTModel(pl.LightningModule):
         return total_wer, total_cer, num_tokens, num_chars
 
     def validation_step(self, batch: tuple, batch_nb: int, *args, **kwargs) -> Dict:
-        inputs, targets, input_percentages, target_sizes = batch
+        inputs, targets, input_sizes, target_sizes = batch
 
         decoded_output, out, output_sizes = transcribe_batch(
-            self.decoder, input_percentages, inputs, self.model
+            self.decoder, input_sizes, inputs, self.model
         )
         loss_value = self.calc_loss(out, output_sizes, targets, target_sizes).item()
         total_wer, total_cer, num_tokens, num_chars = self._calc_error(
@@ -197,8 +197,7 @@ class LitSTTModel(pl.LightningModule):
         return parser
 
 
-def transcribe_batch(decoder: Decoder, input_len_proportions, inputs, model):
-    input_sizes = input_len_proportions.mul_(int(inputs.size(3))).int()
+def transcribe_batch(decoder: Decoder, input_sizes, inputs, model):
     out, output_sizes = model(inputs, input_sizes)
     probs = F.softmax(out, dim=-1)
     decoded_output, _ = decoder.decode(probs, output_sizes)
@@ -206,33 +205,17 @@ def transcribe_batch(decoder: Decoder, input_len_proportions, inputs, model):
 
 
 def _collate_fn(batch):
-    def func(p):
-        return p[0].size(1)
-
-    batch = sorted(batch, key=lambda sample: sample[0].size(1), reverse=True)
-    longest_sample = max(batch, key=func)[0]
-    freq_size = longest_sample.size(0)
-    minibatch_size = len(batch)
-    max_seqlength = longest_sample.size(1)
-    inputs = torch.zeros(minibatch_size, 1, freq_size, max_seqlength)
-    input_len_proportion = torch.FloatTensor(minibatch_size)
-    target_sizes = torch.IntTensor(minibatch_size)
-    targets = []
-    for x in range(minibatch_size):
-        sample = batch[x]
-        tensor = sample[0]
-        target = sample[1]
-        seq_length = tensor.size(1)
-        inputs[x][0].narrow(1, 0, seq_length).copy_(tensor)
-        input_len_proportion[x] = seq_length / float(
-            max_seqlength
-        )  # TODO(tilo): why is this necessary?
-        target_sizes[x] = len(target)
-        targets.append(torch.IntTensor(target))
-
+    # batch = sorted(batch, key=lambda sample: sample[0].size(1), reverse=True) #TODO(tilo): why?
+    inputs, targets = [list(x) for x in zip(*batch)]
+    target_sizes = [len(t) for t in targets]
+    targets = [torch.IntTensor(target) for target in targets]
     padded_target = pad_sequence(targets, batch_first=True)
-
-    return inputs, padded_target, input_len_proportion, target_sizes
+    input_sizes = [x.size(1) for x in inputs]
+    padded_inputs = pad_sequence([i.transpose(1, 0) for i in inputs], batch_first=True)
+    padded_inputs = padded_inputs.unsqueeze(1).transpose(
+        3, 2
+    )  # DeepSpeech wants it like this
+    return padded_inputs, padded_target, input_sizes, target_sizes
 
 
 def build_dataset(name="debug", files=["dev-clean"]):
@@ -253,7 +236,7 @@ def load_model_from_lightning_checkpoint(file):
     return model, data_conf, audio_conf
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     data_path = os.environ["HOME"] + "/data/asr_data/"
 
@@ -264,8 +247,8 @@ if __name__ == '__main__':
 
     model = LitSTTModel(
         Params(
-            hidden_size=1024,
-            hidden_layers=5,
+            hidden_size=64,
+            hidden_layers=2,
             audio_feature_dim=audio_feature_dim,
             vocab_size=vocab_size,
             batch_size=4,
