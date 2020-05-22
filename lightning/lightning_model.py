@@ -30,7 +30,7 @@ class Params(NamedTuple):
     audio_feature_dim: int
     vocab_size: int
     bidirectional: bool = True
-    num_workers: int = 2
+    num_workers: int = 0
     batch_size: int = 4
 
 
@@ -77,7 +77,8 @@ class LitSTTModel(pl.LightningModule):
     def train_dataloader(self) -> Union[DataLoader, List[DataLoader]]:
         dataset = build_dataset(
             # "train", ["train-clean-100", "train-clean-360", "train-other-500"]
-            "debug", ["dev-clean"]
+            "debug",
+            ["dev-clean"],
         )
         dataloader = AudioDataLoader(
             dataset,
@@ -116,7 +117,7 @@ class LitSTTModel(pl.LightningModule):
         decoded_output, out, output_sizes = transcribe_batch(
             self.decoder, input_percentages, inputs, self.model
         )
-        loss_value = calc_loss(out, output_sizes, target_sizes, targets).item()
+        loss_value = calc_loss(out, output_sizes, targets, target_sizes).item()
         total_wer, total_cer, num_tokens, num_chars = self._calc_error(
             targets, decoded_output
         )
@@ -139,12 +140,28 @@ class LitSTTModel(pl.LightningModule):
 
     def validation_epoch_end(self, outputs: List[Dict]) -> Dict[str, Dict[str, Tensor]]:
 
-        # tqdm_dict = {"val_loss": val_loss_mean, "val_acc": val_acc_mean}
-        # result = {
-        #     "progress_bar": tqdm_dict,
-        #     "log": tqdm_dict,
-        #     "val_loss": val_loss_mean,
-        # }
+        sums = outputs[0]
+        for d in outputs[1:]:
+            for k, v in d.items():
+                if k not in ["log", "progress_bar"]:
+                    sums[k] += v
+
+        avg_wer = sums["wer"] / sums["num_tokens"]
+        avg_cer = sums["cer"] / sums["num_chars"]
+        val_loss_mean = sums["loss"] / len(outputs)
+        tqdm_dict = {
+            "val_loss": val_loss_mean,
+            "wer": avg_wer,
+            "cer": avg_cer,
+        }
+        result = {
+            "progress_bar": tqdm_dict,
+            "log": tqdm_dict,
+            "val_loss": val_loss_mean,
+            "wer": avg_wer,
+            "cer": avg_cer,
+        }
+
         return result
 
     def configure_optimizers(self):
