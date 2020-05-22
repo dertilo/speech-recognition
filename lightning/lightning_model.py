@@ -32,13 +32,14 @@ class Params(NamedTuple):
     bidirectional: bool = True
     num_workers: int = 0
     batch_size: int = 4
+    lr:float=0.0003
 
 
 class LitSTTModel(pl.LightningModule):
     def __init__(self, hparams: Params):
         super().__init__()
         self.hparams = hparams
-        self.lr = 0
+        self.lr = hparams.lr
         self.model = DeepSpeech(
             hidden_size=hparams.hidden_size,
             nb_layers=hparams.hidden_layers,
@@ -49,6 +50,7 @@ class LitSTTModel(pl.LightningModule):
         self.char2idx = dict([(l, i) for i, l in enumerate(LIBRI_VOCAB)])
         self.idx2char = {v: k for k, v in self.char2idx.items()}
         self.decoder = build_decoder(self.char2idx, use_beam_decoder=False)
+        self.BLANK_INDEX = self.char2idx[BLANK_SYMBOL]
 
     def forward(self, inputs, input_sizes):
         return self.model(inputs, input_sizes)
@@ -67,7 +69,7 @@ class LitSTTModel(pl.LightningModule):
 
         out, output_sizes = self(inputs, input_sizes)
 
-        loss = calc_loss(out, output_sizes, targets, target_sizes)
+        loss = self.calc_loss(out, output_sizes, targets, target_sizes)
         tqdm_dict = {"train-loss": loss}
         output = OrderedDict(
             {"loss": loss, "progress_bar": tqdm_dict, "log": tqdm_dict,}
@@ -76,9 +78,9 @@ class LitSTTModel(pl.LightningModule):
 
     def train_dataloader(self) -> Union[DataLoader, List[DataLoader]]:
         dataset = build_dataset(
-            # "train", ["train-clean-100", "train-clean-360", "train-other-500"]
-            "debug",
-            ["dev-clean"],
+            "train", ["train-clean-100"]#, "train-clean-360", "train-other-500"]
+            # "debug",
+            # ["dev-clean"],
         )
         dataloader = AudioDataLoader(
             dataset,
@@ -97,6 +99,23 @@ class LitSTTModel(pl.LightningModule):
             # batch_sampler=train_sampler # TODO: is lightning providing this?
         )
         return dataloader
+
+    def calc_loss(
+            self,out, output_sizes, targets, target_sizes,
+    ):
+        prob = F.log_softmax(out, -1)
+        ctc_loss = F.ctc_loss(
+            prob.transpose(0, 1),
+            targets,
+            output_sizes,
+            target_sizes,
+            blank=self.BLANK_INDEX,
+            zero_infinity=True,
+        )
+
+        batch_size = out.size(0)
+        loss = ctc_loss / batch_size  # average the loss by minibatch
+        return loss
 
     def _calc_error(self, targets, decoded_output):
         target_strings = convert_to_strings(
@@ -117,7 +136,7 @@ class LitSTTModel(pl.LightningModule):
         decoded_output, out, output_sizes = transcribe_batch(
             self.decoder, input_percentages, inputs, self.model
         )
-        loss_value = calc_loss(out, output_sizes, targets, target_sizes).item()
+        loss_value = self.calc_loss(out, output_sizes, targets, target_sizes).item()
         total_wer, total_cer, num_tokens, num_chars = self._calc_error(
             targets, decoded_output
         )
@@ -188,24 +207,6 @@ def transcribe_batch(decoder: Decoder, input_len_proportions, inputs, model):
     return decoded_output, out, output_sizes
 
 
-def calc_loss(
-    out, output_sizes, targets, target_sizes,
-):
-    prob = F.log_softmax(out, -1)
-    ctc_loss = F.ctc_loss(
-        prob.transpose(0, 1),
-        targets,
-        output_sizes,
-        target_sizes,
-        blank=BLANK_INDEX,
-        zero_infinity=True,
-    )
-
-    batch_size = out.size(0)
-    loss = ctc_loss / batch_size  # average the loss by minibatch
-    return loss
-
-
 def _collate_fn(batch):
     def func(p):
         return p[0].size(1)
@@ -251,26 +252,6 @@ def build_dataset(name="debug", files=["dev-clean"]):
     raw_data_path = asr_path + "/ENGLISH/LibriSpeech"
     conf = DataConfig(LIBRI_VOCAB)
     audio_conf = AudioFeaturesConfig()
-    samples = build_librispeech_corpus(raw_data_path, name, files,)[:32]
+    samples = build_librispeech_corpus(raw_data_path, name, files,)
     dataset = CharSTTDataset(samples, conf=conf, audio_conf=audio_conf,)
     return dataset
-
-
-if __name__ == "__main__":
-
-    train_dataset = build_dataset()
-    vocab_size = len(train_dataset.char2idx)
-    BLANK_INDEX = train_dataset.char2idx[BLANK_SYMBOL]
-    audio_feature_dim = train_dataset.audio_fe.feature_dim
-
-    litmodel = LitSTTModel(
-        Params(
-            hidden_size=64,
-            hidden_layers=2,
-            audio_feature_dim=audio_feature_dim,
-            vocab_size=vocab_size,
-        )
-    )
-
-    trainer = Trainer(logger=False, checkpoint_callback=False, max_epochs=3)
-    trainer.fit(litmodel)
