@@ -75,8 +75,8 @@ class LitSTTModel(pl.LightningModule):
 
     def train_dataloader(self) -> Union[DataLoader, List[DataLoader]]:
         dataset = build_dataset(
-            "train-100",
-            ["train-clean-100"]  # , "train-clean-360", "train-other-500"]
+            "train",
+            ["train-clean-100", "train-clean-360", "train-other-500"]
             # "debug",
             # ["dev-clean"],
         )
@@ -205,12 +205,14 @@ def transcribe_batch(decoder: Decoder, input_sizes, inputs, model):
 
 
 def _collate_fn(batch):
-    # batch = sorted(batch, key=lambda sample: sample[0].size(1), reverse=True) #TODO(tilo): why?
+    batch = sorted(
+        batch, key=lambda sample: sample[0].size(1), reverse=True
+    )  # why? cause "nn.utils.rnn.pack_padded_sequence" want it like this!
     inputs, targets = [list(x) for x in zip(*batch)]
-    target_sizes = [len(t) for t in targets]
+    target_sizes = torch.LongTensor([len(t) for t in targets])
     targets = [torch.IntTensor(target) for target in targets]
     padded_target = pad_sequence(targets, batch_first=True)
-    input_sizes = [x.size(1) for x in inputs]
+    input_sizes = torch.LongTensor([x.size(1) for x in inputs])
     padded_inputs = pad_sequence([i.transpose(1, 0) for i in inputs], batch_first=True)
     padded_inputs = padded_inputs.unsqueeze(1).transpose(
         3, 2
