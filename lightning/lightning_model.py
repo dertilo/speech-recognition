@@ -17,7 +17,6 @@ from data_related.audio_feature_extraction import AudioFeaturesConfig
 from data_related.char_stt_dataset import DataConfig, CharSTTDataset
 from data_related.librispeech import LIBRI_VOCAB, build_librispeech_corpus
 from decoder import Decoder, convert_to_strings
-from evaluation import validation_step, calc_errors
 from metrics_calculation import calc_num_word_errors, calc_num_char_erros
 from model import DeepSpeech
 from transcribing.transcribe_util import build_decoder
@@ -255,6 +254,13 @@ def build_dataset(name="debug", files=["dev-clean"]):
     samples = build_librispeech_corpus(raw_data_path, name, files,)
     dataset = CharSTTDataset(samples, conf=conf, audio_conf=audio_conf,)
     return dataset
+
+
+def load_model_from_lightning_checkpoint(file):
+    model: DeepSpeech = LitSTTModel.load_from_checkpoint(file).model.eval()
+    data_conf = DataConfig(LIBRI_VOCAB)
+    audio_conf = AudioFeaturesConfig()
+    return model, data_conf, audio_conf
 
 
 if __name__ == '__main__':
