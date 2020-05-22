@@ -24,10 +24,9 @@ from utils import BLANK_SYMBOL, SPACE
 
 
 class Decoder(object):
-
-    def __init__(self, char2idx:Dict[str,int]):
+    def __init__(self, char2idx: Dict[str, int]):
         self.char2idx = char2idx
-        self.idx2char = {v:k for k,v in char2idx.items()}
+        self.idx2char = {v: k for k, v in char2idx.items()}
         self.blank_index = char2idx[BLANK_SYMBOL]
         self.space_index = char2idx[SPACE]
 
@@ -45,15 +44,17 @@ class Decoder(object):
         """
         raise NotImplementedError
 
+
 class DecoderConfig(NamedTuple):
-    lm_path:str = None
-    alpha:float = 0
-    beta:float = 0
-    cutoff_top_n:int = 40
-    cutoff_prob:float = 1.0
-    beam_width:int = 10
-    num_processes:int = 4
-    blank_index:int = 0
+    lm_path: str = None
+    alpha: float = 0
+    beta: float = 0
+    cutoff_top_n: int = 40
+    cutoff_prob: float = 1.0
+    beam_width: int = 10
+    num_processes: int = 4
+    blank_index: int = 0
+
 
 class BeamCTCDecoder(Decoder):
     def __init__(
@@ -132,6 +133,48 @@ class BeamCTCDecoder(Decoder):
         return strings, offsets
 
 
+def process_string(idx2char, blank_index, remove_repetitions, sequence, size):
+    string = ""
+    offsets = []
+    for i in range(size):
+        char = idx2char[sequence[i].item()]
+        if char != idx2char[blank_index]:
+            # if this char is a repetition and remove_repetitions=true, then skip
+            if (
+                remove_repetitions
+                and i != 0
+                and char == idx2char[sequence[i - 1].item()]
+            ):
+                pass
+            elif char == SPACE:
+                string += " "
+                offsets.append(i)
+            else:
+                string = string + char
+                offsets.append(i)
+    return string, torch.tensor(offsets, dtype=torch.int)
+
+
+def convert_to_strings(
+    idx2char, blank_index, remove_repetitions, return_offsets, sequences, sizes
+):
+    """Given a list of numeric sequences, returns the corresponding strings"""
+    strings = []
+    offsets = [] if return_offsets else None
+    for x in xrange(len(sequences)):
+        seq_len = sizes[x] if sizes is not None else len(sequences[x])
+        string, string_offsets = process_string(
+            idx2char, blank_index, sequences[x], seq_len, remove_repetitions
+        )
+        strings.append([string])  # We only return one path
+        if return_offsets:
+            offsets.append([string_offsets])
+    if return_offsets:
+        return strings, offsets
+    else:
+        return strings
+
+
 class GreedyDecoder(Decoder):
     def __init__(self, char2idx):
         super(GreedyDecoder, self).__init__(char2idx)
@@ -139,42 +182,19 @@ class GreedyDecoder(Decoder):
     def convert_to_strings(
         self, sequences, sizes=None, remove_repetitions=False, return_offsets=False
     ):
-        """Given a list of numeric sequences, returns the corresponding strings"""
-        strings = []
-        offsets = [] if return_offsets else None
-        for x in xrange(len(sequences)):
-            seq_len = sizes[x] if sizes is not None else len(sequences[x])
-            string, string_offsets = self.process_string(
-                sequences[x], seq_len, remove_repetitions
-            )
-            strings.append([string])  # We only return one path
-            if return_offsets:
-                offsets.append([string_offsets])
-        if return_offsets:
-            return strings, offsets
-        else:
-            return strings
+        return convert_to_strings(
+            self.idx2char,
+            self.blank_index,
+            remove_repetitions,
+            return_offsets,
+            sequences,
+            sizes,
+        )
 
     def process_string(self, sequence, size, remove_repetitions=False):
-        string = ""
-        offsets = []
-        for i in range(size):
-            char = self.idx2char[sequence[i].item()]
-            if char != self.idx2char[self.blank_index]:
-                # if this char is a repetition and remove_repetitions=true, then skip
-                if (
-                    remove_repetitions
-                    and i != 0
-                    and char == self.idx2char[sequence[i - 1].item()]
-                ):
-                    pass
-                elif char == SPACE:
-                    string += " "
-                    offsets.append(i)
-                else:
-                    string = string + char
-                    offsets.append(i)
-        return string, torch.tensor(offsets, dtype=torch.int)
+        return process_string(
+            self.idx2char, self.blank_index, remove_repetitions, sequence, size
+        )
 
     def decode(self, probs, sizes=None):
         """
