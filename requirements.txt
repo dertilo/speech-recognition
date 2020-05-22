@@ -1,8 +1,10 @@
 python-levenshtein
-torch
+torch==1.4.0
 wget
-librosa
+# conda install -c -y conda-forge librosa
 tqdm
-tensorflow
-tensorflow-addons
 util@git+https://git@github.com/dertilo/util.git#egg=util
+pytorch_lightning==0.7.3
+mlflow
+test-tube
+torchaudio==0.4.0
