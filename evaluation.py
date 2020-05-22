@@ -178,13 +178,16 @@ def calc_errors(
 
 # fmt: off
 parser = argparse.ArgumentParser(description="args")
-parser.add_argument("--model", type=str,default='deepspeech_9.pth.tar')
+parser.add_argument("--model", type=str,default='libri_960_1024_32_11_04_2020/deepspeech_9.pth.tar')
 parser.add_argument("--datasets", type=str,nargs='+', default='test-clean')
 # fmt: on
 
 if __name__ == "__main__":
     """
-    python evaluation.py --model libri_960_1024_32/deepspeech_8.pth.tar --datasets test-clean
+    python evaluation.py --model libri_960_1024_32_11_04_2020/deepspeech_9.pth.tar --datasets test-clean
+    :returns 
+    BeamCTCDecoder: Test Summary    Average WER 8.936       Average CER 2.962
+    GreedyDecoder: Test Summary    Average WER 9.059       Average CER 2.998
     """
     args = parser.parse_args()
 
@@ -206,7 +209,6 @@ if __name__ == "__main__":
     samples = build_librispeech_corpus(
         raw_data_path, "_".join(args.datasets), args.datasets
     )
-    samples = samples
 
     test_dataset = CharSTTDataset(samples, conf=data_conf, audio_conf=audio_conf,)
     test_loader = AudioDataLoader(test_dataset, batch_size=20, num_workers=4)
