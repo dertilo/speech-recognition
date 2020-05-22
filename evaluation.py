@@ -5,11 +5,11 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from data_related.audio_feature_extraction import AudioFeaturesConfig
 from data_related.char_stt_dataset import CharSTTDataset, DataConfig
 from data_related.data_loader import AudioDataLoader
-from data_related.librispeech import build_librispeech_corpus
+from data_related.librispeech import build_librispeech_corpus, LIBRI_VOCAB
 from decoder import GreedyDecoder
+from lightning.lightning_model import load_model_from_lightning_checkpoint
 from metrics_calculation import calc_num_word_errors, calc_num_char_erros
 from transcribing.transcribe_util import build_decoder, transcribe_batch
 from utils import (
@@ -194,13 +194,21 @@ if __name__ == "__main__":
     torch.set_grad_enabled(False)
     device = torch.device("cuda" if USE_GPU else "cpu")
     use_half = False
-    model, data_conf, audio_conf = load_evaluatable_checkpoint(
-        device, HOME + "/data/asr_data/checkpoints/%s" % args.model, use_half
-    )
+    checkpoint_file = HOME + "/data/asr_data/checkpoints/%s" % args.model
+
+    if "lit" in checkpoint_file:
+        model, data_conf, audio_conf = load_model_from_lightning_checkpoint(
+            checkpoint_file
+        )
+        model = model.to(device)
+    else:
+        model, data_conf, audio_conf = load_evaluatable_checkpoint(
+            device, checkpoint_file, use_half
+        )
 
     char2idx = dict([(data_conf.labels[i], i) for i in range(len(data_conf.labels))])
 
-    decoder = build_decoder(char2idx, use_beam_decoder=True)
+    decoder = build_decoder(char2idx, use_beam_decoder=False)
 
     target_decoder = GreedyDecoder(char2idx)
 
