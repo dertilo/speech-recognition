@@ -6,15 +6,12 @@ import torch
 from pytorch_lightning import Trainer
 from test_tube import HyperOptArgumentParser
 from collections import OrderedDict
-import numpy as np
 import torch.nn.functional as F
 from torch import Tensor
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data.dataloader import DataLoader
 
-from data_related.audio_feature_extraction import AudioFeaturesConfig
-from data_related.char_stt_dataset import DataConfig, CharSTTDataset
-from data_related.librispeech import LIBRI_VOCAB, build_librispeech_corpus
+from data_related.librispeech import LIBRI_VOCAB, build_dataset
 from decoder import Decoder, convert_to_strings
 from metrics_calculation import calc_num_word_errors, calc_num_char_erros
 from model import DeepSpeech
@@ -75,8 +72,8 @@ class LitSTTModel(pl.LightningModule):
 
     def train_dataloader(self) -> Union[DataLoader, List[DataLoader]]:
         dataset = build_dataset(
-            "train",
-            ["train-clean-100", "train-clean-360", "train-other-500"]
+            "train-100",
+            ["train-clean-100"]#, "train-clean-360", "train-other-500"]
             # "debug",
             # ["dev-clean"],
         )
@@ -218,24 +215,6 @@ def _collate_fn(batch):
         3, 2
     )  # DeepSpeech wants it like this
     return padded_inputs, padded_target, input_sizes, target_sizes
-
-
-def build_dataset(name="debug", files=["dev-clean"]):
-    HOME = os.environ["HOME"]
-    asr_path = HOME + "/data/asr_data"
-    raw_data_path = asr_path + "/ENGLISH/LibriSpeech"
-    conf = DataConfig(LIBRI_VOCAB)
-    audio_conf = AudioFeaturesConfig()
-    samples = build_librispeech_corpus(raw_data_path, name, files,)
-    dataset = CharSTTDataset(samples, conf=conf, audio_conf=audio_conf,)
-    return dataset
-
-
-def load_model_from_lightning_checkpoint(file):
-    model: DeepSpeech = LitSTTModel.load_from_checkpoint(file).model.eval()
-    data_conf = DataConfig(LIBRI_VOCAB)
-    audio_conf = AudioFeaturesConfig()
-    return model, data_conf, audio_conf
 
 
 if __name__ == "__main__":

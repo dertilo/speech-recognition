@@ -7,8 +7,9 @@ from tqdm import tqdm
 from util import data_io
 from util.util_methods import process_with_threadpool
 from corpora.librispeech import librispeech_corpus
-from data_related.audio_feature_extraction import get_length
+from data_related.audio_feature_extraction import get_length, AudioFeaturesConfig
 from data_related.audio_util import Sample
+from data_related.char_stt_dataset import DataConfig, CharSTTDataset
 from utils import HOME, BLANK_SYMBOL, SPACE
 
 
@@ -57,6 +58,15 @@ def build_librispeech_corpus(
 
     return samples
 
+def build_dataset(name="debug", files=["dev-clean"]):
+    HOME = os.environ["HOME"]
+    asr_path = HOME + "/data/asr_data"
+    raw_data_path = asr_path + "/ENGLISH/LibriSpeech"
+    conf = DataConfig(LIBRI_VOCAB)
+    audio_conf = AudioFeaturesConfig()
+    samples = build_librispeech_corpus(raw_data_path, name, files,)
+    dataset = CharSTTDataset(samples, conf=conf, audio_conf=audio_conf,)
+    return dataset
 
 # fmt: off
 LIBRI_VOCAB = [BLANK_SYMBOL, "'", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
@@ -95,3 +105,5 @@ in .../test-other found 2939 audio-files
 test got 5559 samples
 took: 127.06 seconds
 """
+
+

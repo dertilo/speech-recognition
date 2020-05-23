@@ -7,7 +7,6 @@ from data_related.audio_feature_extraction import (
     AudioFeatureExtractor,
 )
 from data_related.audio_util import Sample
-from data_related.librispeech import build_librispeech_corpus
 from utils import HOME
 
 
@@ -21,7 +20,6 @@ MILLISECONDS_TO_SECONDS = 0.001
 
 
 def sort_samples_in_corpus(samples: List[Sample], min_len, max_len) -> List[Sample]:
-    print("sort samples by length")
     f_samples_g = filter(lambda s: s.length > min_len and s.length < max_len, samples)
     s_samples: List[Sample] = sorted(f_samples_g, key=lambda s: s.length)
     assert len(s_samples) > 0
@@ -61,6 +59,8 @@ class CharSTTDataset(Dataset):
 
 
 if __name__ == "__main__":
+    from data_related.librispeech import build_librispeech_corpus
+
     # fmt: off
     labels = ["_", "'","A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z"," "]
     # fmt: on
