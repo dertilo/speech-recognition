@@ -6,6 +6,7 @@ import torch.distributed as dist
 import torch.utils.data.distributed
 from apex import amp
 from apex.parallel import DistributedDataParallel
+from torch.nn.utils.rnn import pad_sequence
 from util import data_io
 
 from asr_checkpoint import build_checkpoint_package, load_trainable_checkpoint
@@ -18,13 +19,14 @@ from data_related.data_loader import (
     DistributedBucketingSampler,
     AudioDataLoader,
 )
-from data_related.librispeech import build_librispeech_corpus, LIBRI_VOCAB
+from data_related.librispeech import build_librispeech_corpus, LIBRI_VOCAB, \
+    build_dataset
 from decoder import GreedyDecoder
 from logger import TensorBoardLogger
 from model import DeepSpeech
 from evaluation import evaluate
 from train_util import train_one_epoch
-from utils import USE_GPU, BLANK_SYMBOL, HOME, set_seeds
+from utils import USE_GPU, BLANK_SYMBOL, HOME, set_seeds, unflatten_targets
 
 torch.manual_seed(123456)
 if USE_GPU:
@@ -56,30 +58,19 @@ class AverageMeter(object):
 
 def build_datasets():
 
-    HOME = os.environ["HOME"]
-    asr_path = HOME + "/data/asr_data"
-    raw_data_path = asr_path + "/ENGLISH/LibriSpeech"
-    conf = DataConfig(LIBRI_VOCAB)
-    audio_conf = AudioFeaturesConfig()
-    train_samples = build_librispeech_corpus(
-        raw_data_path,
-        "train",
-        ["train-clean-100", "train-clean-360", "train-other-500"],
+    train_dataset = build_dataset(
+        "train-100",
+        ["train-clean-100"]  # , "train-clean-360", "train-other-500"]
+        # "debug",
+        # ["dev-clean"],
     )
-
-    train_dataset = CharSTTDataset(train_samples, conf=conf, audio_conf=audio_conf,)
-    audio_conf = AudioFeaturesConfig()
-    eval_samples = build_librispeech_corpus(
-        raw_data_path, "eval", ["dev-clean", "dev-other"]
-    )
-
-    eval_dataset = CharSTTDataset(eval_samples, conf=conf, audio_conf=audio_conf,)
+    eval_dataset = build_dataset("eval", ["dev-clean", "dev-other"])
     return train_dataset, eval_dataset
 
 
 # fmt: off
 parser = argparse.ArgumentParser(description="multiproc_args")
-parser.add_argument("--id", type=str,required=True, help="experiment identifier")
+parser.add_argument("--id", type=str,default="debug", help="experiment identifier")
 parser.add_argument("--rank", default=0, type=int, help="The rank of this process")
 parser.add_argument("--gpu-rank", default=None, help="If using distributed parallel for multi-gpu, sets the GPU for the process")
 parser.add_argument("--world-size",type=int, default=0)
@@ -219,7 +210,9 @@ if __name__ == "__main__":
     # print(model)
     print("Number of parameters: %d" % DeepSpeech.get_param_size(model))
 
-    criterion = CTCLoss(blank=train_dataset.char2idx[BLANK_SYMBOL])
+    blank = train_dataset.char2idx[BLANK_SYMBOL]
+    # criterion = CTCLoss(blank=blank)
+    criterion = build_ctc_loss(blank=blank)
     batch_time = AverageMeter()
     data_time = AverageMeter()
 
