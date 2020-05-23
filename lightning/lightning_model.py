@@ -72,8 +72,8 @@ class LitSTTModel(pl.LightningModule):
 
     def train_dataloader(self) -> Union[DataLoader, List[DataLoader]]:
         dataset = build_dataset(
-            "train-100",
-            ["train-clean-100"]#, "train-clean-360", "train-other-500"]
+            "train",
+            ["train-clean-100", "train-clean-360", "train-other-500"]
             # "debug",
             # ["dev-clean"],
         )
@@ -105,6 +105,7 @@ class LitSTTModel(pl.LightningModule):
             output_sizes,
             target_sizes,
             blank=self.BLANK_INDEX,
+            reduction="sum",
             zero_infinity=True,
         )
 
