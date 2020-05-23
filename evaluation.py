@@ -1,24 +1,20 @@
 import argparse
-import torch.nn.functional as F
 
-import numpy as np
 import torch
 from tqdm import tqdm
 
+from data_related.audio_feature_extraction import AudioFeaturesConfig
 from data_related.char_stt_dataset import CharSTTDataset, DataConfig
 from data_related.data_loader import AudioDataLoader
 from data_related.librispeech import build_librispeech_corpus, LIBRI_VOCAB
 from decoder import GreedyDecoder
-from lightning.lightning_model import load_model_from_lightning_checkpoint
 from metrics_calculation import calc_num_word_errors, calc_num_char_erros
+from model import DeepSpeech
 from transcribing.transcribe_util import build_decoder, transcribe_batch
 from utils import (
-    reduce_tensor,
     calc_loss,
-    BLANK_SYMBOL,
-    SPACE,
     HOME,
-    USE_GPU,
+    USE_GPU, unflatten_targets,
 )
 from asr_checkpoint import load_evaluatable_checkpoint
 
@@ -145,12 +141,7 @@ def calc_errors(
     verbose,
 ):
     total_cer, total_wer, num_tokens, num_chars = 0, 0, 0, 0
-    # unflatten targets
-    split_targets = []
-    offset = 0
-    for size in target_sizes:
-        split_targets.append(targets[offset : offset + size])
-        offset += size
+    split_targets = unflatten_targets(targets, target_sizes)
     target_strings = target_decoder.convert_to_strings(split_targets)
     if save_output is not None:
         # add output to data array, and continue
@@ -197,6 +188,14 @@ if __name__ == "__main__":
     checkpoint_file = HOME + "/data/asr_data/checkpoints/%s" % args.model
 
     if "lit" in checkpoint_file:
+        from lightning.lightning_model import LitSTTModel
+        def load_model_from_lightning_checkpoint(file):
+            model: DeepSpeech = LitSTTModel.load_from_checkpoint(file).model.eval()
+            data_conf = DataConfig(LIBRI_VOCAB)
+            audio_conf = AudioFeaturesConfig()
+            return model, data_conf, audio_conf
+
+
         model, data_conf, audio_conf = load_model_from_lightning_checkpoint(
             checkpoint_file
         )

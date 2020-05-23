@@ -70,3 +70,12 @@ def set_seeds(seed):
         torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
     random.seed(seed)
+
+
+def unflatten_targets(targets, target_sizes):
+    split_targets = []
+    offset = 0
+    for size in target_sizes:
+        split_targets.append(targets[offset: offset + size])
+        offset += size
+    return split_targets
