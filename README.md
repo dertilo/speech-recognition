@@ -21,13 +21,22 @@ Implementation of DeepSpeech2 for PyTorch. Creates a network based on the [DeepS
     ```
 
 
-## Training
-
+## train
+* on hpc
+    ```shell script
+    module load comp
+    export PYTHONPATH=$HOME/SPEECH/speech-to-text:$HOME/SPEECH/speech-recognition:$HOME/UTIL/util`
+    python lightning/train_lightning.py
+    ```
+## evalute
+```shell script
+python evaluation.py --model libri_960_1024_32_11_04_2020/deepspeech_9.pth.tar --datasets test-clean
+```
 #### results
 * after 10 epochs and 24hours with Adam
 ```shell script
-    test-clean    Average WER 8.936       Average CER 2.962
-    test-other    Average WER 25.961      Average CER 11.192
+    test-clean    Average WER 9.042       Average CER 3.038
+    test-other    Average WER 26.233      Average CER 11.346
 ```
 
 
