@@ -1,3 +1,4 @@
+import argparse
 import os
 from typing import NamedTuple, Dict, Union, List
 
@@ -13,25 +14,15 @@ from torch.utils.data.dataloader import DataLoader
 
 from data_related.librispeech import LIBRI_VOCAB, build_dataset
 from decoder import Decoder, convert_to_strings
+from lightning.litutil import add_generic_args, build_args
 from metrics_calculation import calc_num_word_errors, calc_num_char_erros
 from model import DeepSpeech
 from transcribing.transcribe_util import build_decoder
 from utils import BLANK_SYMBOL
 
 
-class Params(NamedTuple):
-    hidden_size: int
-    hidden_layers: int
-    audio_feature_dim: int
-    vocab_size: int
-    bidirectional: bool = True
-    num_workers: int = 0
-    batch_size: int = 4
-    lr: float = 0.0003
-
-
 class LitSTTModel(pl.LightningModule):
-    def __init__(self, hparams: Params):
+    def __init__(self, hparams: argparse.Namespace):
         super().__init__()
         self.hparams = hparams
         self.lr = hparams.lr
@@ -188,10 +179,14 @@ class LitSTTModel(pl.LightningModule):
     @staticmethod
     def add_model_specific_args(parent_parser):
         parser = HyperOptArgumentParser(parents=[parent_parser])
-        parser.add_argument("--num_encoder_layer", default=6, type=int)
+        parser.add_argument("--hidden_layers", default=5, type=int)
         parser.add_argument("--lr", default=3e-4, type=float)
-        parser.add_argument("--train_batch_size", default=20, type=int)
-        parser.add_argument("--val_batch_size", default=20, type=int)
+        parser.add_argument("--batch_size", default=4, type=int)
+        parser.add_argument("--hidden_size", default=1024, type=int)
+        parser.add_argument("--num_workers", default=4, type=int)
+        parser.add_argument("--vocab_size", type=int)
+        parser.add_argument("--audio_feature_dim", type=int)
+        parser.add_argument("--bidirectional", default=True, type=bool)
         return parser
 
 
@@ -223,19 +218,19 @@ if __name__ == "__main__":
     data_path = os.environ["HOME"] + "/data/asr_data/"
 
     train_dataset = build_dataset()
-    vocab_size = len(train_dataset.char2idx)
-    BLANK_INDEX = train_dataset.char2idx[BLANK_SYMBOL]
-    audio_feature_dim = train_dataset.audio_fe.feature_dim
 
-    model = LitSTTModel(
-        Params(
-            hidden_size=64,
-            hidden_layers=2,
-            audio_feature_dim=audio_feature_dim,
-            vocab_size=vocab_size,
-            batch_size=4,
-            num_workers=0,
-        )
-    )
+    p = {
+        "save_path": "/tmp/mlflow_logs",
+        "n_gpu": 0,
+        "hidden_layers": 2,
+        "hidden_size": 64,
+        "num_workers": 0,
+    }
+    args = build_args(LitSTTModel, p)
+    args.vocab_size = len(train_dataset.char2idx)
+    # BLANK_INDEX = train_dataset.char2idx[BLANK_SYMBOL]
+    args.audio_feature_dim = train_dataset.audio_fe.feature_dim
+
+    model = LitSTTModel(args)
     trainer = Trainer(logger=False, checkpoint_callback=False, max_epochs=3)
     trainer.fit(model)
