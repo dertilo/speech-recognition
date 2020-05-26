@@ -5,7 +5,8 @@ from warnings import filterwarnings
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.trainer.trainer import Trainer
 
-from lightning.lightning_model import LitSTTModel, Params, build_dataset
+from lightning.lightning_model import LitSTTModel, Params
+from data_related.librispeech import build_dataset
 from utils import BLANK_SYMBOL
 
 filterwarnings("ignore")
@@ -29,7 +30,7 @@ if __name__ == "__main__":
             hidden_layers=5,
             audio_feature_dim=audio_feature_dim,
             vocab_size=vocab_size,
-            batch_size=64,
+            batch_size=32,
             num_workers=4,
         )
     )
