@@ -10,8 +10,6 @@ from fairseq.modules import VGGBlock, TransformerEncoderLayer
 from speech_recognition.data.data_utils import lengths_to_encoder_padding_mask
 from speech_recognition.models.asr_models_common import Linear
 
-from transformer_util import parse_transformer_context
-
 """:arg
 # based on fairseqs speech-recognition example
 """
@@ -271,12 +269,6 @@ class VGGTransformerEncoder(FairseqEncoder):
                     x, encoder_padding_mask, attn_mask
                 )
 
-                if self.transformer_sampling[transformer_layer_idx] != 1:
-                    sampling_factor = self.transformer_sampling[transformer_layer_idx]
-                    x, encoder_padding_mask, attn_mask = self.slice(
-                        x, encoder_padding_mask, attn_mask, sampling_factor
-                    )
-
                 transformer_layer_idx += 1
 
             else:
@@ -292,58 +284,6 @@ class VGGTransformerEncoder(FairseqEncoder):
             else None,
             # (B, T) --> (T, B)
         }
-
-    def parse_transformer_sampling(self, transformer_sampling, num_layers):
-        """
-        parsing transformer sampling configuration
-
-        Args:
-            - transformer_sampling, accepted input:
-                * None, indicating no sampling
-                * an Iterable with int (>0) as element
-            - num_layers, expected number of transformer layers, must match with
-              the length of transformer_sampling if it is not None
-
-        Returns:
-            - A tuple with length num_layers
-        """
-        if transformer_sampling is None:
-            return (1,) * num_layers
-
-        if not isinstance(transformer_sampling, Iterable):
-            raise ValueError(
-                "transformer_sampling must be an iterable if it is not None"
-            )
-
-        if len(transformer_sampling) != num_layers:
-            raise ValueError(
-                "transformer_sampling {} does not match with the number "
-                + "of layers {}".format(transformer_sampling, num_layers)
-            )
-
-        for layer, value in enumerate(transformer_sampling):
-            if not isinstance(value, int):
-                raise ValueError("Invalid value in transformer_sampling: ")
-            if value < 1:
-                raise ValueError(
-                    "{} layer's subsampling is {}.".format(layer, value)
-                    + " This is not allowed! "
-                )
-        return transformer_sampling
-
-    def slice(self, embedding, padding_mask, attn_mask, sampling_factor):
-        """
-        embedding is a (T, B, D) tensor
-        padding_mask is a (B, T) tensor or None
-        attn_mask is a (T, T) tensor or None
-        """
-        embedding = embedding[::sampling_factor, :, :]
-        if padding_mask is not None:
-            padding_mask = padding_mask[:, ::sampling_factor]
-        if attn_mask is not None:
-            attn_mask = attn_mask[::sampling_factor, ::sampling_factor]
-
-        return embedding, padding_mask, attn_mask
 
     def reorder_encoder_out(self, encoder_out, new_order):
         encoder_out["encoder_out"] = encoder_out["encoder_out"].index_select(
