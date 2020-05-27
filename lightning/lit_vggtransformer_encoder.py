@@ -12,7 +12,7 @@ from model import DeepSpeech
 filterwarnings("ignore")
 
 
-class LitDeepSpeech(LitSTTModel):
+class LitVGGTransformerEncoder(LitSTTModel):
     def _supply_trainset(self):# TODO(tilo) should this be an argument??
         dataset = build_dataset(
             "train-100",
@@ -83,13 +83,13 @@ if __name__ == "__main__":
         "num_workers": 0,
         "max_epochs": 1,
     }
-    args = build_args(LitDeepSpeech, p)
+    args = build_args(LitVGGTransformerEncoder, p)
 
     train_dataset = build_dataset()
     args.vocab_size = len(train_dataset.char2idx)
     # BLANK_INDEX = train_dataset.char2idx[BLANK_SYMBOL]
     args.audio_feature_dim = train_dataset.audio_fe.feature_dim
 
-    model = LitDeepSpeech(args)
+    model = LitVGGTransformerEncoder(args)
 
     generic_train(model, args)
