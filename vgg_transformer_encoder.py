@@ -100,6 +100,46 @@ DEFAULT_ENC_TRANSFORMER_CONFIG = ((256, 4, 1024, True, 0.2, 0.2, 0.2),) * 2
 # 0.2 (relu_dropout): dropout after ReLu
 
 
+def build_vggblock(in_channels, input_feat_per_channel, vggblock_config):
+    input_dim = input_feat_per_channel
+    inin_channels = in_channels
+    conv_layers = nn.ModuleList()
+    if vggblock_config is not None:
+        for (
+            out_channels,
+            conv_kernel_size,
+            pooling_kernel_size,
+            num_conv_layers,
+            layer_norm,
+        ) in vggblock_config:
+            conv_layers.append(
+                VGGBlock(
+                    in_channels,
+                    out_channels,
+                    conv_kernel_size,
+                    pooling_kernel_size,
+                    num_conv_layers,
+                    input_dim=input_feat_per_channel,
+                    layer_norm=layer_norm,
+                )
+            )
+            in_channels = out_channels
+            input_feat_per_channel = conv_layers[-1].output_dim
+
+    def infer_conv_output_dim(in_channels, input_dim):  # TODO(tilo): WTF!
+        sample_seq_len = 200
+        sample_bsz = 10
+        x = torch.randn(sample_bsz, in_channels, sample_seq_len, input_dim)
+        for i, _ in enumerate(conv_layers):
+            x = conv_layers[i](x)
+        x = x.transpose(1, 2)
+        mb, seq = x.size()[:2]
+        return x.contiguous().view(mb, seq, -1).size(-1)
+
+    transformer_input_dim = infer_conv_output_dim(inin_channels, input_dim)
+    return conv_layers, transformer_input_dim
+
+
 class VGGTransformerEncoder(FairseqEncoder):
     """VGG + Transformer encoder"""
 
@@ -136,9 +176,11 @@ class VGGTransformerEncoder(FairseqEncoder):
 
         self.in_channels = in_channels
         self.input_dim = input_feat_per_channel
-        self.conv_layers, transformer_input_dim = self.build_vggblock(
+        self.conv_layers, transformer_input_dim = build_vggblock(
             in_channels, input_feat_per_channel, vggblock_config
         )
+        self.num_vggblocks = len(vggblock_config)
+
         # transformer_input_dim is the output dimension of VGG part
 
         self.validate_transformer_config(transformer_config)
@@ -177,47 +219,6 @@ class VGGTransformerEncoder(FairseqEncoder):
                 LayerNorm(encoder_output_dim),
             ]
         )
-
-    def build_vggblock(self, in_channels, input_feat_per_channel, vggblock_config):
-        self.num_vggblocks = len(vggblock_config)
-        input_dim = input_feat_per_channel
-        inin_channels = in_channels
-        conv_layers = nn.ModuleList()
-        if vggblock_config is not None:
-            for _, config in enumerate(vggblock_config):
-                (
-                    out_channels,
-                    conv_kernel_size,
-                    pooling_kernel_size,
-                    num_conv_layers,
-                    layer_norm,
-                ) = config
-                conv_layers.append(
-                    VGGBlock(
-                        in_channels,
-                        out_channels,
-                        conv_kernel_size,
-                        pooling_kernel_size,
-                        num_conv_layers,
-                        input_dim=input_feat_per_channel,
-                        layer_norm=layer_norm,
-                    )
-                )
-                in_channels = out_channels
-                input_feat_per_channel = conv_layers[-1].output_dim
-
-        def infer_conv_output_dim(in_channels, input_dim):  # TODO(tilo): WTF!
-            sample_seq_len = 200
-            sample_bsz = 10
-            x = torch.randn(sample_bsz, in_channels, sample_seq_len, input_dim)
-            for i, _ in enumerate(conv_layers):
-                x = conv_layers[i](x)
-            x = x.transpose(1, 2)
-            mb, seq = x.size()[:2]
-            return x.contiguous().view(mb, seq, -1).size(-1)
-
-        transformer_input_dim = infer_conv_output_dim(inin_channels, input_dim)
-        return conv_layers, transformer_input_dim
 
     def forward(self, src_tokens, src_lengths, **kwargs):
         """
