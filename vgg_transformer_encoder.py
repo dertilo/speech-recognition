@@ -12,6 +12,7 @@ from fairseq.modules import VGGBlock, TransformerEncoderLayer
 # based on fairseqs speech-recognition example
 """
 
+
 def lengths_to_encoder_padding_mask(lengths, batch_first=False):
     """
     convert lengths (a 1-D Long/Int tensor) to 2-D binary tensor
@@ -46,6 +47,7 @@ def lengths_to_encoder_padding_mask(lengths, batch_first=False):
         return encoder_padding_mask.t(), max_lengths
     else:
         return encoder_padding_mask, max_lengths
+
 
 class TransformerLayerConfig(NamedTuple):
     input_dim: int
@@ -193,8 +195,10 @@ def validate_transformer_config(transformer_config):
             )
             raise ValueError(msg)
 
+
 def Linear(in_features, out_features, bias=True):
     return nn.Linear(in_features, out_features, bias=bias)
+
 
 def build_transformer_encoder(
     encoder_output_dim, tfcs: List[TransformerLayerConfig], transformer_input_dim
@@ -217,7 +221,6 @@ def build_transformer_encoder(
 
 
 class VGGTransformerEncoder(nn.Module):
-
     def __init__(
         self,
         vocab_size,
@@ -241,9 +244,11 @@ class VGGTransformerEncoder(nn.Module):
             [TransformerLayerConfig(*p) for p in transformer_config],
             transformer_input_dim,
         )
-        self.fc_out = nn.Linear(self.encoder_output_dim, vocab_size)# bias=True TODO(tilo) why should this have a bias??
+        self.fc_out = nn.Linear(
+            self.encoder_output_dim, vocab_size
+        )  # bias=True TODO(tilo) why should this have a bias??
 
-    def forward(self, src_tokens, src_lengths, **kwargs):
+    def forward(self, src_tokens, src_lengths):
         """
         src_tokens: padded tensor (B, T, C * feat)
         src_lengths: tensor of original lengths of input utterances (B,)
@@ -272,18 +277,10 @@ class VGGTransformerEncoder(nn.Module):
         if not encoder_padding_mask.any():
             encoder_padding_mask = None
 
-        attn_mask = None
-
-        transformer_layer_idx = 0
-
         for layer_idx in range(len(self.transformer_layers)):
 
             if isinstance(self.transformer_layers[layer_idx], TransformerEncoderLayer):
-                x = self.transformer_layers[layer_idx](
-                    x, encoder_padding_mask, attn_mask
-                )
-
-                transformer_layer_idx += 1
+                x = self.transformer_layers[layer_idx](x, encoder_padding_mask)
 
             else:
                 x = self.transformer_layers[layer_idx](x)
@@ -292,7 +289,7 @@ class VGGTransformerEncoder(nn.Module):
         # whether encoder_output[t, b] is valid or not (valid=0, invalid=1)
 
         probas = self.fc_out(x)
-        return probas,input_lengths
+        return probas, input_lengths
 
     def reorder_encoder_out(self, encoder_out, new_order):
         encoder_out["encoder_out"] = encoder_out["encoder_out"].index_select(
