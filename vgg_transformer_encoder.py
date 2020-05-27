@@ -216,42 +216,18 @@ def build_transformer_encoder(
     return layers
 
 
-class VGGTransformerEncoder(FairseqEncoder):
-    """VGG + Transformer encoder"""
+class VGGTransformerEncoder(nn.Module):
 
     def __init__(
         self,
+        vocab_size,
         input_feat_per_channel,
         vggblock_config=DEFAULT_ENC_VGGBLOCK_CONFIG,
         transformer_config=DEFAULT_ENC_TRANSFORMER_CONFIG,
         encoder_output_dim=512,
         in_channels=1,
-        transformer_context=None,
-        transformer_sampling=None,
     ):
-        """constructor for VGGTransformerEncoder
-
-        Args:
-            - input_feat_per_channel: feature dim (not including stacked,
-              just base feature)
-            - in_channel: # input channels (e.g., if stack 8 feature vector
-                together, this is 8)
-            - vggblock_config: configuration of vggblock, see comments on
-                DEFAULT_ENC_VGGBLOCK_CONFIG
-            - transformer_config: configuration of transformer layer, see comments
-                on DEFAULT_ENC_TRANSFORMER_CONFIG
-            - encoder_output_dim: final transformer output embedding dimension
-            - transformer_context: (left, right) if set, self-attention will be focused
-              on (t-left, t+right)
-            - transformer_sampling: an iterable of int, must match with
-              len(transformer_config), transformer_sampling[i] indicates sampling
-              factor for i-th transformer layer, after multihead att and feedfoward
-              part
-        """
-        assert transformer_context is None  # TODO(tilo) what are they good for?
-        assert transformer_sampling is None
-        super().__init__(None)
-
+        super().__init__()
         self.in_channels = in_channels
         self.input_dim = input_feat_per_channel
         self.conv_layers, transformer_input_dim = build_vggblock(
@@ -259,14 +235,13 @@ class VGGTransformerEncoder(FairseqEncoder):
         )
         self.num_vggblocks = len(vggblock_config)
 
-        # transformer_input_dim is the output dimension of VGG part
-
         self.encoder_output_dim = encoder_output_dim
         self.transformer_layers = build_transformer_encoder(
             encoder_output_dim,
             [TransformerLayerConfig(*p) for p in transformer_config],
             transformer_input_dim,
         )
+        self.fc_out = nn.Linear(self.encoder_output_dim, vocab_size)# bias=True TODO(tilo) why should this have a bias??
 
     def forward(self, src_tokens, src_lengths, **kwargs):
         """
@@ -316,13 +291,8 @@ class VGGTransformerEncoder(FairseqEncoder):
         # encoder_padding_maks is a (T x B) tensor, its [t, b] elements indicate
         # whether encoder_output[t, b] is valid or not (valid=0, invalid=1)
 
-        return {
-            "encoder_out": x,  # (T, B, C)
-            "encoder_padding_mask": encoder_padding_mask.t()
-            if encoder_padding_mask is not None
-            else None,
-            # (B, T) --> (T, B)
-        }
+        probas = self.fc_out(x)
+        return probas,input_lengths
 
     def reorder_encoder_out(self, encoder_out, new_order):
         encoder_out["encoder_out"] = encoder_out["encoder_out"].index_select(

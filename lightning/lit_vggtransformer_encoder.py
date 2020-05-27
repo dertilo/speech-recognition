@@ -7,13 +7,13 @@ from torch.nn.utils.rnn import pad_sequence
 from data_related.librispeech import build_dataset, LIBRI_VOCAB
 from lightning.lightning_model import LitSTTModel
 from lightning.litutil import generic_train, build_args
-from model import DeepSpeech
+from vgg_transformer_encoder import VGGTransformerEncoder
 
 filterwarnings("ignore")
 
 
 class LitVGGTransformerEncoder(LitSTTModel):
-    def _supply_trainset(self):# TODO(tilo) should this be an argument??
+    def _supply_trainset(self):  # TODO(tilo) should this be an argument??
         dataset = build_dataset(
             "train-100",
             ["train-clean-100"]  # , "train-clean-360", "train-other-500"]
@@ -33,20 +33,29 @@ class LitVGGTransformerEncoder(LitSTTModel):
         return dataset
 
     def _build_model(self, hparams):
-        return DeepSpeech(
-            hidden_size=hparams.hidden_size,
-            nb_layers=hparams.hidden_layers,
-            vocab_size=hparams.vocab_size,
-            input_feature_dim=hparams.audio_feature_dim,
-            bidirectional=hparams.bidirectional,
+        return VGGTransformerEncoder(
+            vocab_size=args.vocab_size,
+            input_feat_per_channel=args.input_feat_per_channel,
+            vggblock_config=eval(args.vggblock_enc_config),
+            transformer_config=eval(args.transformer_enc_config),
+            encoder_output_dim=args.enc_output_dim,
+            in_channels=args.in_channels,
         )
 
     @classmethod
     def add_model_specific_args(cls, parent_parser):
         parser = super().add_model_specific_args(parent_parser)
-        parser.add_argument("--bidirectional", default=True, type=bool)
-        parser.add_argument("--hidden_layers", default=5, type=int)
-        parser.add_argument("--hidden_size", default=1024, type=int)
+        parser.add_argument("--input_feat_per_channel", default=40, type=int)
+        parser.add_argument("--enc_output_dim", default=512, type=int)
+        parser.add_argument(
+            "--vggblock_enc_config", default="[(32, 3, 2, 2, True)] * 2", type=str
+        )
+        parser.add_argument(
+            "--transformer_enc_config",
+            default="((256, 4, 1024, True, 0.2, 0.2, 0.2),) * 2",
+            type=str,
+        )
+        parser.add_argument("--in_channels", default=1, type=int)
         return parser
 
     @staticmethod
@@ -78,8 +87,8 @@ if __name__ == "__main__":
         "batch_size": 4,
         # "fp16": "bla",
         "n_gpu": 0,
-        "hidden_layers": 2,
-        "hidden_size": 64,
+        "enc_output_dim": 64,
+        "transformer_enc_config": "((32, 4, 128, True, 0.2, 0.2, 0.2),) * 2",
         "num_workers": 0,
         "max_epochs": 1,
     }
