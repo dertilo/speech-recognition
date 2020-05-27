@@ -91,7 +91,7 @@ def generic_train(model: pl.LightningModule, args: argparse.Namespace):
     checkpoint, mlflow_logger, run_id = setup_mlflowlogger_and_checkpointer(
         args.exp_name, args.save_path
     )
-    assert not args.fp16
+
     trainer = pl.Trainer(
         logger=mlflow_logger,
         accumulate_grad_batches=args.gradient_accumulation_steps,

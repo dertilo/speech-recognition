@@ -5,7 +5,6 @@ from data_related.audio_feature_extraction import (
     AudioFeaturesConfig,
 )
 from utils import BLANK_SYMBOL, SPACE, HOME
-from asr_checkpoint import load_evaluatable_checkpoint
 
 warnings.simplefilter("ignore")
 import torch.nn.functional as F
@@ -60,7 +59,7 @@ if __name__ == "__main__":
         + "/data/asr_data/ENGLISH/LibriSpeech/dev-other/8288/274162/8288-274162-0016.flac"
     )
 
-    model, data_conf, audio_conf = load_evaluatable_checkpoint(
+    model, data_conf, audio_conf = load_evaluatable_checkpoint( #TODO(tilo)
         device, model_file, use_half
     )
 

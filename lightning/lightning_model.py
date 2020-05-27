@@ -1,5 +1,6 @@
 import argparse
 import os
+from abc import abstractmethod
 from typing import NamedTuple, Dict, Union, List
 
 import pytorch_lightning as pl
@@ -12,11 +13,9 @@ from torch import Tensor
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data.dataloader import DataLoader
 
-from data_related.librispeech import LIBRI_VOCAB, build_dataset
 from decoder import Decoder, convert_to_strings
 from lightning.litutil import add_generic_args, build_args
 from metrics_calculation import calc_num_word_errors, calc_num_char_erros
-from model import DeepSpeech
 from transcribing.transcribe_util import build_decoder
 from utils import BLANK_SYMBOL
 
@@ -26,17 +25,19 @@ class LitSTTModel(pl.LightningModule):
         super().__init__()
         self.hparams = hparams
         self.lr = hparams.lr
-        self.model = DeepSpeech(
-            hidden_size=hparams.hidden_size,
-            nb_layers=hparams.hidden_layers,
-            vocab_size=hparams.vocab_size,
-            input_feature_dim=hparams.audio_feature_dim,
-            bidirectional=hparams.bidirectional,
-        )
-        self.char2idx = dict([(l, i) for i, l in enumerate(LIBRI_VOCAB)])
+        self.model = self._build_model(hparams)
         self.idx2char = {v: k for k, v in self.char2idx.items()}
         self.decoder = build_decoder(self.char2idx, use_beam_decoder=False)
         self.BLANK_INDEX = self.char2idx[BLANK_SYMBOL]
+
+    @property
+    @abstractmethod
+    def char2idx(self):
+        raise NotImplementedError
+
+    @abstractmethod
+    def _build_model(self, hparams):
+        raise NotImplementedError
 
     def forward(self, inputs, input_sizes):
         return self.model(inputs, input_sizes)
@@ -62,27 +63,35 @@ class LitSTTModel(pl.LightningModule):
         return output
 
     def train_dataloader(self) -> Union[DataLoader, List[DataLoader]]:
-        dataset = build_dataset(
-            "train",
-            ["train-clean-100", "train-clean-360", "train-other-500"]
-            # "debug",
-            # ["dev-clean"],
-        )
+        dataset = self._supply_trainset()
         dataloader = DataLoader(
             dataset,
             num_workers=self.hparams.num_workers,
             batch_size=self.hparams.batch_size,
-            collate_fn=_collate_fn,
+            collate_fn=self._collate_fn,
         )
         return dataloader
 
+    @staticmethod
+    @abstractmethod
+    def _collate_fn(batch):
+        raise NotImplementedError
+
+    @abstractmethod
+    def _supply_trainset(self):
+        raise NotImplementedError
+
+    @abstractmethod
+    def _supply_evalset(self):
+        raise NotImplementedError
+
     def val_dataloader(self) -> Union[DataLoader, List[DataLoader]]:
-        dataset = build_dataset("eval", ["dev-clean", "dev-other"])
+        dataset = self._supply_evalset()
         dataloader = DataLoader(
             dataset,
             num_workers=self.hparams.num_workers,
             batch_size=self.hparams.batch_size,
-            collate_fn=_collate_fn,
+            collate_fn=self._collate_fn,
         )
         return dataloader
 
@@ -176,17 +185,14 @@ class LitSTTModel(pl.LightningModule):
         )
         return optimizer
 
-    @staticmethod
-    def add_model_specific_args(parent_parser):
+    @classmethod
+    def add_model_specific_args(cls, parent_parser):
         parser = HyperOptArgumentParser(parents=[parent_parser])
-        parser.add_argument("--hidden_layers", default=5, type=int)
         parser.add_argument("--lr", default=3e-4, type=float)
         parser.add_argument("--batch_size", default=4, type=int)
-        parser.add_argument("--hidden_size", default=1024, type=int)
         parser.add_argument("--num_workers", default=4, type=int)
         parser.add_argument("--vocab_size", type=int)
         parser.add_argument("--audio_feature_dim", type=int)
-        parser.add_argument("--bidirectional", default=True, type=bool)
         return parser
 
 
@@ -195,42 +201,3 @@ def transcribe_batch(decoder: Decoder, input_sizes, inputs, model):
     probs = F.softmax(out, dim=-1)
     decoded_output, _ = decoder.decode(probs, output_sizes)
     return decoded_output, out, output_sizes
-
-
-def _collate_fn(batch):
-    batch = sorted(
-        batch, key=lambda sample: sample[0].size(1), reverse=True
-    )  # why? cause "nn.utils.rnn.pack_padded_sequence" want it like this!
-    inputs, targets = [list(x) for x in zip(*batch)]
-    target_sizes = torch.LongTensor([len(t) for t in targets])
-    targets = [torch.IntTensor(target) for target in targets]
-    padded_target = pad_sequence(targets, batch_first=True)
-    input_sizes = torch.LongTensor([x.size(1) for x in inputs])
-    padded_inputs = pad_sequence([i.transpose(1, 0) for i in inputs], batch_first=True)
-    padded_inputs = padded_inputs.unsqueeze(1).transpose(
-        3, 2
-    )  # DeepSpeech wants it like this
-    return padded_inputs, padded_target, input_sizes, target_sizes
-
-
-if __name__ == "__main__":
-
-    data_path = os.environ["HOME"] + "/data/asr_data/"
-
-    train_dataset = build_dataset()
-
-    p = {
-        "save_path": "/tmp/mlflow_logs",
-        "n_gpu": 0,
-        "hidden_layers": 2,
-        "hidden_size": 64,
-        "num_workers": 0,
-    }
-    args = build_args(LitSTTModel, p)
-    args.vocab_size = len(train_dataset.char2idx)
-    # BLANK_INDEX = train_dataset.char2idx[BLANK_SYMBOL]
-    args.audio_feature_dim = train_dataset.audio_fe.feature_dim
-
-    model = LitSTTModel(args)
-    trainer = Trainer(logger=False, checkpoint_callback=False, max_epochs=3)
-    trainer.fit(model)

@@ -33,7 +33,6 @@ class CharSTTDataset(Dataset):
     ):
         self.conf = conf
         self.samples = sort_samples_in_corpus(samples, conf.min_len, conf.max_len)
-        self.size = len(self.samples)
 
         self.char2idx = dict([(conf.labels[i], i) for i in range(len(conf.labels))])
         self.audio_fe = AudioFeatureExtractor(
@@ -55,7 +54,7 @@ class CharSTTDataset(Dataset):
         return transcript
 
     def __len__(self):
-        return self.size
+        return len(self.samples)
 
 
 if __name__ == "__main__":
