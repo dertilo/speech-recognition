@@ -1,6 +1,6 @@
 import argparse
 import math
-from typing import Iterable
+from typing import Iterable, NamedTuple, List
 
 import torch
 from torch import nn as nn
@@ -13,6 +13,16 @@ from speech_recognition.models.asr_models_common import Linear
 """:arg
 # based on fairseqs speech-recognition example
 """
+
+
+class TransformerLayerConfig(NamedTuple):
+    input_dim: int
+    num_heads: int
+    ffn_dim: int
+    normalize_before: bool
+    dropout: float
+    attention_dropout: float
+    relu_dropout: float
 
 
 def prepare_transformer_encoder_params(
@@ -139,6 +149,7 @@ def build_vggblock(in_channels, input_feat_per_channel, vggblock_config):
     transformer_input_dim = infer_conv_output_dim(inin_channels, input_dim)
     return conv_layers, transformer_input_dim
 
+
 def validate_transformer_config(transformer_config):
     for config in transformer_config:
         input_dim, num_heads = config[:2]
@@ -149,6 +160,27 @@ def validate_transformer_config(transformer_config):
                 + "not dividable by number of heads".format(num_heads)
             )
             raise ValueError(msg)
+
+
+def build_transformer_encoder(
+    encoder_output_dim, tfcs: List[TransformerLayerConfig], transformer_input_dim
+):
+    validate_transformer_config(tfcs)
+    layers = nn.ModuleList()
+    if transformer_input_dim != tfcs[0].input_dim:
+        layers.append(Linear(transformer_input_dim, tfcs[0].input_dim))
+    layers.append(TransformerEncoderLayer(prepare_transformer_encoder_params(*tfcs[0])))
+    for i in range(1, len(tfcs)):
+        if tfcs[i - 1].input_dim != tfcs[i].input_dim:
+            layers.append(Linear(tfcs[i - 1].input_dim, tfcs[i].input_dim))
+        layers.append(
+            TransformerEncoderLayer(prepare_transformer_encoder_params(*tfcs[i]))
+        )
+    layers.extend(
+        [Linear(tfcs[-1].input_dim, encoder_output_dim), LayerNorm(encoder_output_dim),]
+    )
+    return layers
+
 
 class VGGTransformerEncoder(FairseqEncoder):
     """VGG + Transformer encoder"""
@@ -182,7 +214,7 @@ class VGGTransformerEncoder(FairseqEncoder):
               factor for i-th transformer layer, after multihead att and feedfoward
               part
         """
-        assert transformer_context is None # TODO(tilo) what are they good for?
+        assert transformer_context is None  # TODO(tilo) what are they good for?
         assert transformer_sampling is None
         super().__init__(None)
 
@@ -195,38 +227,11 @@ class VGGTransformerEncoder(FairseqEncoder):
 
         # transformer_input_dim is the output dimension of VGG part
 
-        validate_transformer_config(transformer_config)
-        self.transformer_sampling = (1,) * len(transformer_config)
-
-        self.transformer_layers = nn.ModuleList()
-
-        if transformer_input_dim != transformer_config[0][0]:
-            self.transformer_layers.append(
-                Linear(transformer_input_dim, transformer_config[0][0])
-            )
-        self.transformer_layers.append(
-            TransformerEncoderLayer(
-                prepare_transformer_encoder_params(*transformer_config[0])
-            )
-        )
-
-        for i in range(1, len(transformer_config)):
-            if transformer_config[i - 1][0] != transformer_config[i][0]:
-                self.transformer_layers.append(
-                    Linear(transformer_config[i - 1][0], transformer_config[i][0])
-                )
-            self.transformer_layers.append(
-                TransformerEncoderLayer(
-                    prepare_transformer_encoder_params(*transformer_config[i])
-                )
-            )
-
         self.encoder_output_dim = encoder_output_dim
-        self.transformer_layers.extend(
-            [
-                Linear(transformer_config[-1][0], encoder_output_dim),
-                LayerNorm(encoder_output_dim),
-            ]
+        self.transformer_layers = build_transformer_encoder(
+            encoder_output_dim,
+            [TransformerLayerConfig(*p) for p in transformer_config],
+            transformer_input_dim,
         )
 
     def forward(self, src_tokens, src_lengths, **kwargs):
