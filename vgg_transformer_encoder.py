@@ -10,9 +10,10 @@ from fairseq.modules import VGGBlock, TransformerEncoderLayer
 from speech_recognition.data.data_utils import lengths_to_encoder_padding_mask
 from speech_recognition.models.asr_models_common import Linear
 
-''':arg
+""":arg
 # based on fairseqs speech-recognition example
-'''
+"""
+
 
 def prepare_transformer_encoder_params(
     input_dim,
@@ -37,6 +38,7 @@ def prepare_transformer_encoder_params(
 def LayerNorm(embedding_dim):
     m = nn.LayerNorm(embedding_dim)
     return m
+
 
 def add_encoder_args(parser):
     parser.add_argument(
@@ -86,6 +88,7 @@ def add_encoder_args(parser):
         "--in-channels", type=int, metavar="N", help="number of encoder input channels",
     )
 
+
 DEFAULT_ENC_VGGBLOCK_CONFIG = ((32, 3, 2, 2, False),) * 2
 DEFAULT_ENC_TRANSFORMER_CONFIG = ((256, 4, 1024, True, 0.2, 0.2, 0.2),) * 2
 # 256: embedding dimension
@@ -95,6 +98,7 @@ DEFAULT_ENC_TRANSFORMER_CONFIG = ((256, 4, 1024, True, 0.2, 0.2, 0.2),) * 2
 # 0.2 (dropout): dropout after MultiheadAttention and second FC
 # 0.2 (attention_dropout): dropout in MultiheadAttention
 # 0.2 (relu_dropout): dropout after ReLu
+
 
 class VGGTransformerEncoder(FairseqEncoder):
     """VGG + Transformer encoder"""
@@ -132,8 +136,9 @@ class VGGTransformerEncoder(FairseqEncoder):
 
         self.in_channels = in_channels
         self.input_dim = input_feat_per_channel
-        self.conv_layers, transformer_input_dim = self.build_vggblock(in_channels, input_feat_per_channel,
-                                                                      vggblock_config)
+        self.conv_layers, transformer_input_dim = self.build_vggblock(
+            in_channels, input_feat_per_channel, vggblock_config
+        )
         # transformer_input_dim is the output dimension of VGG part
 
         self.validate_transformer_config(transformer_config)
@@ -201,7 +206,7 @@ class VGGTransformerEncoder(FairseqEncoder):
                 in_channels = out_channels
                 input_feat_per_channel = conv_layers[-1].output_dim
 
-        def infer_conv_output_dim(in_channels, input_dim): #TODO(tilo): WTF!
+        def infer_conv_output_dim(in_channels, input_dim):  # TODO(tilo): WTF!
             sample_seq_len = 200
             sample_bsz = 10
             x = torch.randn(sample_bsz, in_channels, sample_seq_len, input_dim)
@@ -211,9 +216,7 @@ class VGGTransformerEncoder(FairseqEncoder):
             mb, seq = x.size()[:2]
             return x.contiguous().view(mb, seq, -1).size(-1)
 
-        transformer_input_dim = infer_conv_output_dim(
-            inin_channels, input_dim
-        )
+        transformer_input_dim = infer_conv_output_dim(inin_channels, input_dim)
         return conv_layers, transformer_input_dim
 
     def forward(self, src_tokens, src_lengths, **kwargs):
@@ -277,7 +280,6 @@ class VGGTransformerEncoder(FairseqEncoder):
             else None,
             # (B, T) --> (T, B)
         }
-
 
     def validate_transformer_config(self, transformer_config):
         for config in transformer_config:
@@ -437,5 +439,3 @@ class VGGTransformerEncoder(FairseqEncoder):
                 "encoder_padding_mask"
             ].index_select(1, new_order)
         return encoder_out
-
-
