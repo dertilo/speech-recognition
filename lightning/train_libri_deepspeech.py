@@ -13,7 +13,7 @@ filterwarnings("ignore")
 
 
 class LibriSpeechLitSTT(LitSTTModel):
-    def _supply_trainset(self):
+    def _supply_trainset(self):# TODO(tilo) should this be an argument??
         dataset = build_dataset(
             "train-100",
             ["train-clean-100"]  # , "train-clean-360", "train-other-500"]
