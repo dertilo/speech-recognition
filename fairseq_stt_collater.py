@@ -7,6 +7,8 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import numpy as np
 
 import torch
+from typing import Dict, List
+
 from fairseq.data import data_utils as fairseq_data_utils
 
 
@@ -49,31 +51,10 @@ class Seq2SeqCollater(object):
 
         return res
 
-    def collate(self, samples):
-        """
-        utility function to collate samples into batch for speech recognition.
-        """
-        if len(samples) == 0:
-            return {}
-
-        # parse samples into torch tensors
-        parsed_samples = []
-        for s in samples:
-            # skip invalid samples
-            if s["data"][self.feature_index] is None:
-                continue
-            source = s["data"][self.feature_index]
-            if isinstance(source, (np.ndarray, np.generic)):
-                source = torch.from_numpy(source)
-            target = s["data"][self.label_index]
-            if isinstance(target, (np.ndarray, np.generic)):
-                target = torch.from_numpy(target).long()
-            elif isinstance(target, list):
-                target = torch.LongTensor(target)
-
-            parsed_sample = {"id": s["id"], "source": source, "target": target}
-            parsed_samples.append(parsed_sample)
-        samples = parsed_samples
+    def collate(self, samples: List[Dict]):
+        assert len(samples) > 0
+        # if len(samples) == 0:
+        #     return {}
 
         id = torch.LongTensor([s["id"] for s in samples])
         frames = self._collate_frames([s["source"] for s in samples])
