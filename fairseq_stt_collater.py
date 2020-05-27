@@ -12,6 +12,32 @@ from typing import Dict, List
 from fairseq.data import data_utils as fairseq_data_utils
 
 
+def _sort_frames_by_lengths(frames, id, samples):
+    frames_lengths = torch.LongTensor([s["source"].size(0) for s in samples])
+    frames_lengths, sort_order = frames_lengths.sort(descending=True)
+    id = id.index_select(0, sort_order)
+    frames = frames.index_select(0, sort_order)
+    return frames, frames_lengths, id, sort_order
+
+
+def pad_and_concat_frames(frames):
+    """Convert a list of 2d frames into a padded 3d tensor
+    Args:
+        frames (list): list of 2d frames of size L[i]*f_dim. Where L[i] is
+            length of i-th frame and f_dim is static dimension of features
+    Returns:
+        3d tensor of size len(frames)*len_max*f_dim where len_max is max of L[i]
+    """
+    len_max = max(frame.size(0) for frame in frames)
+    f_dim = frames[0].size(1)
+    res = frames[0].new(len(frames), len_max, f_dim).fill_(0.0)
+
+    for i, v in enumerate(frames):
+        res[i, : v.size(0)] = v
+
+    return res
+
+
 class Seq2SeqCollater(object):
     """
         Implements collate function mainly for seq2seq tasks
@@ -34,35 +60,16 @@ class Seq2SeqCollater(object):
         self.eos_index = eos_index
         self.move_eos_to_beginning = move_eos_to_beginning
 
-    def _collate_frames(self, frames):
-        """Convert a list of 2d frames into a padded 3d tensor
-        Args:
-            frames (list): list of 2d frames of size L[i]*f_dim. Where L[i] is
-                length of i-th frame and f_dim is static dimension of features
-        Returns:
-            3d tensor of size len(frames)*len_max*f_dim where len_max is max of L[i]
-        """
-        len_max = max(frame.size(0) for frame in frames)
-        f_dim = frames[0].size(1)
-        res = frames[0].new(len(frames), len_max, f_dim).fill_(0.0)
-
-        for i, v in enumerate(frames):
-            res[i, : v.size(0)] = v
-
-        return res
-
     def collate(self, samples: List[Dict]):
         assert len(samples) > 0
         # if len(samples) == 0:
         #     return {}
 
         id = torch.LongTensor([s["id"] for s in samples])
-        frames = self._collate_frames([s["source"] for s in samples])
-        # sort samples by descending number of frames
-        frames_lengths = torch.LongTensor([s["source"].size(0) for s in samples])
-        frames_lengths, sort_order = frames_lengths.sort(descending=True)
-        id = id.index_select(0, sort_order)
-        frames = frames.index_select(0, sort_order)
+        frames = pad_and_concat_frames([s["source"] for s in samples])
+        frames, frames_lengths, id, sort_order = _sort_frames_by_lengths(
+            frames, id, samples
+        )
 
         target = None
         target_lengths = None
