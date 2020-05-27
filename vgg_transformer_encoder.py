@@ -7,13 +7,45 @@ from torch import nn as nn
 
 from fairseq.models import FairseqEncoder
 from fairseq.modules import VGGBlock, TransformerEncoderLayer
-from speech_recognition.data.data_utils import lengths_to_encoder_padding_mask
-from speech_recognition.models.asr_models_common import Linear
 
-""":arg
+"""
 # based on fairseqs speech-recognition example
 """
 
+def lengths_to_encoder_padding_mask(lengths, batch_first=False):
+    """
+    convert lengths (a 1-D Long/Int tensor) to 2-D binary tensor
+
+    Args:
+        lengths: a (B, )-shaped tensor
+
+    Return:
+        max_length: maximum length of B sequences
+        encoder_padding_mask: a (max_length, B) binary mask, where
+        [t, b] = 0 for t < lengths[b] and 1 otherwise
+
+    TODO:
+        kernelize this function if benchmarking shows this function is slow
+    """
+    max_lengths = torch.max(lengths).item()
+    bsz = lengths.size(0)
+    encoder_padding_mask = torch.arange(
+        max_lengths
+    ).to(  # a (T, ) tensor with [0, ..., T-1]
+        lengths.device
+    ).view(  # move to the right device
+        1, max_lengths
+    ).expand(  # reshape to (1, T)-shaped tensor
+        bsz, -1
+    ) >= lengths.view(  # expand to (B, T)-shaped tensor
+        bsz, 1
+    ).expand(
+        -1, max_lengths
+    )
+    if not batch_first:
+        return encoder_padding_mask.t(), max_lengths
+    else:
+        return encoder_padding_mask, max_lengths
 
 class TransformerLayerConfig(NamedTuple):
     input_dim: int
@@ -161,6 +193,8 @@ def validate_transformer_config(transformer_config):
             )
             raise ValueError(msg)
 
+def Linear(in_features, out_features, bias=True):
+    return nn.Linear(in_features, out_features, bias=bias)
 
 def build_transformer_encoder(
     encoder_output_dim, tfcs: List[TransformerLayerConfig], transformer_input_dim
