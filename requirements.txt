@@ -8,3 +8,4 @@ pytorch_lightning==0.7.3
 mlflow
 test-tube
 torchaudio==0.4.0
+numba==0.48.0 #TODO(tilo) really?
