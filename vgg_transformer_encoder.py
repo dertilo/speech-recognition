@@ -10,6 +10,8 @@ from fairseq.modules import VGGBlock, TransformerEncoderLayer
 from speech_recognition.data.data_utils import lengths_to_encoder_padding_mask
 from speech_recognition.models.asr_models_common import Linear
 
+from transformer_util import parse_transformer_context
+
 """:arg
 # based on fairseqs speech-recognition example
 """
@@ -139,6 +141,16 @@ def build_vggblock(in_channels, input_feat_per_channel, vggblock_config):
     transformer_input_dim = infer_conv_output_dim(inin_channels, input_dim)
     return conv_layers, transformer_input_dim
 
+def validate_transformer_config(transformer_config):
+    for config in transformer_config:
+        input_dim, num_heads = config[:2]
+        if input_dim % num_heads != 0:
+            msg = (
+                "ERROR in transformer config {}:".format(config)
+                + "input dimension {} ".format(input_dim)
+                + "not dividable by number of heads".format(num_heads)
+            )
+            raise ValueError(msg)
 
 class VGGTransformerEncoder(FairseqEncoder):
     """VGG + Transformer encoder"""
@@ -172,6 +184,8 @@ class VGGTransformerEncoder(FairseqEncoder):
               factor for i-th transformer layer, after multihead att and feedfoward
               part
         """
+        assert transformer_context is None # TODO(tilo) what are they good for?
+        assert transformer_sampling is None
         super().__init__(None)
 
         self.in_channels = in_channels
@@ -183,11 +197,8 @@ class VGGTransformerEncoder(FairseqEncoder):
 
         # transformer_input_dim is the output dimension of VGG part
 
-        self.validate_transformer_config(transformer_config)
-        self.transformer_context = self.parse_transformer_context(transformer_context)
-        self.transformer_sampling = self.parse_transformer_sampling(
-            transformer_sampling, len(transformer_config)
-        )
+        validate_transformer_config(transformer_config)
+        self.transformer_sampling = (1,) * len(transformer_config)
 
         self.transformer_layers = nn.ModuleList()
 
@@ -249,7 +260,7 @@ class VGGTransformerEncoder(FairseqEncoder):
         if not encoder_padding_mask.any():
             encoder_padding_mask = None
 
-        attn_mask = self.lengths_to_attn_mask(input_lengths, subsampling_factor)
+        attn_mask = None
 
         transformer_layer_idx = 0
 
@@ -281,51 +292,6 @@ class VGGTransformerEncoder(FairseqEncoder):
             else None,
             # (B, T) --> (T, B)
         }
-
-    def validate_transformer_config(self, transformer_config):
-        for config in transformer_config:
-            input_dim, num_heads = config[:2]
-            if input_dim % num_heads != 0:
-                msg = (
-                    "ERROR in transformer config {}:".format(config)
-                    + "input dimension {} ".format(input_dim)
-                    + "not dividable by number of heads".format(num_heads)
-                )
-                raise ValueError(msg)
-
-    def parse_transformer_context(self, transformer_context):
-        """
-        transformer_context can be the following:
-        -   None; indicates no context is used, i.e.,
-            transformer can access full context
-        -   a tuple/list of two int; indicates left and right context,
-            any number <0 indicates infinite context
-                * e.g., (5, 6) indicates that for query at x_t, transformer can
-                access [t-5, t+6] (inclusive)
-                * e.g., (-1, 6) indicates that for query at x_t, transformer can
-                access [0, t+6] (inclusive)
-        """
-        if transformer_context is None:
-            return None
-
-        if not isinstance(transformer_context, Iterable):
-            raise ValueError("transformer context must be Iterable if it is not None")
-
-        if len(transformer_context) != 2:
-            raise ValueError("transformer context must have length 2")
-
-        left_context = transformer_context[0]
-        if left_context < 0:
-            left_context = None
-
-        right_context = transformer_context[1]
-        if right_context < 0:
-            right_context = None
-
-        if left_context is None and right_context is None:
-            return None
-
-        return (left_context, right_context)
 
     def parse_transformer_sampling(self, transformer_sampling, num_layers):
         """
@@ -378,58 +344,6 @@ class VGGTransformerEncoder(FairseqEncoder):
             attn_mask = attn_mask[::sampling_factor, ::sampling_factor]
 
         return embedding, padding_mask, attn_mask
-
-    def lengths_to_attn_mask(self, input_lengths, subsampling_factor=1):
-        """
-        create attention mask according to sequence lengths and transformer
-        context
-
-        Args:
-            - input_lengths: (B, )-shape Int/Long tensor; input_lengths[b] is
-              the length of b-th sequence
-            - subsampling_factor: int
-                * Note that the left_context and right_context is specified in
-                  the input frame-level while input to transformer may already
-                  go through subsampling (e.g., the use of striding in vggblock)
-                  we use subsampling_factor to scale the left/right context
-
-        Return:
-            - a (T, T) binary tensor or None, where T is max(input_lengths)
-                * if self.transformer_context is None, None
-                * if left_context is None,
-                    * attn_mask[t, t + right_context + 1:] = 1
-                    * others = 0
-                * if right_context is None,
-                    * attn_mask[t, 0:t - left_context] = 1
-                    * others = 0
-                * elsif
-                    * attn_mask[t, t - left_context: t + right_context + 1] = 0
-                    * others = 1
-        """
-        if self.transformer_context is None:
-            return None
-
-        maxT = torch.max(input_lengths).item()
-        attn_mask = torch.zeros(maxT, maxT)
-
-        left_context = self.transformer_context[0]
-        right_context = self.transformer_context[1]
-        if left_context is not None:
-            left_context = math.ceil(self.transformer_context[0] / subsampling_factor)
-        if right_context is not None:
-            right_context = math.ceil(self.transformer_context[1] / subsampling_factor)
-
-        for t in range(maxT):
-            if left_context is not None:
-                st = 0
-                en = max(st, t - left_context)
-                attn_mask[t, st:en] = 1
-            if right_context is not None:
-                st = t + right_context + 1
-                st = min(st, maxT - 1)
-                attn_mask[t, st:] = 1
-
-        return attn_mask.to(input_lengths.device)
 
     def reorder_encoder_out(self, encoder_out, new_order):
         encoder_out["encoder_out"] = encoder_out["encoder_out"].index_select(
