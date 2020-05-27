@@ -288,7 +288,7 @@ class VGGTransformerEncoder(nn.Module):
         # encoder_padding_maks is a (T x B) tensor, its [t, b] elements indicate
         # whether encoder_output[t, b] is valid or not (valid=0, invalid=1)
 
-        probas = self.fc_out(x)
+        probas = self.fc_out(x).transpose(1,0)
         return probas, input_lengths
 
     def reorder_encoder_out(self, encoder_out, new_order):

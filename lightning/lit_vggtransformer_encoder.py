@@ -71,9 +71,6 @@ class LitVGGTransformerEncoder(LitSTTModel):
         padded_inputs = pad_sequence(
             [i.transpose(1, 0) for i in inputs], batch_first=True
         )
-        padded_inputs = padded_inputs.unsqueeze(1).transpose(
-            3, 2
-        )  # DeepSpeech wants it like this
         return padded_inputs, padded_target, input_sizes, target_sizes
 
 
@@ -97,7 +94,7 @@ if __name__ == "__main__":
     train_dataset = build_dataset()
     args.vocab_size = len(train_dataset.char2idx)
     # BLANK_INDEX = train_dataset.char2idx[BLANK_SYMBOL]
-    args.audio_feature_dim = train_dataset.audio_fe.feature_dim
+    args.input_feat_per_channel = train_dataset.audio_fe.feature_dim
 
     model = LitVGGTransformerEncoder(args)
 
