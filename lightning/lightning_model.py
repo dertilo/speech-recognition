@@ -20,6 +20,19 @@ from transcribing.transcribe_util import build_decoder
 from utils import BLANK_SYMBOL
 
 
+def collate(batch):
+    batch = sorted(
+        batch, key=lambda sample: sample[0].size(1), reverse=True
+    )  # why? cause "nn.utils.rnn.pack_padded_sequence" want it like this!
+    inputs, targets = [list(x) for x in zip(*batch)]
+    target_sizes = torch.LongTensor([len(t) for t in targets])
+    targets = [torch.IntTensor(target) for target in targets]
+    padded_target = pad_sequence(targets, batch_first=True)
+    input_sizes = torch.LongTensor([x.size(1) for x in inputs])
+    padded_inputs = pad_sequence([i.transpose(1, 0) for i in inputs], batch_first=True)
+    return padded_inputs, padded_target, input_sizes, target_sizes
+
+
 class LitSTTModel(pl.LightningModule):
     def __init__(self, hparams: argparse.Namespace):
         super().__init__()
@@ -72,10 +85,9 @@ class LitSTTModel(pl.LightningModule):
         )
         return dataloader
 
-    @staticmethod
-    @abstractmethod
-    def _collate_fn(batch):
-        raise NotImplementedError
+    @classmethod
+    def _collate_fn(cls,batch):
+        return collate(batch)
 
     @abstractmethod
     def _supply_trainset(self):

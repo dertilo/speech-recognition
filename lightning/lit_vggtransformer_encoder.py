@@ -58,21 +58,6 @@ class LitVGGTransformerEncoder(LitSTTModel):
         parser.add_argument("--in_channels", default=1, type=int)
         return parser
 
-    @staticmethod
-    def _collate_fn(batch):
-        batch = sorted(
-            batch, key=lambda sample: sample[0].size(1), reverse=True
-        )  # why? cause "nn.utils.rnn.pack_padded_sequence" want it like this!
-        inputs, targets = [list(x) for x in zip(*batch)]
-        target_sizes = torch.LongTensor([len(t) for t in targets])
-        targets = [torch.IntTensor(target) for target in targets]
-        padded_target = pad_sequence(targets, batch_first=True)
-        input_sizes = torch.LongTensor([x.size(1) for x in inputs])
-        padded_inputs = pad_sequence(
-            [i.transpose(1, 0) for i in inputs], batch_first=True
-        )
-        return padded_inputs, padded_target, input_sizes, target_sizes
-
 
 if __name__ == "__main__":
     data_path = os.environ["HOME"] + "/data/asr_data/"

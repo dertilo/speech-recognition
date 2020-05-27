@@ -5,7 +5,7 @@ import torch
 from torch.nn.utils.rnn import pad_sequence
 
 from data_related.librispeech import build_dataset, LIBRI_VOCAB
-from lightning.lightning_model import LitSTTModel
+from lightning.lightning_model import LitSTTModel, collate
 from lightning.litutil import generic_train, build_args
 from model import DeepSpeech
 
@@ -13,7 +13,7 @@ filterwarnings("ignore")
 
 
 class LitDeepSpeech(LitSTTModel):
-    def _supply_trainset(self):# TODO(tilo) should this be an argument??
+    def _supply_trainset(self):  # TODO(tilo) should this be an argument??
         dataset = build_dataset(
             "train-100",
             ["train-clean-100"]  # , "train-clean-360", "train-other-500"]
@@ -49,18 +49,10 @@ class LitDeepSpeech(LitSTTModel):
         parser.add_argument("--hidden_size", default=1024, type=int)
         return parser
 
-    @staticmethod
-    def _collate_fn(batch):
-        batch = sorted(
-            batch, key=lambda sample: sample[0].size(1), reverse=True
-        )  # why? cause "nn.utils.rnn.pack_padded_sequence" want it like this!
-        inputs, targets = [list(x) for x in zip(*batch)]
-        target_sizes = torch.LongTensor([len(t) for t in targets])
-        targets = [torch.IntTensor(target) for target in targets]
-        padded_target = pad_sequence(targets, batch_first=True)
-        input_sizes = torch.LongTensor([x.size(1) for x in inputs])
-        padded_inputs = pad_sequence(
-            [i.transpose(1, 0) for i in inputs], batch_first=True
+    @classmethod
+    def _collate_fn(cls, batch):
+        padded_inputs, padded_target, input_sizes, target_sizes = super()._collate_fn(
+            batch
         )
         padded_inputs = padded_inputs.unsqueeze(1).transpose(
             3, 2
