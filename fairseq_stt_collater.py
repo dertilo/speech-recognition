@@ -7,7 +7,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import numpy as np
 
 import torch
-from typing import Dict, List
+from typing import Dict, List, NamedTuple
 
 from fairseq.data import data_utils as fairseq_data_utils
 
@@ -64,13 +64,19 @@ def prepare_targets(samples, sort_order, pad_index, eos_index):
     return ntokens, prev_output_tokens, target, target_lengths
 
 
-def collate(samples, pad_index, eos_index):
-    id = torch.LongTensor([s["id"] for s in samples])
-    frames = pad_and_concat_frames([s["source"] for s in samples])
+class Sample(NamedTuple):
+    id: int
+    source: torch.Tensor
+    target: torch.Tensor = None
+
+
+def collate(samples: List[Sample], pad_index, eos_index):
+    id = torch.LongTensor([s.id for s in samples])
+    frames = pad_and_concat_frames([s.source for s in samples])
     frames, frames_lengths, id, sort_order = _sort_frames_by_lengths(
         frames, id, samples
     )
-    if samples[0].get("target", None) is not None:
+    if samples[0].target is not None:
         ntokens, prev_output_tokens, target, target_lengths = prepare_targets(
             samples, sort_order, pad_index, eos_index
         )
@@ -78,7 +84,7 @@ def collate(samples, pad_index, eos_index):
         target = None
         target_lengths = None
         prev_output_tokens = None
-        ntokens = sum(len(s["source"]) for s in samples)
+        ntokens = sum(len(s.source) for s in samples)
     batch = {
         "id": id,
         "ntokens": ntokens,
@@ -115,5 +121,5 @@ class Seq2SeqCollater(object):
         assert len(samples) > 0
         # if len(samples) == 0:
         #     return {}
-
+        samples = [Sample(**s) for s in samples]
         return collate(samples, self.pad_index, self.eos_index)
