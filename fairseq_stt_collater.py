@@ -12,8 +12,14 @@ from typing import Dict, List, NamedTuple
 from fairseq.data import data_utils as fairseq_data_utils
 
 
+class Sample(NamedTuple):
+    id: int
+    source: torch.Tensor
+    target: torch.Tensor = None
+
+
 def _sort_frames_by_lengths(frames, id, samples):
-    frames_lengths = torch.LongTensor([s["source"].size(0) for s in samples])
+    frames_lengths = torch.LongTensor([s.source.size(0) for s in samples])
     frames_lengths, sort_order = frames_lengths.sort(descending=True)
     id = id.index_select(0, sort_order)
     frames = frames.index_select(0, sort_order)
@@ -40,7 +46,7 @@ def pad_and_concat_frames(frames):
 
 def collate_target_tokens(samples, sort_order, do_rightshift, eos_index, pad_index):
     target = fairseq_data_utils.collate_tokens(
-        [s["target"] for s in samples],
+        [s.target for s in samples],
         pad_index,
         eos_index,
         left_pad=False,
@@ -50,24 +56,18 @@ def collate_target_tokens(samples, sort_order, do_rightshift, eos_index, pad_ind
     return target
 
 
-def prepare_targets(samples, sort_order, pad_index, eos_index):
-    ntokens = sum(len(s["target"]) for s in samples)
+def prepare_targets(samples: List[Sample], sort_order, pad_index, eos_index):
+    ntokens = sum(len(s.target) for s in samples)
     target = collate_target_tokens(samples, sort_order, False, eos_index, pad_index)
     prev_output_tokens = collate_target_tokens(
         samples, sort_order, True, eos_index, pad_index
     )
 
-    target_lengths = torch.LongTensor(
-        [s["target"].size(0) for s in samples]
-    ).index_select(0, sort_order)
+    target_lengths = torch.LongTensor([s.target.size(0) for s in samples]).index_select(
+        0, sort_order
+    )
 
     return ntokens, prev_output_tokens, target, target_lengths
-
-
-class Sample(NamedTuple):
-    id: int
-    source: torch.Tensor
-    target: torch.Tensor = None
 
 
 def collate(samples: List[Sample], pad_index, eos_index):
