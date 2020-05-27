@@ -5,7 +5,6 @@ from typing import Iterable, NamedTuple, List
 import torch
 from torch import nn as nn
 
-from fairseq.models import FairseqEncoder
 from fairseq.modules import VGGBlock, TransformerEncoderLayer
 
 """
@@ -27,6 +26,7 @@ def lengths_to_encoder_padding_mask(lengths, batch_first=False):
 
     TODO:
         kernelize this function if benchmarking shows this function is slow
+        TODO(tilo): and it is super ugly!
     """
     max_lengths = torch.max(lengths).item()
     bsz = lengths.size(0)
@@ -84,66 +84,6 @@ def LayerNorm(embedding_dim):
     return m
 
 
-def add_encoder_args(parser):
-    parser.add_argument(
-        "--input-feat-per-channel",
-        type=int,
-        metavar="N",
-        help="encoder input dimension per input channel",
-    )
-    parser.add_argument(
-        "--vggblock-enc-config",
-        type=str,
-        metavar="EXPR",
-        help="""
-        an array of tuples each containing the configuration of one vggblock:
-        [(out_channels,
-          conv_kernel_size,
-          pooling_kernel_size,
-          num_conv_layers,
-          use_layer_norm), ...])
-            """,
-    )
-    parser.add_argument(
-        "--transformer-enc-config",
-        type=str,
-        metavar="EXPR",
-        help=""""
-        a tuple containing the configuration of the encoder transformer layers
-        configurations:
-        [(input_dim,
-          num_heads,
-          ffn_dim,
-          normalize_before,
-          dropout,
-          attention_dropout,
-          relu_dropout), ...]')
-                """,
-    )
-    parser.add_argument(
-        "--enc-output-dim",
-        type=int,
-        metavar="N",
-        help="""
-        encoder output dimension, can be None. If specified, projecting the
-        transformer output to the specified dimension""",
-    )
-    parser.add_argument(
-        "--in-channels", type=int, metavar="N", help="number of encoder input channels",
-    )
-
-
-DEFAULT_ENC_VGGBLOCK_CONFIG = ((32, 3, 2, 2, False),) * 2
-DEFAULT_ENC_TRANSFORMER_CONFIG = ((256, 4, 1024, True, 0.2, 0.2, 0.2),) * 2
-# 256: embedding dimension
-# 4: number of heads
-# 1024: FFN
-# True: apply layerNorm before (dropout + resiaul) instead of after
-# 0.2 (dropout): dropout after MultiheadAttention and second FC
-# 0.2 (attention_dropout): dropout in MultiheadAttention
-# 0.2 (relu_dropout): dropout after ReLu
-
-
 def build_vggblock(in_channels, input_feat_per_channel, vggblock_config):
     input_dim = input_feat_per_channel
     inin_channels = in_channels
@@ -184,7 +124,7 @@ def build_vggblock(in_channels, input_feat_per_channel, vggblock_config):
     return conv_layers, transformer_input_dim
 
 
-def validate_transformer_config(transformer_config):
+def validate_transformer_config(transformer_config:List[TransformerLayerConfig]):
     for config in transformer_config:
         input_dim, num_heads = config[:2]
         if input_dim % num_heads != 0:
@@ -225,8 +165,8 @@ class VGGTransformerEncoder(nn.Module):
         self,
         vocab_size,
         input_feat_per_channel,
-        vggblock_config=DEFAULT_ENC_VGGBLOCK_CONFIG,
-        transformer_config=DEFAULT_ENC_TRANSFORMER_CONFIG,
+        vggblock_config,
+        transformer_config,
         encoder_output_dim=512,
         in_channels=1,
     ):
