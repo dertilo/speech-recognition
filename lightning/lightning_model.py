@@ -87,7 +87,7 @@ class LitSTTModel(pl.LightningModule):
         return dataloader
 
     @classmethod
-    def _collate_fn(cls,batch):
+    def _collate_fn(cls, batch):
         return collate(batch)
 
     @abstractmethod
@@ -189,9 +189,14 @@ class LitSTTModel(pl.LightningModule):
             "wer": avg_wer,
             "cer": avg_cer,
         }
-        mlflow_logger:MLFlowLogger=self.logger # if trained for only one epoch mlflow-logger does not log, so doing it hrere explicitely
-        mlflow_logger.experiment.log_metric(mlflow_logger.run_id,key="avg-cer",value=avg_cer)
-        mlflow_logger.experiment.log_metric(mlflow_logger.run_id,key="avg-wer",value=avg_wer)
+        mlflow_logger: MLFlowLogger = self.logger  # if trained for only one epoch mlflow-logger does not log, so doing it hrere explicitely
+
+        mlflow_logger.experiment.log_metric(
+            mlflow_logger.run_id, key="avg-cer", value=avg_cer
+        )
+        mlflow_logger.experiment.log_metric(
+            mlflow_logger.run_id, key="avg-wer", value=avg_wer
+        )
         return result
 
     def configure_optimizers(self):
