@@ -20,12 +20,18 @@ Implementation of DeepSpeech2 for PyTorch. Creates a network based on the [DeepS
     test got 5559 samples
     ```
 
+## setup
+```shell script
+source activate stt
+cd fairseq 
+OMP_NUM_THREADS=8 pip install -e .
 
+```
 ## train
 * on hpc
     ```shell script
     module load comp
-    export PYTHONPATH=$HOME/SPEECH/speech-to-text:$HOME/SPEECH/speech-recognition:$HOME/UTIL/util`
+    export PYTHONPATH=$HOME/SPEECH/speech-to-text:$HOME/SPEECH/speech-recognition:$HOME/UTIL/util:$HOME/SPEECH/fairseq
     python lightning/train_lightning.py
     ```
 ## evalute
