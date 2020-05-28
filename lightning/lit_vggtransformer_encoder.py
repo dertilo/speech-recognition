@@ -10,17 +10,18 @@ from lightning.litutil import generic_train, build_args
 from vgg_transformer_encoder import VGGTransformerEncoder
 
 filterwarnings("ignore")
-
+DEBUG_MODE = False
 
 class LitVGGTransformerEncoder(LitSTTModel):
     def _supply_trainset(self):  # TODO(tilo) should this be an argument??
         dataset = build_dataset(
-            "train-100",
-            ["train-clean-100"]  # , "train-clean-360", "train-other-500"]
+            "train",
+            ["train-clean-100", "train-clean-360", "train-other-500"]
             # "debug",
             # ["dev-clean"],
         )
-        dataset.samples = dataset.samples[:100]
+        if DEBUG_MODE:
+            dataset.samples = dataset.samples[:10]
         return dataset
 
     @property
@@ -29,7 +30,8 @@ class LitVGGTransformerEncoder(LitSTTModel):
 
     def _supply_evalset(self):
         dataset = build_dataset("eval", ["dev-clean", "dev-other"])
-        dataset.samples = dataset.samples[:100]
+        if DEBUG_MODE:
+            dataset.samples = dataset.samples[:10]
         return dataset
 
     def _build_model(self, hparams):
@@ -61,19 +63,33 @@ class LitVGGTransformerEncoder(LitSTTModel):
 
 if __name__ == "__main__":
     data_path = os.environ["HOME"] + "/data/asr_data/"
-    p = {
-        # "exp_name": "deepspeech-train-100",
-        "exp_name": "debug",
-        "run_name": "some run",
-        "save_path": data_path + "/mlruns",
-        "batch_size": 4,
-        # "fp16": "bla",
-        "n_gpu": 0,
-        "enc_output_dim": 64,
-        "transformer_enc_config": "((32, 4, 128, True, 0.2, 0.2, 0.2),) * 2",
-        "num_workers": 0,
-        "max_epochs": 1,
-    }
+    if DEBUG_MODE:
+        p = {
+            "exp_name": "debug",
+            "run_name": "some run",
+            "save_path": data_path + "/mlruns",
+            "batch_size": 2,
+            # "fp16": "bla",# any value sets it to True
+            "n_gpu": 0,
+            "enc_output_dim": 32,
+            "transformer_enc_config": "((32, 4, 128, True, 0.2, 0.2, 0.2),) * 2",
+            "num_workers": 0,
+            "max_epochs": 1,
+        }
+    else:
+        p = {
+            "exp_name": "vggtransformer",
+            # "exp_name": "debug",
+            "run_name": "some run",
+            "save_path": data_path + "/mlruns",
+            "batch_size": 32,
+            # "fp16": True,# any value sets it to True
+            "n_gpu": 2,
+            "enc_output_dim": 512,
+            # "transformer_enc_config": "((32, 4, 128, True, 0.2, 0.2, 0.2),) * 2",
+            "num_workers": 4,
+            "max_epochs": 10,
+        }
     args = build_args(LitVGGTransformerEncoder, p)
 
     train_dataset = build_dataset()
