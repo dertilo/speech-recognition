@@ -88,10 +88,17 @@ def build_args(model_class: Type[pl.LightningModule], override_args: Dict = {}):
 def generic_train(model: pl.LightningModule, args: argparse.Namespace):
     set_seed(args)
 
+    pytorch_total_params = sum(
+        p.numel() for p in model.model.parameters() if p.requires_grad
+    )
+    print("num-trainable params: %d" % pytorch_total_params)
+
     checkpoint, mlflow_logger, run_id = setup_mlflowlogger_and_checkpointer(
         args.exp_name, args.save_path
     )
-
+    mlflow_logger.experiment.log_param(
+        mlflow_logger.run_id, "num-trainable-params", pytorch_total_params
+    )
     trainer = pl.Trainer(
         logger=mlflow_logger,
         accumulate_grad_batches=args.gradient_accumulation_steps,
