@@ -34,7 +34,7 @@ class LitVGGTransformerEncoder(LitSTTModel):
             dataset.samples = dataset.samples[:10]
         return dataset
 
-    def _build_model(self, hparams):
+    def _build_model(self, args):
         return VGGTransformerEncoder(
             vocab_size=args.vocab_size,
             input_feat_per_channel=args.input_feat_per_channel,
@@ -86,9 +86,10 @@ if __name__ == "__main__":
             # "fp16": True,# any value sets it to True
             "n_gpu": 2,
             "enc_output_dim": 512,
-            # "transformer_enc_config": "((32, 4, 128, True, 0.2, 0.2, 0.2),) * 2",
+            "vggblock_enc_config":"[(64, 3, 2, 2, True), (128, 3, 2, 2, True)]",
+            "transformer_enc_config": "((1024, 8, 4096, True, 0.15, 0.15, 0.15),) * 5",
             "num_workers": 4,
-            "max_epochs": 10,
+            "max_epochs": 1,
         }
     args = build_args(LitVGGTransformerEncoder, p)
 
