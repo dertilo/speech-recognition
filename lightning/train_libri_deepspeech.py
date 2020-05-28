@@ -10,6 +10,7 @@ from lightning.litutil import generic_train, build_args
 from model import DeepSpeech
 
 filterwarnings("ignore")
+DEBUG_MODE = False
 
 
 class LitDeepSpeech(LitSTTModel):
@@ -20,7 +21,8 @@ class LitDeepSpeech(LitSTTModel):
             # "debug",
             # ["dev-clean"],
         )
-        dataset.samples = dataset.samples[:100]
+        if DEBUG_MODE:
+            dataset.samples = dataset.samples[:100]
         return dataset
 
     @property
@@ -29,7 +31,8 @@ class LitDeepSpeech(LitSTTModel):
 
     def _supply_evalset(self):
         dataset = build_dataset("eval", ["dev-clean", "dev-other"])
-        dataset.samples = dataset.samples[:100]
+        if DEBUG_MODE:
+            dataset.samples = dataset.samples[:100]
         return dataset
 
     def _build_model(self, hparams):
@@ -62,19 +65,31 @@ class LitDeepSpeech(LitSTTModel):
 
 if __name__ == "__main__":
     data_path = os.environ["HOME"] + "/data/asr_data/"
-    p = {
-        # "exp_name": "deepspeech-train-100",
-        "exp_name": "debug",
-        "run_name": "some run",
-        "save_path": data_path + "/mlruns",
-        "batch_size": 4,
-        # "fp16": "bla",
-        "n_gpu": 0,
-        "hidden_layers": 2,
-        "hidden_size": 64,
-        "num_workers": 0,
-        "max_epochs": 1,
-    }
+    if DEBUG_MODE:
+        p = {
+            # "exp_name": "deepspeech-train-100",
+            "exp_name": "debug",
+            "run_name": "some run",
+            "save_path": data_path + "/mlruns",
+            "batch_size": 4,
+            # "fp16": "bla",
+            "n_gpu": 0,
+            "hidden_layers": 2,
+            "hidden_size": 64,
+            "num_workers": 0,
+            "max_epochs": 1,
+        }
+    else:
+        p = {
+            "exp_name": "deepspeech-train-100",
+            "run_name": "some run",
+            "save_path": data_path + "/mlruns",
+            "batch_size": 32,
+            "fp16": "True",
+            "n_gpu": 2,
+            "num_workers": 4,
+            "max_epochs": 2,
+        }
     args = build_args(LitDeepSpeech, p)
 
     train_dataset = build_dataset()
