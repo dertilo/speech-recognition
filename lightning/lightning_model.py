@@ -6,6 +6,7 @@ from typing import NamedTuple, Dict, Union, List
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning import Trainer
+from pytorch_lightning.loggers import MLFlowLogger
 from test_tube import HyperOptArgumentParser
 from collections import OrderedDict
 import torch.nn.functional as F
@@ -188,7 +189,9 @@ class LitSTTModel(pl.LightningModule):
             "wer": avg_wer,
             "cer": avg_cer,
         }
-
+        mlflow_logger:MLFlowLogger=self.logger # if trained for only one epoch mlflow-logger does not log, so doing it hrere explicitely
+        mlflow_logger.experiment.log_metric(mlflow_logger.run_id,key="avg-cer",value=avg_cer)
+        mlflow_logger.experiment.log_metric(mlflow_logger.run_id,key="avg-wer",value=avg_wer)
         return result
 
     def configure_optimizers(self):
