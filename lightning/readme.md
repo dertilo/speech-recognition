@@ -1,1 +1,0 @@
-* inspired by https://github.com/tongjinle123/speech-transformer-pytorch_lightning 

@@ -10,7 +10,7 @@ from lightning.litutil import generic_train, build_args
 from model import DeepSpeech
 
 filterwarnings("ignore")
-DEBUG_MODE = False
+DEBUG_MODE = True
 
 
 class LitDeepSpeech(LitSTTModel):
