@@ -6,7 +6,7 @@ import os
 from lightning.train_libri_deepspeech import LitDeepSpeech
 
 if __name__ == '__main__':
-    data_path = os.environ["HOME"] + "/data/asr_data/"
+    data_path = os.environ["HOME"] + "/data/asr_data"
     # p = {
     #     "exp_name": "vggtransformer",
     #     # "exp_name": "debug",
@@ -35,14 +35,14 @@ if __name__ == '__main__':
 
 
     p = {
-        "exp_name": "deepspeech-debug",
-        "run_name": "some run",
+        "exp_name": "deepspeech-960",
+        "run_name": "vanilla",
         "save_path": data_path + "/mlruns",
         "batch_size": 32,
         "fp16": "True",
         "n_gpu": 2,
         "num_workers": 4,
-        "max_epochs": 2,
+        "max_epochs": 10,
     }
     args = build_args(LitDeepSpeech, p)
 

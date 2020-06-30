@@ -95,9 +95,7 @@ def generic_train(model: pl.LightningModule, args: argparse.Namespace):
     )
     print("num-trainable params: %d" % pytorch_total_params)
 
-    checkpoints_folder = os.path.join(
-        args.save_path, "checkpoints"
-    )
+    checkpoints_folder = os.path.join(args.save_path, "checkpoints")
     os.makedirs(checkpoints_folder, exist_ok=True)
     checkpoint = ModelCheckpoint(
         filepath=checkpoints_folder, monitor="val_loss", save_top_k=1
@@ -106,7 +104,10 @@ def generic_train(model: pl.LightningModule, args: argparse.Namespace):
     # mlflow_logger.experiment.log_param(
     #     mlflow_logger.run_id, "num-trainable-params", pytorch_total_params
     # )
-    logger = WandbLogger(name=args.save_path, project="speech-recognition")
+    logger = WandbLogger(
+        name=os.path.join(args.save_path, args.exp_name, args.run_name),
+        project="speech-recognition",
+    )
 
     trainer = pl.Trainer(
         logger=logger,
