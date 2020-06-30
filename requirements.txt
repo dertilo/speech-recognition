@@ -1,7 +1,7 @@
 python-levenshtein
 torch==1.4.0
 wget
-# conda install -c -y conda-forge librosa
+# conda install -c conda-forge librosa -y #TODO(tilo): is this dependency really necessary
 tqdm
 util@git+https://git@github.com/dertilo/util.git#egg=util
 pytorch_lightning==0.7.3
