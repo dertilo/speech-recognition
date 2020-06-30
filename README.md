@@ -2,7 +2,7 @@
 PyTorch implementation of [DeepSpeech2](http://arxiv.org/pdf/1512.02595v1.pdf) trained with the CTC objective.
 ### heavily inspired by https://github.com/SeanNaren/deepspeech.pytorch.git
 ### differences to [deepspeech.pytorch](https://github.com/SeanNaren/deepspeech.pytorch.git)
-* no use [warp-ctc](https://github.com/SeanNaren/warp-ctc.git), instead [pytorch implementation](https://pytorch.org/docs/master/generated/torch.nn.CTCLoss.html)
+* no use of [warp-ctc](https://github.com/SeanNaren/warp-ctc.git), instead [torch.nn.CTCLoss](https://pytorch.org/docs/master/generated/torch.nn.CTCLoss.html)
 * powered by [pytorch-lightning](https://github.com/PyTorchLightning/pytorch-lightning)
 
 ### Datasets
