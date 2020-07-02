@@ -38,9 +38,16 @@ PyTorch implementation of [DeepSpeech2](http://arxiv.org/pdf/1512.02595v1.pdf) t
 ```shell script
 python evaluation.py --model libri_960_1024_32_11_04_2020/deepspeech_9.pth.tar --datasets test-clean
 ```
-#### results
-* after 10 epochs and 24hours with Adam
+#### [results](https://app.wandb.ai/dertilo/speech-recognition/runs/28gqsg3l/overview?workspace=user-)
+* after 8 epochs and 24hours with Adam
 ```shell script
-    test-clean    Average WER 9.042       Average CER 3.038
-    test-other    Average WER 26.233      Average CER 11.346
+python evaluation.py --model epoch=8.ckpt --datasets test-clean
+2528 of 2620 samples are suitable for training
+100%|█████████████████████████████████████| 127/127 [02:12<00:00,  1.04s/it]
+Test Summary    Average WER 9.925       Average CER 3.239
+
+python evaluation.py --model epoch=8.ckpt --datasets test-other
+2893 of 2939 samples are suitable for training
+100%|███████████████████████████████████████| 145/145 [01:19<00:00,  1.83it/s]
+Test Summary    Average WER 27.879      Average CER 11.739
 ```
