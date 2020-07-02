@@ -24,7 +24,7 @@ PyTorch implementation of [DeepSpeech2](http://arxiv.org/pdf/1512.02595v1.pdf) t
     ```
 ## setup
 ### install [apex](https://github.com/NVIDIA/apex)
-* if on __hpc-node: __ do: `module load nvidia/cuda/10.1 && module load comp`
+* if on __hpc-node:__ do: `module load nvidia/cuda/10.1 && module load comp`
 * install it: `git clone https://github.com/NVIDIA/apex && cd apex && OMP_NUM_THREADS=8 pip install -v --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" ./`
 
 ## train

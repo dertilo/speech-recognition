@@ -8,33 +8,14 @@ from data_related.char_stt_dataset import CharSTTDataset, DataConfig
 from data_related.data_loader import AudioDataLoader
 from data_related.librispeech import build_librispeech_corpus, LIBRI_VOCAB
 from decoder import GreedyDecoder
+from lightning.lit_deepspeech import LitDeepSpeech
 from metrics_calculation import calc_num_word_errors, calc_num_char_erros
-from model import DeepSpeech
+from deepspeech_model import DeepSpeech
 from transcribing.transcribe_util import build_decoder, transcribe_batch
 from utils import (
-    calc_loss,
     HOME,
     USE_GPU, unflatten_targets,
 )
-from asr_checkpoint import load_evaluatable_checkpoint
-
-
-def calc_loss_value(args, criterion, device, out, output_sizes, target_sizes, targets):
-    if criterion is not None:
-        _, loss_value = calc_loss(
-            out,
-            output_sizes,
-            criterion,
-            targets,
-            target_sizes,
-            device,
-            args.distributed,
-            args.world_size,
-        )
-    else:
-        loss_value = 0
-    return loss_value
-
 
 def evaluate(
     test_loader,
@@ -47,24 +28,20 @@ def evaluate(
     save_output=False,
     verbose=False,
     half=False,
-    calc_loss_value_fun=calc_loss_value,
 ):
     model.eval()
     total_cer, total_wer, num_tokens, num_chars = 0, 0, 0, 0
-    avg_loss = 0
     output_data = []
     for i, (data) in tqdm(enumerate(test_loader), total=len(test_loader)):
         inputs, targets, input_percentages, target_sizes = data
 
         (
-            loss_value,
             num_chars_step,
             num_tokens_step,
             total_cer_step,
             total_wer_step,
         ) = validation_step(
             args,
-            calc_loss_value_fun,
             criterion,
             decoder,
             device,
@@ -79,7 +56,6 @@ def evaluate(
             targets,
             verbose,
         )
-        avg_loss += loss_value
         num_chars += num_chars_step
         num_tokens += num_tokens_step
         total_cer += total_cer_step
@@ -87,14 +63,12 @@ def evaluate(
 
     wer = float(total_wer) / num_tokens
     cer = float(total_cer) / num_chars
-    avg_loss /= i
     # print("avg valid loss %0.2f" % avg_loss)
-    return wer * 100, cer * 100, avg_loss, output_data
+    return wer * 100, cer * 100, output_data
 
 
 def validation_step(
     args,
-    calc_loss_value_fun,
     criterion,
     decoder,
     device,
@@ -112,9 +86,6 @@ def validation_step(
     decoded_output, out, output_sizes = transcribe_batch(
         decoder, device, half, input_percentages, inputs, model
     )
-    loss_value = calc_loss_value_fun(
-        args, criterion, device, out, output_sizes, target_sizes, targets
-    )
     (num_chars_step, num_tokens_step, total_cer_step, total_wer_step,) = calc_errors(
         decoded_output,
         out,
@@ -126,7 +97,7 @@ def validation_step(
         targets,
         verbose,
     )
-    return loss_value, num_chars_step, num_tokens_step, total_cer_step, total_wer_step
+    return num_chars_step, num_tokens_step, total_cer_step, total_wer_step
 
 
 def calc_errors(
@@ -187,23 +158,17 @@ if __name__ == "__main__":
     use_half = False
     checkpoint_file = HOME + "/data/asr_data/checkpoints/%s" % args.model
 
-    if "lit" in checkpoint_file:
-        from lightning.lightning_model import LitSTTModel
-        def load_model_from_lightning_checkpoint(file):
-            model: DeepSpeech = LitSTTModel.load_from_checkpoint(file).model.eval()
-            data_conf = DataConfig(LIBRI_VOCAB)
-            audio_conf = AudioFeaturesConfig()
-            return model, data_conf, audio_conf
+    def load_model_from_lightning_checkpoint(file):
+        model: DeepSpeech = LitDeepSpeech.load_from_checkpoint(file).model.eval()
+        data_conf = DataConfig(LIBRI_VOCAB)
+        audio_conf = AudioFeaturesConfig()
+        return model, data_conf, audio_conf
 
 
-        model, data_conf, audio_conf = load_model_from_lightning_checkpoint(
-            checkpoint_file
-        )
-        model = model.to(device)
-    else:
-        model, data_conf, audio_conf = load_evaluatable_checkpoint(
-            device, checkpoint_file, use_half
-        )
+    model, data_conf, audio_conf = load_model_from_lightning_checkpoint(
+        checkpoint_file
+    )
+    model = model.to(device)
 
     char2idx = dict([(data_conf.labels[i], i) for i in range(len(data_conf.labels))])
 
@@ -219,7 +184,7 @@ if __name__ == "__main__":
 
     test_dataset = CharSTTDataset(samples, conf=data_conf, audio_conf=audio_conf,)
     test_loader = AudioDataLoader(test_dataset, batch_size=20, num_workers=4)
-    wer, cer, avg_loss, output_data = evaluate(
+    wer, cer, output_data = evaluate(
         test_loader=test_loader,
         device=device,
         model=model,

@@ -3,7 +3,7 @@ from lightning.lit_vggtransformer_encoder import LitVGGTransformerEncoder
 from lightning.litutil import build_args, generic_train
 import os
 
-from lightning.train_libri_deepspeech import LitDeepSpeech
+from lightning.lit_deepspeech import LitDeepSpeech
 
 if __name__ == '__main__':
     data_path = os.environ["HOME"] + "/data/asr_data"
@@ -37,7 +37,7 @@ if __name__ == '__main__':
     p = {
         "exp_name": "deepspeech-960",
         "run_name": "vanilla",
-        "save_path": data_path + "/mlruns",
+        "save_path": data_path,
         "batch_size": 32,
         "fp16": "True",
         "n_gpu": 2,
