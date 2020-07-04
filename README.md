@@ -28,13 +28,17 @@ PyTorch implementation of [DeepSpeech2](http://arxiv.org/pdf/1512.02595v1.pdf) t
 * install it: `git clone https://github.com/NVIDIA/apex && cd apex && OMP_NUM_THREADS=8 pip install -v --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" ./`
 
 ## train
+* on frontend:
+```shell script
+OMP_NUM_THREADS=2 wandb init
+```
 * on hpc
     ```shell script
     module load comp
     export PYTHONPATH=$HOME/SPEECH/speech-to-text:$HOME/SPEECH/speech-recognition:$HOME/UTIL/util:$HOME/SPEECH/fairseq
-    python train.py
+    WANDB_MODE=dryrun python train.py
     ```
-## evalute
+## evaluate
 ```shell script
 python evaluation.py --model libri_960_1024_32_11_04_2020/deepspeech_9.pth.tar --datasets test-clean
 ```

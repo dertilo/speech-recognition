@@ -16,8 +16,8 @@ DEBUG_MODE = False
 class LitDeepSpeech(LitSTTModel):
     def _supply_trainset(self):  # TODO(tilo) should this be an argument??
         dataset = build_dataset(
-            "train",
-            ["train-clean-100", "train-clean-360", "train-other-500"]
+            "train-100",
+            ["train-clean-100"]#, "train-clean-360", "train-other-500"]
             # "debug",
             # ["dev-clean"],
         )

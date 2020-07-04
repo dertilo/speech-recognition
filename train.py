@@ -35,8 +35,8 @@ if __name__ == '__main__':
 
 
     p = {
-        "exp_name": "deepspeech-960",
-        "run_name": "vanilla",
+        "exp_name": "deepspeech-librispeech-100",
+        "run_name": "train-100",
         "save_path": data_path,
         "batch_size": 32,
         "fp16": "True",

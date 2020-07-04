@@ -95,7 +95,7 @@ def generic_train(model: pl.LightningModule, args: argparse.Namespace):
     )
     print("num-trainable params: %d" % pytorch_total_params)
 
-    checkpoints_folder = os.path.join(args.save_path, "checkpoints")
+    checkpoints_folder = os.path.join(args.save_path, "checkpoints", args.run_name)
     os.makedirs(checkpoints_folder, exist_ok=True)
     checkpoint = ModelCheckpoint(
         filepath=checkpoints_folder, monitor="val_loss", save_top_k=1
