@@ -63,7 +63,7 @@ def build_dataset(name="debug", files=["dev-clean"]):
     asr_path = HOME + "/data/asr_data"
     raw_data_path = asr_path + "/ENGLISH/LibriSpeech"
     conf = DataConfig(LIBRI_VOCAB)
-    audio_conf = AudioFeaturesConfig()
+    audio_conf = AudioFeaturesConfig(feature_type="mel")
     samples = build_librispeech_corpus(raw_data_path, name, files,)
     dataset = CharSTTDataset(samples, conf=conf, audio_conf=audio_conf,)
     return dataset

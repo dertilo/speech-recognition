@@ -18,7 +18,7 @@ SAMPLE_RATE = 16_000
 class AudioFeaturesConfig(NamedTuple):
     sample_rate: int = 16_000
     feature_type: str = "stft"
-    normalize: bool = False
+    normalize: bool = True
     signal_augment: bool = False
     spec_augment: bool = False
 

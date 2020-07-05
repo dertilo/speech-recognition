@@ -1,5 +1,4 @@
 from data_related.librispeech import build_dataset
-from lightning.lit_vggtransformer_encoder import LitVGGTransformerEncoder
 from lightning.litutil import build_args, generic_train
 import os
 
@@ -36,7 +35,7 @@ if __name__ == '__main__':
 
     p = {
         "exp_name": "deepspeech-librispeech-100",
-        "run_name": "train-100",
+        "run_name": "train-100-mel-161",
         "save_path": data_path,
         "batch_size": 32,
         "fp16": "True",
