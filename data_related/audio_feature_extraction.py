@@ -91,43 +91,37 @@ class TorchAudioExtractor(AudioFeatureExtractor):
         super().__init__(audio_conf, audio_files)
 
     def _extract_features(self, sig: numpy.ndarray) -> torch.Tensor:
-        return self.extractor.forward(torch.from_numpy(sig).unsqueeze(0)).data.squeeze(
-            0
-        )
+        torch_tensor = torch.from_numpy(sig).unsqueeze(0)
+        return self.extractor.forward(torch_tensor).data.squeeze(0)
 
 
 class LibrosaExtractor(AudioFeatureExtractor):
     def _extract_features(self, sig: numpy.ndarray) -> torch.Tensor:
-        return _calc_stft(sig, self.audio_conf)
+        NAME2WINDOWTYPE = {
+            "hamming": scipy.signal.hamming,
+            "hann": scipy.signal.hann,
+            "blackman": scipy.signal.blackman,
+            "bartlett": scipy.signal.bartlett,
+        }
+
+        window_size: float = 0.02
+        window_stride: float = 0.01
+        window = NAME2WINDOWTYPE["hamming"]
+
+        spect = calc_stft_librosa(
+            sig, self.audio_conf.sample_rate, window_size, window_stride, window
+        )
+        if self.audio_conf.spec_augment:
+            spect = spec_augment(spect)
+
+        return spect
 
 
 AUDIOFEATUREEXTRACTORS = {
     "mfcc": TorchAudioExtractor,
     "mel": TorchAudioExtractor,
-    "stft": None,
+    "stft": LibrosaExtractor,
 }
-
-
-def _calc_stft(signal: numpy.ndarray, conf: AudioFeaturesConfig):
-
-    NAME2WINDOWTYPE = {
-        "hamming": scipy.signal.hamming,
-        "hann": scipy.signal.hann,
-        "blackman": scipy.signal.blackman,
-        "bartlett": scipy.signal.bartlett,
-    }
-
-    window_size: float = 0.02
-    window_stride: float = 0.01
-    window = NAME2WINDOWTYPE["hamming"]
-
-    spect = calc_stft_librosa(
-        signal, conf.sample_rate, window_size, window_stride, window
-    )
-    if conf.spec_augment:
-        spect = spec_augment(spect)
-
-    return spect
 
 
 def get_length(audio_file):
