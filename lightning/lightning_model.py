@@ -56,12 +56,13 @@ class LitSTTModel(pl.LightningModule):
     def forward(self, inputs, input_sizes):
         return self.model(inputs, input_sizes)
 
-    def decode(self, feature, feature_length, decode_type="greedy"):
-        assert decode_type in ["greedy", "beam"]
-        output = self.transformer.inference(
-            feature, feature_length, decode_type=decode_type
-        )
-        return output
+    # TODO(tilo): this must be unused! cause its not working!
+    # def decode(self, feature, feature_length, decode_type="greedy"):
+    #     assert decode_type in ["greedy", "beam"]
+    #     output = self.transformer.inference(
+    #         feature, feature_length, decode_type=decode_type
+    #     )
+    #     return output
 
     def training_step(self, batch, batch_nb):
 

@@ -4,7 +4,7 @@ from warnings import filterwarnings
 import torch
 from torch.nn.utils.rnn import pad_sequence
 
-from data_related.librispeech import build_dataset, LIBRI_VOCAB
+from data_related.datasets.librispeech import build_dataset, LIBRI_VOCAB
 from lightning.lightning_model import LitSTTModel, collate
 from lightning.litutil import generic_train, build_args
 from deepspeech_model import DeepSpeech
