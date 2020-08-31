@@ -22,21 +22,21 @@ class AudioFeaturesConfig(NamedTuple):
     signal_augment: bool = False
     spec_augment: bool = False
 
-
-def get_feature_dim(conf: AudioFeaturesConfig):
-    feature_type = conf.feature_type
-    if feature_type == "mfcc":
-        FEATURE_DIM = 40
-    elif feature_type == "mel":
-        FEATURE_DIM = 161
-    elif feature_type == "stft":
-        # FEATURE_DIM = int(
-        #     math.floor((conf.sample_rate * conf.window_size) / 2) + 1
-        # )  # 161 #TODO(tilo)
-        FEATURE_DIM = 161
-    else:
-        assert False
-    return FEATURE_DIM
+    @property
+    def feature_dim(self):
+        feature_type = self.feature_type
+        if feature_type == "mfcc":
+            FEATURE_DIM = 40
+        elif feature_type == "mel":
+            FEATURE_DIM = 161
+        elif feature_type == "stft":
+            # FEATURE_DIM = int(
+            #     math.floor((conf.sample_rate * conf.window_size) / 2) + 1
+            # )  # 161 #TODO(tilo)
+            FEATURE_DIM = 161
+        else:
+            assert False
+        return FEATURE_DIM
 
 
 def augment_and_load(original_audio_file: str, audio_files: List[str]):
@@ -63,38 +63,32 @@ class AudioFeatureExtractor:
         super().__init__()
         self.audio_files = audio_files
         self.conf = audio_conf
-        self.feature_type = audio_conf.feature_type
-        self.sample_rate = audio_conf.sample_rate
-        self.normalize = audio_conf.normalize
-        self.signal_augment = audio_conf.signal_augment
-        self.spec_augment = audio_conf.spec_augment
-        self.feature_dim = get_feature_dim(audio_conf)
 
-        if self.feature_type == "mfcc":
+        if self.conf.feature_type == "mfcc":
             self.mfcc = torchaudio.transforms.MFCC(
-                sample_rate=SAMPLE_RATE, n_mfcc=self.feature_dim
+                sample_rate=SAMPLE_RATE, n_mfcc=self.conf.feature_dim
             )
-        elif self.feature_type == "mel":
+        elif self.conf.feature_type == "mel":
             self.mel = torchaudio.transforms.MelSpectrogram(
-                sample_rate=SAMPLE_RATE, n_mels=self.feature_dim
+                sample_rate=SAMPLE_RATE, n_mels=self.conf.feature_dim
             )
 
-    def process(self, audio_path):
-        if self.signal_augment:
-            y = augment_and_load(audio_path, self.audio_files)
+    def process(self, audio_file:str):
+        if self.conf.signal_augment:
+            y = augment_and_load(audio_file, self.audio_files)
         else:
-            y = load_audio(audio_path)
+            y = load_audio(audio_file)
 
-        if self.feature_type == "mfcc":
+        if self.conf.feature_type == "mfcc":
             feat = self.mfcc.forward(torch.from_numpy(y).unsqueeze(0)).data.squeeze(0)
-        elif self.feature_type == "stft":
+        elif self.conf.feature_type == "stft":
             feat = self._calc_stft(y)
-        elif self.feature_type == "mel":
+        elif self.conf.feature_type == "mel":
             feat = self.mel.forward(torch.from_numpy(y).unsqueeze(0)).data.squeeze(0)
         else:
             assert False
 
-        if self.normalize:
+        if self.conf.normalize:
             mean = feat.mean()
             std = feat.std()
             feat.add_(-mean)
@@ -116,9 +110,9 @@ class AudioFeatureExtractor:
         window = NAME2WINDOWTYPE["hamming"]
 
         spect = calc_stft_librosa(
-            y, self.sample_rate, window_size, window_stride, window
+            y, self.conf.sample_rate, window_size, window_stride, window
         )
-        if self.spec_augment:
+        if self.conf.spec_augment:
             spect = spec_augment(spect)
 
         return spect
