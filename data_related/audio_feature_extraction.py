@@ -1,4 +1,7 @@
+from abc import abstractmethod
+
 import math
+import numpy
 from tempfile import NamedTemporaryFile
 from typing import List, NamedTuple
 
@@ -10,9 +13,6 @@ from data_related.audio_util import load_audio
 from data_related.data_augmentation.signal_augment import augment_with_sox
 from data_related.data_augmentation.spec_augment import spec_augment
 from data_related.feature_extraction import calc_stft_librosa
-
-
-SAMPLE_RATE = 16_000
 
 
 class AudioFeaturesConfig(NamedTuple):
@@ -39,7 +39,7 @@ class AudioFeaturesConfig(NamedTuple):
         return FEATURE_DIM
 
 
-def augment_and_load(original_audio_file: str, audio_files: List[str]):
+def augment_and_load(original_audio_file: str, audio_files: List[str]) -> numpy.ndarray:
     """
     :param original_audio_file:
     :param audio_files: used for signal-inference-noise
@@ -59,63 +59,75 @@ def augment_and_load(original_audio_file: str, audio_files: List[str]):
 
 
 class AudioFeatureExtractor:
-    def __init__(self, audio_conf: AudioFeaturesConfig, audio_files):
-        super().__init__()
+    def __init__(self, audio_conf: AudioFeaturesConfig, audio_files: List[str]):
         self.audio_files = audio_files
-        self.conf = audio_conf
+        self.audio_conf = audio_conf
 
-        if self.conf.feature_type == "mfcc":
-            self.mfcc = torchaudio.transforms.MFCC(
-                sample_rate=SAMPLE_RATE, n_mfcc=self.conf.feature_dim
-            )
-        elif self.conf.feature_type == "mel":
-            self.mel = torchaudio.transforms.MelSpectrogram(
-                sample_rate=SAMPLE_RATE, n_mels=self.conf.feature_dim
-            )
-
-    def process(self, audio_file:str):
-        if self.conf.signal_augment:
+    def process(self, audio_file: str) -> torch.Tensor:
+        if self.audio_conf.signal_augment:
             y = augment_and_load(audio_file, self.audio_files)
         else:
             y = load_audio(audio_file)
+        return self._extract_features(y)
 
-        if self.conf.feature_type == "mfcc":
-            feat = self.mfcc.forward(torch.from_numpy(y).unsqueeze(0)).data.squeeze(0)
-        elif self.conf.feature_type == "stft":
-            feat = self._calc_stft(y)
-        elif self.conf.feature_type == "mel":
-            feat = self.mel.forward(torch.from_numpy(y).unsqueeze(0)).data.squeeze(0)
-        else:
-            assert False
+    @abstractmethod
+    def _extract_features(self, sig: numpy.ndarray) -> torch.Tensor:
+        raise NotImplementedError
 
-        if self.conf.normalize:
-            mean = feat.mean()
-            std = feat.std()
-            feat.add_(-mean)
-            feat.div_(std)
 
-        return feat
+class TorchAudioExtractor(AudioFeatureExtractor):
+    def __init__(self, audio_conf: AudioFeaturesConfig, audio_files: List[str]):
+        if audio_conf.feature_type == "mfcc":
+            self.extractor = torchaudio.transforms.MFCC(
+                sample_rate=self.audio_conf.sample_rate,
+                n_mfcc=self.audio_conf.feature_dim,
+            )
+        elif audio_conf.feature_type == "mel":
+            self.extractor = torchaudio.transforms.MelSpectrogram(
+                sample_rate=self.audio_conf.sample_rate,
+                n_mels=self.audio_conf.feature_dim,
+            )
 
-    def _calc_stft(self, y):
+        super().__init__(audio_conf, audio_files)
 
-        NAME2WINDOWTYPE = {
-            "hamming": scipy.signal.hamming,
-            "hann": scipy.signal.hann,
-            "blackman": scipy.signal.blackman,
-            "bartlett": scipy.signal.bartlett,
-        }
-
-        window_size: float = 0.02
-        window_stride: float = 0.01
-        window = NAME2WINDOWTYPE["hamming"]
-
-        spect = calc_stft_librosa(
-            y, self.conf.sample_rate, window_size, window_stride, window
+    def _extract_features(self, sig: numpy.ndarray) -> torch.Tensor:
+        return self.extractor.forward(torch.from_numpy(sig).unsqueeze(0)).data.squeeze(
+            0
         )
-        if self.conf.spec_augment:
-            spect = spec_augment(spect)
 
-        return spect
+
+class LibrosaExtractor(AudioFeatureExtractor):
+    def _extract_features(self, sig: numpy.ndarray) -> torch.Tensor:
+        return _calc_stft(sig, self.audio_conf)
+
+
+AUDIOFEATUREEXTRACTORS = {
+    "mfcc": TorchAudioExtractor,
+    "mel": TorchAudioExtractor,
+    "stft": None,
+}
+
+
+def _calc_stft(signal: numpy.ndarray, conf: AudioFeaturesConfig):
+
+    NAME2WINDOWTYPE = {
+        "hamming": scipy.signal.hamming,
+        "hann": scipy.signal.hann,
+        "blackman": scipy.signal.blackman,
+        "bartlett": scipy.signal.bartlett,
+    }
+
+    window_size: float = 0.02
+    window_stride: float = 0.01
+    window = NAME2WINDOWTYPE["hamming"]
+
+    spect = calc_stft_librosa(
+        signal, conf.sample_rate, window_size, window_stride, window
+    )
+    if conf.spec_augment:
+        spect = spec_augment(spect)
+
+    return spect
 
 
 def get_length(audio_file):

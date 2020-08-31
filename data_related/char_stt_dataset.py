@@ -5,6 +5,7 @@ from typing import NamedTuple, List
 from data_related.audio_feature_extraction import (
     AudioFeaturesConfig,
     AudioFeatureExtractor,
+    AUDIOFEATUREEXTRACTORS,
 )
 from data_related.audio_util import Sample
 from utils import HOME
@@ -29,15 +30,18 @@ def sort_samples_in_corpus(samples: List[Sample], min_len, max_len) -> List[Samp
 
 class CharSTTDataset(Dataset):
     def __init__(
-        self, samples: List[Sample], conf: DataConfig, audio_conf: AudioFeaturesConfig,
+        self,
+        samples: List[Sample],
+        conf: DataConfig,
+        audio_conf: AudioFeaturesConfig,
     ):
         self.conf = conf
         self.samples = sort_samples_in_corpus(samples, conf.min_len, conf.max_len)
 
         self.char2idx = dict([(conf.labels[i], i) for i in range(len(conf.labels))])
-        self.audio_fe = AudioFeatureExtractor(
-            audio_conf, [s.audio_file for s in self.samples]
-        )
+        self.audio_fe: AudioFeatureExtractor = AUDIOFEATUREEXTRACTORS[
+            audio_conf.feature_type
+        ](audio_conf, [s.audio_file for s in self.samples])
         super().__init__()
 
     def __getitem__(self, index):
