@@ -138,7 +138,7 @@ if __name__ == "__main__":
     conf = DataConfig(labels)
     audio_conf = AudioFeaturesConfig()
 
-    from data_related.librispeech import build_librispeech_corpus
+    from data_related.datasets.librispeech import build_librispeech_corpus
     samples = build_librispeech_corpus(
         HOME + "/data/asr_data/ENGLISH/LibriSpeech", "eval", ["dev-clean", "dev-other"]
     )

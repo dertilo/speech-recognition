@@ -58,12 +58,11 @@ class CharSTTDataset(Dataset):
 
 
 if __name__ == "__main__":
-    from data_related.librispeech import build_librispeech_corpus
+    from data_related.datasets.librispeech import build_librispeech_corpus
 
     # fmt: off
     labels = ["_", "'","A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z"," "]
     # fmt: on
-    from corpora.librispeech import librispeech_corpus
 
     asr_path = HOME + "/data/asr_data"
     raw_data_path = asr_path + "/ENGLISH/LibriSpeech"

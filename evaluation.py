@@ -6,7 +6,7 @@ from tqdm import tqdm
 from data_related.audio_feature_extraction import AudioFeaturesConfig
 from data_related.char_stt_dataset import CharSTTDataset, DataConfig
 from data_related.data_loader import AudioDataLoader
-from data_related.librispeech import build_librispeech_corpus, LIBRI_VOCAB
+from data_related.datasets.librispeech import build_librispeech_corpus, LIBRI_VOCAB
 from decoder import GreedyDecoder
 from lightning.lit_deepspeech import LitDeepSpeech
 from metrics_calculation import calc_num_word_errors, calc_num_char_erros
@@ -14,8 +14,15 @@ from deepspeech_model import DeepSpeech
 from transcribing.transcribe_util import build_decoder, transcribe_batch
 from utils import (
     HOME,
-    USE_GPU, unflatten_targets,
-)
+    USE_GPU, )
+
+def unflatten_targets(targets, target_sizes):
+    split_targets = []
+    offset = 0
+    for size in target_sizes:
+        split_targets.append(targets[offset: offset + size])
+        offset += size
+    return split_targets
 
 def evaluate(
     test_loader,

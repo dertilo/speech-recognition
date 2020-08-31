@@ -34,7 +34,6 @@ SM : Switchboard mild
 SS : Switchboard strong
 """
 
-import librosa
 import numpy as np
 import random
 

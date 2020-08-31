@@ -8,7 +8,7 @@ from util import data_io
 from asr_checkpoint import load_evaluatable_checkpoint
 from data_related.char_stt_dataset import CharSTTDataset
 from data_related.data_loader import AudioDataLoader
-from data_related.librispeech import build_librispeech_corpus
+from data_related.datasets.librispeech import build_librispeech_corpus
 from decoder import GreedyDecoder
 from transcribing.transcribe_util import build_decoder, transcribe_batch
 from utils import (
