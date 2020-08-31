@@ -9,11 +9,30 @@ import scipy
 import torch
 import torchaudio
 
-from data_related.audio_util import load_audio
 from data_related.data_augmentation.signal_augment import augment_with_sox
 from data_related.data_augmentation.spec_augment import spec_augment
 from data_related.feature_extraction import calc_stft_librosa
 
+class Sample(NamedTuple):
+    audio_file: str
+    text: str
+    length: float  # in seconds
+
+
+def load_audio(audio_file: str, target_rate=16_000) -> numpy.ndarray:
+    si, _ = torchaudio.info(audio_file)
+    normalize_denominator = 1 << si.precision
+    sound, sample_rate = torchaudio.load(
+        audio_file, normalization=normalize_denominator
+    )
+    if sample_rate != target_rate:
+        resampler = torchaudio.transforms.Resample(
+            orig_freq=sample_rate, new_freq=target_rate
+        )
+        sound = resampler(sound)
+
+    y = sound.squeeze().numpy()
+    return y
 
 class AudioFeaturesConfig(NamedTuple):
     sample_rate: int = 16_000
