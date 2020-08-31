@@ -158,7 +158,7 @@ if __name__ == '__main__':
 
     original = "../../original.wav"
     from data_related.data_utils import load_audio
-    from data_related.feature_extraction import calc_stft_librosa
+    from data_related.audio_feature_extraction import calc_stft_librosa
 
     y = load_audio(original)
     spect = calc_stft_librosa(y,16_000,0.02,0.01,'hamming')

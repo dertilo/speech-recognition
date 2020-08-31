@@ -1,3 +1,5 @@
+import librosa
+import numpy as np
 from abc import abstractmethod
 
 import math
@@ -11,7 +13,7 @@ import torchaudio
 
 from data_related.data_augmentation.signal_augment import augment_with_sox
 from data_related.data_augmentation.spec_augment import spec_augment
-from data_related.feature_extraction import calc_stft_librosa
+
 
 class Sample(NamedTuple):
     audio_file: str
@@ -113,6 +115,24 @@ class TorchAudioExtractor(AudioFeatureExtractor):
         torch_tensor = torch.from_numpy(sig).unsqueeze(0)
         return self.extractor.forward(torch_tensor).data.squeeze(0)
 
+
+def calc_stft_librosa(y,sample_rate,window_size,window_stride,window):
+    n_fft = int(sample_rate * window_size)
+    win_length = n_fft
+    hop_length = int(sample_rate * window_stride)
+    # STFT
+    D = librosa.stft(
+        y,
+        n_fft=n_fft,
+        hop_length=hop_length,
+        win_length=win_length,
+        window=window,
+    )
+    spect, phase = librosa.magphase(D)
+    # S = log(S+1)
+    spect = np.log1p(spect)
+    spect = torch.FloatTensor(spect)
+    return spect
 
 class LibrosaExtractor(AudioFeatureExtractor):
     def _extract_features(self, sig: numpy.ndarray) -> torch.Tensor:
