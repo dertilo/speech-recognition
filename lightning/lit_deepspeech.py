@@ -14,26 +14,9 @@ DEBUG_MODE = False
 
 
 class LitDeepSpeech(LitSTTModel):
-    def _supply_trainset(self):  # TODO(tilo) should this be an argument??
-        dataset = build_dataset(
-            "train-100",
-            ["train-clean-100"]#, "train-clean-360", "train-other-500"]
-            # "debug",
-            # ["dev-clean"],
-        )
-        if DEBUG_MODE:
-            dataset.samples = dataset.samples[:100]
-        return dataset
-
     @property
     def char2idx(self):
         return dict([(l, i) for i, l in enumerate(LIBRI_VOCAB)])
-
-    def _supply_evalset(self):
-        dataset = build_dataset("eval", ["dev-clean", "dev-other"])
-        if DEBUG_MODE:
-            dataset.samples = dataset.samples[:100]
-        return dataset
 
     def _build_model(self, hparams):
         return DeepSpeech(
@@ -52,11 +35,9 @@ class LitDeepSpeech(LitSTTModel):
         parser.add_argument("--hidden_size", default=1024, type=int)
         return parser
 
-    @classmethod
-    def _collate_fn(cls, batch):
-        padded_inputs, padded_target, input_sizes, target_sizes = super()._collate_fn(
-            batch
-        )
+    @staticmethod
+    def _collate_fn(batch):
+        padded_inputs, padded_target, input_sizes, target_sizes = collate(batch)
         padded_inputs = padded_inputs.unsqueeze(1).transpose(
             3, 2
         )  # DeepSpeech wants it like this

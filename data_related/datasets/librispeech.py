@@ -1,15 +1,24 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+import argparse
+
 import os
+import torch
 from pathlib import Path
+from pytorch_lightning import LightningDataModule
 from time import time
-from typing import List, Dict
+from torch.utils.data import DataLoader
+from typing import List, Dict, Any, Union, Optional
 from tqdm import tqdm
 from util import data_io
 from util.util_methods import process_with_threadpool, merge_dicts
-from data_related.audio_feature_extraction import get_length, AudioFeaturesConfig, \
-    Sample
+from data_related.audio_feature_extraction import (
+    get_length,
+    AudioFeaturesConfig,
+    Sample,
+)
 from data_related.char_stt_dataset import DataConfig, CharSTTDataset
+from lightning.lightning_model import collate
 from utils import HOME, BLANK_SYMBOL, SPACE
 
 
@@ -107,10 +116,7 @@ def build_librispeech_corpus(
     return load_samples(file, raw_data_path)
 
 
-def build_dataset(name="debug", files=["dev-clean"]):
-    HOME = os.environ["HOME"]
-    asr_path = HOME + "/data/asr_data"
-    raw_data_path = asr_path + "/ENGLISH/LibriSpeech"
+def build_dataset(raw_data_path, name="debug", files=["dev-clean"]) -> CharSTTDataset:
     conf = DataConfig(LIBRI_VOCAB)
     audio_conf = AudioFeaturesConfig(feature_type="stft")
     samples = build_librispeech_corpus(
@@ -132,7 +138,51 @@ LIBRI_VOCAB = [BLANK_SYMBOL, "'", "A", "B", "C", "D", "E", "F", "G", "H", "I", "
 # fmt: on
 
 
-if __name__ == "__main__":
+class LibrispeechDataModule(LightningDataModule):
+    def __init__(
+        self,
+        data_path: str,
+        collate_fn,
+        hparams: argparse.Namespace,
+        train_transforms=None,
+        val_transforms=None,
+        test_transforms=None,
+    ):
+        super().__init__(train_transforms, val_transforms, test_transforms)
+        self.hparams = hparams
+        self.collate_fn = collate_fn
+        self.data_path = data_path
+        self.splits = dict(
+            [
+                ("train", ["train-clean-100"]),  # "train-clean-360", "train-other-500"
+                ("eval", ["dev-clean", "dev-other"]),
+                ("test", ["test-clean", "test-other"]),
+            ]
+        )
+
+    def prepare_data(self, *args, **kwargs):
+        download_librispeech_en(
+            self.data_path,
+            files=[f for ff in self.splits.values() for f in ff],
+        )
+
+    def _dataloader(self, split_name):
+        dataset = build_dataset(self.data_path, split_name, self.splits[split_name])
+        return DataLoader(
+            dataset,
+            num_workers=self.hparams.num_workers,
+            batch_size=self.hparams.batch_size,
+            collate_fn=self.collate_fn,
+        )
+
+    def train_dataloader(self, *args, **kwargs) -> DataLoader:
+        return self._dataloader("train")
+
+    def val_dataloader(self, *args, **kwargs) -> Union[DataLoader, List[DataLoader]]:
+        return self._dataloader("eval")
+
+
+def debug_methods():
     download_librispeech_en(
         os.environ["HOME"] + "/data/asr_data/ENGLISH",
         files=["dev-clean.tar.gz", "dev-other.tar.gz"],
@@ -151,19 +201,29 @@ if __name__ == "__main__":
 
     print("took: %0.2f seconds" % (time() - start))
 
-""":return
-in %s/train-clean-100 found 28539 audio-files
-in .../train-clean-360 found 104014 audio-files
-in .../train-other-500 found 148688 audio-files
-281241it [01:47, 2614.41it/s]
-train got 281241 samples
-in .../dev-clean found 2703 audio-files
-in .../dev-other found 2864 audio-files
-5567it [00:02, 2689.19it/s]
-eval got 5567 samples
-in .../test-clean found 2620 audio-files
-in .../test-other found 2939 audio-files
-5559it [00:02, 2710.73it/s]
-test got 5559 samples
-took: 127.06 seconds
-"""
+    """:return
+    in %s/train-clean-100 found 28539 audio-files
+    in .../train-clean-360 found 104014 audio-files
+    in .../train-other-500 found 148688 audio-files
+    281241it [01:47, 2614.41it/s]
+    train got 281241 samples
+    in .../dev-clean found 2703 audio-files
+    in .../dev-other found 2864 audio-files
+    5567it [00:02, 2689.19it/s]
+    eval got 5567 samples
+    in .../test-clean found 2620 audio-files
+    in .../test-other found 2939 audio-files
+    5559it [00:02, 2710.73it/s]
+    test got 5559 samples
+    took: 127.06 seconds
+    """
+
+
+if __name__ == "__main__":
+    ldm = LibrispeechDataModule(
+        os.environ["HOME"] + "/data/asr_data/ENGLISH",
+        collate_fn=collate,
+        hparams=argparse.Namespace(**{"num_workers": 0, "batch_size": 8}),
+    )
+    for batch in ldm.train_dataloader():
+        break

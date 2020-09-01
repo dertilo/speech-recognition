@@ -77,20 +77,6 @@ class LitSTTModel(pl.LightningModule):
         )
         return output
 
-    def train_dataloader(self) -> Union[DataLoader, List[DataLoader]]:
-        dataset = self._supply_trainset()
-        dataloader = DataLoader(
-            dataset,
-            num_workers=self.hparams.num_workers,
-            batch_size=self.hparams.batch_size,
-            collate_fn=self._collate_fn,
-        )
-        return dataloader
-
-    @classmethod
-    def _collate_fn(cls, batch):
-        return collate(batch)
-
     @abstractmethod
     def _supply_trainset(self):
         raise NotImplementedError
@@ -98,16 +84,6 @@ class LitSTTModel(pl.LightningModule):
     @abstractmethod
     def _supply_evalset(self):
         raise NotImplementedError
-
-    def val_dataloader(self) -> Union[DataLoader, List[DataLoader]]:
-        dataset = self._supply_evalset()
-        dataloader = DataLoader(
-            dataset,
-            num_workers=self.hparams.num_workers,
-            batch_size=self.hparams.batch_size,
-            collate_fn=self._collate_fn,
-        )
-        return dataloader
 
     def calc_loss(
         self, out, output_sizes, targets, target_sizes,
