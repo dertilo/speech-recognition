@@ -23,7 +23,7 @@ from utils import HOME, BLANK_SYMBOL, SPACE
 
 
 def download_librispeech_en(
-    path,
+    data_folder,
     base_url="http://www.openslr.org/resources/12",
     files=[
         "train-clean-100.tar.gz",
@@ -35,7 +35,6 @@ def download_librispeech_en(
         "test-other.tar.gz",
     ],
 ):
-    data_folder = os.path.join(path, "LibriSpeech")
     for file_name in files:
         data_io.download_data(
             base_url,
@@ -163,7 +162,7 @@ class LibrispeechDataModule(LightningDataModule):
     def prepare_data(self, *args, **kwargs):
         download_librispeech_en(
             self.data_path,
-            files=[f for ff in self.splits.values() for f in ff],
+            files=[f"{f}.tar.gz" for ff in self.splits.values() for f in ff],
         )
 
     def _dataloader(self, split_name):
@@ -221,9 +220,10 @@ def debug_methods():
 
 if __name__ == "__main__":
     ldm = LibrispeechDataModule(
-        os.environ["HOME"] + "/data/asr_data/ENGLISH",
+        os.environ["HOME"] + "/data/asr_data/ENGLISH/LibriSpeech",
         collate_fn=collate,
         hparams=argparse.Namespace(**{"num_workers": 0, "batch_size": 8}),
     )
+    ldm.prepare_data()
     for batch in ldm.train_dataloader():
         break
