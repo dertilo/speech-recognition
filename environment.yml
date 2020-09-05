@@ -1,15 +1,19 @@
 name: asr
 channels:
+  - conda-forge
+  - pytorch
   - defaults
 dependencies:
   - python=3.8
   - cudatoolkit=10.1
   - pytorch
-  - torchvision
   - pytorch-lightning
   - torchaudio
   - wget
   - tqdm
   - numba
   - python-levenshtein
-
+  - librosa
+  - pip:
+      - "util@git+https://git@github.com/dertilo/util.git#egg=util"
+      - test_tube
