@@ -3,6 +3,8 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import argparse
 
 import os
+import shutil
+
 import torch
 from pathlib import Path
 from pytorch_lightning import LightningDataModule
@@ -43,7 +45,18 @@ def download_librispeech_en(
             unzip_it=True,
             verbose=True,
         )
+        split_name = file_name.split(".")[0]
+        deeper_foler = f"{data_folder}/{split_name}/LibriSpeech/{split_name}"
+        if os.path.isdir(deeper_foler):
+            datasplit_folder = f"{data_folder}/{split_name}"
+            if not os.path.isfile(f"{data_folder}/LICENSE.TXT"):
+                for f in list(Path(deeper_foler).rglob("*.TXT")):
+                    shutil.move(str(f),datasplit_folder)
 
+            tmp_folder = f"{data_folder}/tmp"
+            shutil.move(deeper_foler,tmp_folder)
+            shutil.rmtree(datasplit_folder)
+            shutil.move(tmp_folder,datasplit_folder)
 
 def read_librispeech(librispeech_folder: str) -> Dict[str, str]:
     """:return dictionary where keys are filenames and values are utterances"""
@@ -219,11 +232,16 @@ def debug_methods():
 
 
 if __name__ == "__main__":
-    ldm = LibrispeechDataModule(
-        os.environ["HOME"] + "/data/asr_data/ENGLISH/LibriSpeech",
-        collate_fn=collate,
-        hparams=argparse.Namespace(**{"num_workers": 0, "batch_size": 8}),
+    download_librispeech_en(
+        data_folder="/media/dertilo/daten/data/asr_data/ENGLISH/LibriSpeech",
+        # files=["dev-clean.tar.gz", "dev-other.tar.gz"],
     )
-    ldm.prepare_data()
-    for batch in ldm.train_dataloader():
-        break
+
+    # ldm = LibrispeechDataModule(
+    #     os.environ["HOME"] + "/data/asr_data/ENGLISH/LibriSpeech",
+    #     collate_fn=collate,
+    #     hparams=argparse.Namespace(**{"num_workers": 0, "batch_size": 8}),
+    # )
+    # ldm.prepare_data()
+    # for batch in ldm.train_dataloader():
+    #     break
