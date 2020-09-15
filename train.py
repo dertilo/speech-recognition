@@ -1,4 +1,5 @@
-from data_related.datasets.librispeech import build_dataset
+from data_related.audio_feature_extraction import AudioFeaturesConfig
+from data_related.datasets.librispeech import build_dataset, LibrispeechDataModule
 from lightning.litutil import build_args, generic_train
 import os
 
@@ -45,11 +46,15 @@ if __name__ == '__main__':
     }
     args = build_args(LitDeepSpeech, p)
 
-    train_dataset = build_dataset()
-    args.vocab_size = len(train_dataset.char2idx)
-    # BLANK_INDEX = train_dataset.char2idx[BLANK_SYMBOL]
-    args.audio_feature_dim = train_dataset.audio_fe.feature_dim
+    audio_conf = AudioFeaturesConfig(feature_type="stft")
+    args.audio_feature_dim = audio_conf.feature_dim
 
     model = LitDeepSpeech(args)
+
+    ldm = LibrispeechDataModule(
+        os.environ["HOME"] + "/data/asr_data/ENGLISH/LibriSpeech",
+        collate_fn=model._collate_fn,
+        hparams=argparse.Namespace(**{"num_workers": 0, "batch_size": 8}),
+    )
 
     generic_train(model, args)

@@ -1,12 +1,13 @@
-name: asr
+name: speech_recognition
 channels:
   - conda-forge
   - pytorch
   - defaults
+  - anaconda
 dependencies:
   - python=3.8
   - cudatoolkit=10.1
-  - pytorch
+  - pytorch=1.6.0
   - pytorch-lightning
   - torchaudio
   - wget
@@ -14,6 +15,9 @@ dependencies:
   - numba
   - python-levenshtein
   - librosa
+  - boto3
+  - wandb
+  - sagemaker-python-sdk
   - pip:
       - "util@git+https://git@github.com/dertilo/util.git#egg=util"
       - test_tube
