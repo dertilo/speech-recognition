@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 from typing import List, Dict, Any, Union, Optional
 from tqdm import tqdm
 from util import data_io
-from util.util_methods import process_with_threadpool, merge_dicts
+from util.util_methods import process_with_threadpool, merge_dicts, exec_command
 from data_related.audio_feature_extraction import (
     get_length,
     AudioFeaturesConfig,
@@ -92,24 +92,39 @@ def load_samples(file: str, base_path: str) -> List[Sample]:
     return [adjust_file_path(d) for d in data_io.read_jsonl(file)]
 
 
-def build_samples(folders, raw_data_path):
+MANIFEST_FILE = "manifest.jsonl.gz"
+
+
+def build_samples(folders, raw_data_path, convert_folder):
     corpus = merge_dicts(
         [read_librispeech(os.path.join(raw_data_path, f)) for f in folders]
     )
     assert len(corpus) > 0
 
-    def build_sample(audio_file, text):
+    def build_sample(flac_file, text):
+        mp3_file_name = (
+            flac_file.replace(raw_data_path + "/", "")
+            .replace("/", "_")
+            .replace(".flac", ".mp3")
+        )
+        mp3_file = f"{convert_folder}/{mp3_file_name}"
+        # x,fs = torchaudio.backend.sox_backend.load(flac_file)
+        # torchaudio.backend.sox_backend.save(mp3_file,x,sample_rate=fs)
+        exec_command(f"sox {flac_file} {mp3_file}")
+
         return Sample(
-            audio_file.replace(raw_data_path + "/", ""),
+            mp3_file_name,
             text,
-            get_length(audio_file),
+            get_length(mp3_file),
         )
 
-    yield from process_with_threadpool(
-        # TODO(tilo): still not sure whether this is necessary
-        [{"audio_file": f, "text": t} for f, t in corpus.items()],
+    samples_to_dump = process_with_threadpool(
+        ({"flac_file": f, "text": t} for f, t in corpus.items()),
         build_sample,
         max_workers=10,
+    )
+    data_io.write_jsonl(
+        f"{convert_folder}/{MANIFEST_FILE}", tqdm(s._asdict() for s in samples_to_dump)
     )
 
 
@@ -119,14 +134,14 @@ def build_librispeech_corpus(
     folders: List[str] = None,
     reprocess=False,
 ) -> List[Sample]:
-    file = raw_data_path + "/%s_samples.jsonl.gz" % name
+    preprocessed_folder = f"{raw_data_path}/preprocessed_{name}"
 
-    if not os.path.isfile(file) or reprocess:
-        print("preprocessing samples from file: %s" % file)
-        samples_to_dump = build_samples(folders, raw_data_path)
-        data_io.write_jsonl(file, tqdm(s._asdict() for s in samples_to_dump))
+    if not os.path.isdir(preprocessed_folder) or reprocess:
+        os.makedirs(preprocessed_folder, exist_ok=True)
+        print("preprocessing samples for %s" % name)
+        build_samples(folders, raw_data_path, preprocessed_folder)
 
-    return load_samples(file, raw_data_path)
+    return load_samples(f"{preprocessed_folder}/{MANIFEST_FILE}", raw_data_path)
 
 
 def build_dataset(
@@ -237,9 +252,15 @@ def debug_methods():
 
 
 if __name__ == "__main__":
-    download_librispeech_en(
-        data_folder=os.environ["HOME"]+"/data/asr_data/ENGLISH/LibriSpeech",
-        files=["dev-clean.tar.gz"],
+    raw_data_path = os.environ["HOME"] + "/data/asr_data/ENGLISH/LibriSpeech"
+    # download_librispeech_en(
+    #     data_folder=raw_data_path,
+    #     files=["dev-clean.tar.gz"],
+    # )
+    samples = build_librispeech_corpus(
+        raw_data_path,
+        "dev-clean",
+        ["dev-clean"],
     )
 
     # ldm = LibrispeechDataModule(
