@@ -51,12 +51,13 @@ def download_librispeech_en(
             datasplit_folder = f"{data_folder}/{split_name}"
             if not os.path.isfile(f"{data_folder}/LICENSE.TXT"):
                 for f in list(Path(deeper_foler).rglob("*.TXT")):
-                    shutil.move(str(f),datasplit_folder)
+                    shutil.move(str(f), datasplit_folder)
 
             tmp_folder = f"{data_folder}/tmp"
-            shutil.move(deeper_foler,tmp_folder)
+            shutil.move(deeper_foler, tmp_folder)
             shutil.rmtree(datasplit_folder)
-            shutil.move(tmp_folder,datasplit_folder)
+            shutil.move(tmp_folder, datasplit_folder)
+
 
 def read_librispeech(librispeech_folder: str) -> Dict[str, str]:
     """:return dictionary where keys are filenames and values are utterances"""
@@ -128,9 +129,13 @@ def build_librispeech_corpus(
     return load_samples(file, raw_data_path)
 
 
-def build_dataset(raw_data_path, name="debug", files=["dev-clean"]) -> CharSTTDataset:
+def build_dataset(
+    raw_data_path,
+    name="debug",
+    files=["dev-clean"],
+    audio_conf=AudioFeaturesConfig(feature_type="stft"),
+) -> CharSTTDataset:
     conf = DataConfig(LIBRI_VOCAB)
-    audio_conf = AudioFeaturesConfig(feature_type="stft")
     samples = build_librispeech_corpus(
         raw_data_path,
         name,
@@ -233,8 +238,8 @@ def debug_methods():
 
 if __name__ == "__main__":
     download_librispeech_en(
-        data_folder="/media/dertilo/daten/data/asr_data/ENGLISH/LibriSpeech",
-        # files=["dev-clean.tar.gz", "dev-other.tar.gz"],
+        data_folder=os.environ["HOME"]+"/data/asr_data/ENGLISH/LibriSpeech",
+        files=["dev-clean.tar.gz"],
     )
 
     # ldm = LibrispeechDataModule(
