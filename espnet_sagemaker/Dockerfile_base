@@ -2,4 +2,5 @@ FROM 763104351884.dkr.ecr.eu-central-1.amazonaws.com/pytorch-training:1.6.0-cpu-
 
 RUN apt-get update && apt-get install -qq bc tree sox libsndfile1
 RUN pip install --force-reinstall torchaudio==0.6.0 # necessary cause it threw this error: OSError: /opt/conda/lib/python3.6/site-packages/torchaudio/_torchaudio.so: undefined symbol: _ZN5torch3jit17parseSchemaOrNameERKSs
-RUN pip install git+https://github.com/dertilo/espnet.git@tilos_minimal_librispeech
+RUN pip install -e git+https://github.com/dertilo/espnet.git@tilos_minimal_librispeech#egg=espnet
+RUN pip install git+https://git@github.com/dertilo/util.git

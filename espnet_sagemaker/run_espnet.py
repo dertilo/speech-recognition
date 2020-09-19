@@ -20,7 +20,6 @@ if __name__ == "__main__":
     assert os.system("tar xzf %s -C %s" % (args.data_dir + "/" + dev_name + ".tar.gz", args.data_dir)) == 0
     print(os.listdir(args.data_dir))
 
-    os.system("apt-get update && apt-get install -qq bc tree sox libsndfile1")
     os.environ["LRU_CACHE_CAPACITY"] = str(1)
 
     from espnet2.bin.main import run_espnet
