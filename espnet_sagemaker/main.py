@@ -14,7 +14,7 @@ estimator = PyTorch(
   entry_point='run_espnet.py',
   source_dir=source_dir,
   role=role,
-  framework_version='1.4.0',
+  framework_version='1.6.0',
   py_version="py3",
   instance_count=1,
   instance_type="local",# 'ml.p2.xlarge',
@@ -23,8 +23,6 @@ estimator = PyTorch(
   # max_wait = 24 * 60 * 60, # seconds; see max_run
   # checkpoint_s3_uri = ...
   hyperparameters={
-  'max_epochs': 2,
-  'batch_size': 32,
   })
 
 estimator.fit(s3_path)

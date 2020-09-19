@@ -1,5 +1,5 @@
-#torch==1.4.0
-torchaudio==0.4.0
+#torch==1.6.0
+torchaudio==0.6.0
 util@git+https://git@github.com/dertilo/util.git#egg=util
-scipy==1.4.1
+scipy
 git+https://github.com/dertilo/espnet.git@tilos_minimal_librispeech#egg=espnet
