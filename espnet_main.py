@@ -1,3 +1,6 @@
+from dataclasses import dataclass, field
+from typing import Optional
+
 import os
 
 import argparse
@@ -195,31 +198,33 @@ def run_asr_task(
     ASRTask.main(args=args)
 
 
-def run_espnet(
-    train_path,
-    valid_path,
-    out_path,
-    vocab_size=500,
-    limit=200,  # just for debug
-    config="conf/tuning/train_asr_transformer_tiny.yaml",
-    num_workers=0,
-    num_gpus=0,
-):
-    build_manifest_files(f"{out_path}/{MANIFESTS}/{TRAIN}", train_path, limit=limit)
-    build_manifest_files(f"{out_path}/{MANIFESTS}/{VALID}", valid_path, limit=limit)
+CONFIG_YML = "config.yml"
+
+
+def run_espnet(args: argparse.Namespace):
+    out_path = args.output_path
+    os.makedirs(out_path, exist_ok=True)
+    data_io.write_file(f"{out_path}/{CONFIG_YML}", build_config(args))
+
+    build_manifest_files(
+        f"{out_path}/{MANIFESTS}/{TRAIN}", args.train_path, limit=args.limit
+    )
+    build_manifest_files(
+        f"{out_path}/{MANIFESTS}/{VALID}", args.eval_path, limit=args.limit
+    )
 
     if not os.path.isdir(f"{out_path}/{TOKENIZER}"):
-        train_tokenizer(out_path, vocab_size)
+        train_tokenizer(out_path, args.vocab_size)
 
     if not os.path.isdir(f"{out_path}/{STATS}"):
-        run_asr_task(out_path, config, collect_stats=True)
+        run_asr_task(out_path, f"{out_path}/{CONFIG_YML}", collect_stats=True)
 
     run_asr_task(
         out_path,
-        config,
-        num_workers=num_workers,
-        num_gpus=num_gpus,
-        is_distributed=False,
+        f"{out_path}/{CONFIG_YML}",
+        num_workers=args.num_workers,
+        num_gpus=args.num_gpus,
+        is_distributed=args.is_distributed,
     )
 
 
@@ -229,21 +234,19 @@ os.environ["LRU_CACHE_CAPACITY"] = str(1)
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # fmt:off
-    parser.add_argument('--gpus', type=int, default=0) # used to support multi-GPU or CPU training
-    parser.add_argument('--train_data_path', type=str, default=os.environ["HOME"]+"/data/asr_data/ENGLISH/LibriSpeech/dev-clean-some_preprocessed/")
-    parser.add_argument('--eval_data_path', type=str, default=os.environ["HOME"]+"/data/asr_data/ENGLISH/LibriSpeech/dev-clean-some_preprocessed/")
+    parser.add_argument('--num_gpus', type=int, default=0) # used to support multi-GPU or CPU training
+    parser.add_argument('--train_path', type=str, default=os.environ["HOME"]+"/data/asr_data/ENGLISH/LibriSpeech/dev-clean_preprocessed")
+    parser.add_argument('--eval_path', type=str, default=os.environ["HOME"]+"/data/asr_data/ENGLISH/LibriSpeech/dev-clean_preprocessed")
+    parser.add_argument('--output_path', type=str, default="espnet_output")
+    parser.add_argument('--is_distributed', type=bool, default=False)
+    parser.add_argument('--num_workers', type=int, default=1)
     parser.add_argument('--num_encoder_blocks', type=int, default=1)
+    parser.add_argument('--limit', type=int, default=200)
+    parser.add_argument('--vocab_size', type=int, default=500)
     # fmt:on
     args = parser.parse_args()
 
-    data_io.write_file("config.yml", build_config(args))
-    run_espnet(
-        train_path=args.train_data_path,
-        valid_path=args.eval_data_path,
-        config="config.yml",
-        num_gpus=args.gpus,
-        out_path="/tmp/espnet_output",
-    )
+    run_espnet(args)
 
     """
     LRU_CACHE_CAPACITY=1 python ~/code/SPEECH/espnet/espnet2/bin/main.py
