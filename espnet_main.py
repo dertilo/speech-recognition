@@ -2,8 +2,8 @@ import os
 
 import argparse
 
-from espnet.espnet2.bin.tokenize_text import tokenize, get_parser
-from espnet.espnet2.tasks.asr import ASRTask
+from espnet2.bin.tokenize_text import tokenize, get_parser
+from espnet2.tasks.asr import ASRTask
 from util import data_io, util_methods
 import sentencepiece as spm
 import shlex
@@ -16,10 +16,77 @@ TRAINLOGS = "train_logs"
 TOKENIZER = "tokenizer"
 
 
+def build_config(args):
+    return f"""
+    batch_type: numel
+    batch_bins: 16_00_000
+    accum_grad: 1
+    max_epoch: 1
+    patience: none
+    # The initialization method for model parameters
+    init: xavier_uniform
+    best_model_criterion:
+    -   - valid
+        - acc
+        - max
+    keep_nbest_models: 10
+    
+    encoder: transformer
+    encoder_conf:
+        output_size: 32
+        attention_heads: 2
+        linear_units: 128
+        num_blocks: {args.num_encoder_blocks}
+        dropout_rate: 0.1
+        positional_dropout_rate: 0.1
+        attention_dropout_rate: 0.1
+        input_layer: conv2d6
+        normalize_before: true
+    
+    decoder: transformer
+    decoder_conf:
+        attention_heads: 2
+        linear_units: 128
+        num_blocks: 1
+        dropout_rate: 0.1
+        positional_dropout_rate: 0.1
+        self_attention_dropout_rate: 0.1
+        src_attention_dropout_rate: 0.1
+    
+    model_conf:
+        ctc_weight: 0.3
+        lsm_weight: 0.1
+        length_normalized_loss: false
+    
+    optim: adam
+    optim_conf:
+        lr: 0.002
+    scheduler: warmuplr
+    scheduler_conf:
+        warmup_steps: 25000
+    
+    specaug: specaug
+    specaug_conf:
+        apply_time_warp: true
+        time_warp_window: 5
+        time_warp_mode: bicubic
+        apply_freq_mask: true
+        freq_mask_width_range:
+        - 0
+        - 30
+        num_freq_mask: 2
+        apply_time_mask: true
+        time_mask_width_range:
+        - 0
+        - 40
+        num_time_mask: 2
+    """
+
+
 def build_manifest_files(
-        manifest_path="/tmp",
-        dataset_path="some-wehre/dev-clean_preprocessed",
-        limit=None,  # just for debug
+    manifest_path="/tmp",
+    dataset_path="some-wehre/dev-clean_preprocessed",
+    limit=None,  # just for debug
 ):
     os.makedirs(manifest_path, exist_ok=True)
     manifest_file = f"{dataset_path}/manifest.jsonl.gz"
@@ -76,12 +143,12 @@ def train_tokenizer(out_path, vocab_size=5000):
 
 
 def run_asr_task(
-        output_path,
-        config,
-        num_gpus=0,
-        is_distributed=False,
-        num_workers=0,
-        collect_stats=False,
+    output_path,
+    config,
+    num_gpus=0,
+    is_distributed=False,
+    num_workers=0,
+    collect_stats=False,
 ):
     sp = f"{output_path}/{STATS}"
 
@@ -129,14 +196,14 @@ def run_asr_task(
 
 
 def run_espnet(
-        train_path,
-        valid_path,
-        out_path,
-        vocab_size=500,
-        limit=200,  # just for debug
-        config="conf/tuning/train_asr_transformer_tiny.yaml",
-        num_workers=0,
-        num_gpus=0,
+    train_path,
+    valid_path,
+    out_path,
+    vocab_size=500,
+    limit=200,  # just for debug
+    config="conf/tuning/train_asr_transformer_tiny.yaml",
+    num_workers=0,
+    num_gpus=0,
 ):
     build_manifest_files(f"{out_path}/{MANIFESTS}/{TRAIN}", train_path, limit=limit)
     build_manifest_files(f"{out_path}/{MANIFESTS}/{VALID}", valid_path, limit=limit)
@@ -156,12 +223,27 @@ def run_espnet(
     )
 
 
+os.environ["LRU_CACHE_CAPACITY"] = str(1)
+# see [Memory leak when evaluating model on CPU with dynamic size tensor input](https://github.com/pytorch/pytorch/issues/29893) and [here](https://raberrytv.wordpress.com/2020/03/25/pytorch-free-your-memory/)
+
 if __name__ == "__main__":
-    os.environ["LRU_CACHE_CAPACITY"] = str(1)
-    # see [Memory leak when evaluating model on CPU with dynamic size tensor input](https://github.com/pytorch/pytorch/issues/29893) and [here](https://raberrytv.wordpress.com/2020/03/25/pytorch-free-your-memory/)
-    data_path = "/home/tilo/data/asr_data/ENGLISH/LibriSpeech/dev-clean-some_preprocessed"
-    run_espnet(train_path=data_path, valid_path=data_path,
-               out_path="/tmp/espnet_output")
+    parser = argparse.ArgumentParser()
+    # fmt:off
+    parser.add_argument('--gpus', type=int, default=0) # used to support multi-GPU or CPU training
+    parser.add_argument('--train_data_path', type=str, default=os.environ["HOME"]+"/data/asr_data/ENGLISH/LibriSpeech/dev-clean-some_preprocessed/")
+    parser.add_argument('--eval_data_path', type=str, default=os.environ["HOME"]+"/data/asr_data/ENGLISH/LibriSpeech/dev-clean-some_preprocessed/")
+    parser.add_argument('--num_encoder_blocks', type=int, default=1)
+    # fmt:on
+    args = parser.parse_args()
+
+    data_io.write_file("config.yml", build_config(args))
+    run_espnet(
+        train_path=args.train_data_path,
+        valid_path=args.eval_data_path,
+        config="config.yml",
+        num_gpus=args.gpus,
+        out_path="/tmp/espnet_output",
+    )
 
     """
     LRU_CACHE_CAPACITY=1 python ~/code/SPEECH/espnet/espnet2/bin/main.py
@@ -169,6 +251,5 @@ if __name__ == "__main__":
     [tilo-ThinkPad-X1-Carbon-6th] 2020-09-17 18:14:26,464 (trainer:243) INFO: 1epoch results: [train] iter_time=0.164, forward_time=0.952, loss=480.386, loss_att=191.654, loss_ctc=1.154e+03, acc=1.022e-04, backward_time=0.973, optim_step_time=0.007, lr_0=2.080e-06, train_time=2.105, time=1 minute and 43.19 seconds, total_count=49, [valid] loss=479.955, loss_att=191.637, loss_ctc=1.153e+03, acc=1.030e-04, cer=1.010, wer=1.000, cer_ctc=4.993, time=50.5 seconds, total_count=49, [att_plot] time=3.2 seconds, total_count=0
     [tilo-ThinkPad-X1-Carbon-6th] 2020-09-17 18:14:28,067 (trainer:286) INFO: The best model has been updated: valid.acc
     [tilo-ThinkPad-X1-Carbon-6th] 2020-09-17 18:14:28,068 (trainer:322) INFO: The training was finished at 1 epochs 
-
 
     """
