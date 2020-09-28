@@ -19,6 +19,7 @@ class Sample(NamedTuple):
     audio_file: str
     text: str
     length: float  # in seconds
+    num_frames:int
 
 
 def load_audio(audio_file: str, target_rate=16_000) -> numpy.ndarray:

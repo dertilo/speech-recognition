@@ -6,6 +6,7 @@ import os
 import shutil
 
 import torch
+import torchaudio
 from pathlib import Path
 from pytorch_lightning import LightningDataModule
 from time import time
@@ -20,7 +21,6 @@ from data_related.audio_feature_extraction import (
     Sample,
 )
 from data_related.char_stt_dataset import DataConfig, CharSTTDataset
-from lightning.lightning_model import collate
 from utils import HOME, BLANK_SYMBOL, SPACE
 
 
@@ -59,10 +59,12 @@ def download_librispeech_en(
             shutil.move(tmp_folder, datasplit_folder)
 
 
-def read_librispeech(librispeech_folder: str) -> Dict[str, str]:
+def read_librispeech(librispeech_folder: str,limit = None) -> Dict[str, str]:
     """:return dictionary where keys are filenames and values are utterances"""
     p = Path(librispeech_folder)
     audio_files = list(p.rglob("*.flac"))
+    if limit is not None:
+        audio_files = audio_files[:limit]
     print("in %s found %d audio-files" % (librispeech_folder, len(audio_files)))
 
     def parse_line(l):
@@ -93,15 +95,15 @@ def load_samples(file: str, base_path: str) -> List[Sample]:
 
 
 MANIFEST_FILE = "manifest.jsonl.gz"
-
+LIMIT = None # just for debugging
 
 def build_samples(folders, raw_data_path, convert_folder):
     corpus = merge_dicts(
-        [read_librispeech(os.path.join(raw_data_path, f)) for f in folders]
+        [read_librispeech(os.path.join(raw_data_path, f),limit=LIMIT) for f in folders]
     )
     assert len(corpus) > 0
 
-    def build_sample(flac_file, text):
+    def convert_to_mp3_get_length(flac_file, text):
         mp3_file_name = (
             flac_file.replace(raw_data_path + "/", "")
             .replace("/", "_")
@@ -112,15 +114,20 @@ def build_samples(folders, raw_data_path, convert_folder):
         # torchaudio.backend.sox_backend.save(mp3_file,x,sample_rate=fs)
         exec_command(f"sox {flac_file} {mp3_file}")
 
+        si, ei = torchaudio.info(mp3_file)
+        num_frames = si.length / si.channels
+        len_in_seconds = num_frames / si.rate
+
         return Sample(
             mp3_file_name,
             text,
-            get_length(mp3_file),
+            len_in_seconds,
+            num_frames
         )
 
     samples_to_dump = process_with_threadpool(
         ({"flac_file": f, "text": t} for f, t in corpus.items()),
-        build_sample,
+        convert_to_mp3_get_length,
         max_workers=10,
     )
     data_io.write_jsonl(
@@ -134,7 +141,7 @@ def build_librispeech_corpus(
     folders: List[str] = None,
     reprocess=False,
 ) -> List[Sample]:
-    preprocessed_folder = f"{raw_data_path}/preprocessed_{name}"
+    preprocessed_folder = f"{raw_data_path}/{name}_preprocessed"
 
     if not os.path.isdir(preprocessed_folder) or reprocess:
         os.makedirs(preprocessed_folder, exist_ok=True)
@@ -257,7 +264,7 @@ if __name__ == "__main__":
     #     data_folder=raw_data_path,
     #     files=["dev-clean.tar.gz"],
     # )
-    samples = build_librispeech_corpus(
+    build_librispeech_corpus(
         raw_data_path,
         "dev-clean",
         ["dev-clean"],
