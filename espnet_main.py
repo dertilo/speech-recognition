@@ -66,7 +66,7 @@ def build_config(args):
     
     optim: adam
     optim_conf:
-        lr: 0.002
+        lr: 0.0
     scheduler: warmuplr
     scheduler_conf:
         warmup_steps: 25000
@@ -151,11 +151,12 @@ def train_tokenizer(out_path, vocab_size=5000):
 def run_asr_task(
     output_path,
     config,
-    bpe_model:str,
-    token_list:Union[str,List[str]],
+    bpe_model: str,
+    token_list: Union[str, List[str]],
     num_gpus=0,
     is_distributed=False,
     num_workers=0,
+    pretrain_config=None,
     collect_stats=False,
 ):
     sp = f"{output_path}/{STATS}"
@@ -185,7 +186,7 @@ def run_asr_task(
         f"--valid_data_path_and_name_and_type {mp}/{VALID}/text,text,text "
         f"--ngpu {num_gpus} "
         f"--pretrain_key {None} "
-        f"--pretrain_path {os.environ['HOME']+'/data/653d10049fdc264f694f57b49849343e/exp/asr_train_asr_transformer_e18_raw_bpe_sp/54epoch.pth'} "
+        f"--pretrain_path {pretrain_config['pretrained_model_file']} " #TODO(tilo)
         f"--multiprocessing_distributed {is_distributed} "
     )
     if not collect_stats:
@@ -202,6 +203,14 @@ def run_asr_task(
         )
     parser = ASRTask.get_parser()
     args = parser.parse_args(shlex.split(argString))
+    if pretrain_config is not None:
+        args.encoder_conf = pretrain_config["encoder_conf"]
+        args.decoder_conf = pretrain_config["decoder_conf"]
+        args.normalize = pretrain_config["normalize"]
+        d = pretrain_config["normalize_conf"]
+        d["stats_file"]=f"{pretrain_config['pretrained_base']}/exp/asr_stats_raw_sp/train/feats_stats.npz"# TODO(tilo)
+        args.normalize_conf = d
+
     ASRTask.main(args=args)
 
 
@@ -215,7 +224,7 @@ def run_espnet(args: argparse.Namespace):
     if args.config_yml is None:
         data_io.write_file(config_file, build_config(args))
     else:
-        shutil.copyfile(args.config_yml,config_file)
+        shutil.copyfile(args.config_yml, config_file)
 
     build_manifest_files(
         f"{out_path}/{MANIFESTS}/{TRAIN}", args.train_path, limit=args.train_limit
@@ -228,10 +237,13 @@ def run_espnet(args: argparse.Namespace):
         train_tokenizer(out_path, args.vocab_size)
 
     if not os.path.isdir(f"{out_path}/{STATS}"):
-        run_asr_task(out_path, config_file,
-                     bpe_model=f"{out_path}/{TOKENIZER}/bpe.model",
-                     token_list=f"{out_path}/{TOKENIZER}/tokens.txt",
-                     collect_stats=True)
+        run_asr_task(
+            out_path,
+            config_file,
+            bpe_model=f"{out_path}/{TOKENIZER}/bpe.model",
+            token_list=f"{out_path}/{TOKENIZER}/tokens.txt",
+            collect_stats=True,
+        )
 
     run_asr_task(
         out_path,
@@ -244,20 +256,63 @@ def run_espnet(args: argparse.Namespace):
     )
 
 
+def finetune_espnet(args: argparse.Namespace):
+    pretrained_base = args.pretrained_base
+    meta_yml = f"{pretrained_base}/meta.yaml"
+    with open(meta_yml, "r", encoding="utf-8") as f:
+        meta = yaml.safe_load(f)
+
+    config_yml = (
+        f"{pretrained_base}/{meta['yaml_files']['asr_train_config']}"
+    )
+    bpe_model = f"{pretrained_base}/data/token_list/bpe_unigram5000/bpe.model"
+    with open(config_yml, "r", encoding="utf-8") as f:
+        pretrain_config = yaml.safe_load(f)
+
+    pretrain_config["pretrained_base"]=pretrained_base
+    pretrain_config["pretrained_model_file"]=f"{pretrained_base}/{meta['files']['asr_model_file']}"
+
+    out_path = args.output_path
+    os.makedirs(out_path, exist_ok=True)
+    config_file = f"{out_path}/{CONFIG_YML}"
+    if args.config_yml is None:
+        data_io.write_file(config_file, build_config(args))
+    else:
+        shutil.copyfile(args.config_yml, config_file)
+
+    build_manifest_files(
+        f"{out_path}/{MANIFESTS}/{TRAIN}", args.train_path, limit=args.train_limit
+    )
+    build_manifest_files(
+        f"{out_path}/{MANIFESTS}/{VALID}", args.eval_path, limit=args.eval_limit
+    )
+    data_io.write_lines("tokens.txt", pretrain_config["token_list"])
+    if not os.path.isdir(f"{out_path}/{STATS}") or True:
+        run_asr_task(
+            out_path,
+            config_file,
+            bpe_model=bpe_model,
+            token_list="tokens.txt",
+            pretrain_config=pretrain_config,
+            collect_stats=True,
+        )
+
+    run_asr_task(
+        out_path,
+        config_file,
+        num_workers=args.num_workers,
+        bpe_model=bpe_model,
+        token_list="tokens.txt",
+        num_gpus=args.num_gpus,
+        pretrain_config=pretrain_config,
+        is_distributed=args.is_distributed,
+    )
+
+
 os.environ["LRU_CACHE_CAPACITY"] = str(1)
 # see [Memory leak when evaluating model on CPU with dynamic size tensor input](https://github.com/pytorch/pytorch/issues/29893) and [here](https://raberrytv.wordpress.com/2020/03/25/pytorch-free-your-memory/)
-"""
-### no idea: 
-allow_variable_data_keys: false 
 
-### some idea:
-bpemodel: /home/tilo/data/653d10049fdc264f694f57b49849343e/data/token_list/bpe_unigram5000/bpe.model
-
-"""
 if __name__ == "__main__":
-    # config_yml = "/home/tilo/data/653d10049fdc264f694f57b49849343e/exp/asr_train_asr_transformer_e18_raw_bpe_sp/config.yaml"
-    # with open(config_yml, "r", encoding="utf-8") as f:
-    #     d = yaml.safe_load(f)
 
     parser = argparse.ArgumentParser()
     # fmt:off
@@ -268,15 +323,16 @@ if __name__ == "__main__":
     parser.add_argument('--is_distributed', type=bool, default=False)
     parser.add_argument('--num_workers', type=int, default=1)
     parser.add_argument('--num_encoder_blocks', type=int, default=1)
-    parser.add_argument('--train_limit', type=int, default=300)
-    parser.add_argument('--eval_limit', type=int, default=300)
+    parser.add_argument('--train_limit', type=int, default=1)
+    parser.add_argument('--eval_limit', type=int, default=None)
     parser.add_argument('--config_yml', type=str, default=None)
+    parser.add_argument('--pretrained_base', type=str, default=os.environ["HOME"]+"/data/espnet_pretrained")
     parser.add_argument('--vocab_size', type=int, default=500)
     # fmt:on
     args = parser.parse_args()
     print(args)
 
-    run_espnet(args)
+    finetune_espnet(args)
 
     """
     LRU_CACHE_CAPACITY=1 python ~/code/SPEECH/espnet/espnet2/bin/main.py
