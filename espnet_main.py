@@ -1,6 +1,7 @@
 import shutil
 from dataclasses import dataclass, field
 
+import wandb
 import yaml
 from typing import Optional, Union, List
 
@@ -25,7 +26,7 @@ TOKENIZER = "tokenizer"
 def build_config(args):
     return f"""
     batch_type: numel
-    batch_bins: 16_00_000
+    batch_bins: {args.batch_bins}
     accum_grad: 1
     max_epoch: 1
     patience: none
@@ -185,10 +186,12 @@ def run_asr_task(
         f"--valid_data_path_and_name_and_type {mp}/{VALID}/wav.scp,speech,sound "
         f"--valid_data_path_and_name_and_type {mp}/{VALID}/text,text,text "
         f"--ngpu {num_gpus} "
-        f"--pretrain_key {None} "
-        f"--pretrain_path {pretrain_config['pretrained_model_file']} " #TODO(tilo)
         f"--multiprocessing_distributed {is_distributed} "
     )
+    if pretrain_config is not None:
+        argString+=f"--pretrain_key {None} "
+        argString+=f"--pretrain_path {pretrain_config['pretrained_model_file']} "
+
     if not collect_stats:
         argString += (
             f"--train_shape_file {sp}/train/speech_shape "
@@ -217,7 +220,7 @@ def run_asr_task(
 CONFIG_YML = "config.yml"
 
 
-def run_espnet(args: argparse.Namespace):
+def train_from_scratch(args: argparse.Namespace):
     out_path = args.output_path
     os.makedirs(out_path, exist_ok=True)
     config_file = f"{out_path}/{CONFIG_YML}"
@@ -287,7 +290,7 @@ def finetune_espnet(args: argparse.Namespace):
         f"{out_path}/{MANIFESTS}/{VALID}", args.eval_path, limit=args.eval_limit
     )
     data_io.write_lines("tokens.txt", pretrain_config["token_list"])
-    if not os.path.isdir(f"{out_path}/{STATS}") or True:
+    if not os.path.isdir(f"{out_path}/{STATS}"):
         run_asr_task(
             out_path,
             config_file,
@@ -323,16 +326,21 @@ if __name__ == "__main__":
     parser.add_argument('--is_distributed', type=bool, default=False)
     parser.add_argument('--num_workers', type=int, default=1)
     parser.add_argument('--num_encoder_blocks', type=int, default=1)
-    parser.add_argument('--train_limit', type=int, default=1)
-    parser.add_argument('--eval_limit', type=int, default=None)
+    parser.add_argument('--train_limit', type=int, default=100)
+    parser.add_argument('--eval_limit', type=int, default=100)
     parser.add_argument('--config_yml', type=str, default=None)
     parser.add_argument('--pretrained_base', type=str, default=os.environ["HOME"]+"/data/espnet_pretrained")
     parser.add_argument('--vocab_size', type=int, default=500)
+    parser.add_argument('--batch_bins', type=int, default=16_0_000)
     # fmt:on
     args = parser.parse_args()
     print(args)
 
-    finetune_espnet(args)
+    if "WANDB_PROJECT" in os.environ:
+        wandb.init(project=os.environ["WANDB_PROJECT"]) # , sync_tensorboard=True
+
+    train_from_scratch(args)
+    # finetune_espnet(args)
 
     """
     LRU_CACHE_CAPACITY=1 python ~/code/SPEECH/espnet/espnet2/bin/main.py
