@@ -1,5 +1,8 @@
+import shutil
 from dataclasses import dataclass, field
-from typing import Optional
+
+import yaml
+from typing import Optional, Union, List
 
 import os
 
@@ -148,6 +151,8 @@ def train_tokenizer(out_path, vocab_size=5000):
 def run_asr_task(
     output_path,
     config,
+    bpe_model:str,
+    token_list:Union[str,List[str]],
     num_gpus=0,
     is_distributed=False,
     num_workers=0,
@@ -160,11 +165,11 @@ def run_asr_task(
     argString = (
         f"--collect_stats {collect_stats} "
         f"--use_preprocessor true "
-        f"--bpemodel {output_path}/{TOKENIZER}/bpe.model "
+        f"--bpemodel {bpe_model} "
         f"--seed 42 "
         f"--num_workers {num_workers} "
         f"--token_type bpe "
-        f"--token_list {output_path}/{TOKENIZER}/tokens.txt "
+        f"--token_list {token_list} "
         f"--g2p none "
         f"--non_linguistic_symbols none "
         f"--cleaner none "
@@ -179,6 +184,8 @@ def run_asr_task(
         f"--valid_data_path_and_name_and_type {mp}/{VALID}/wav.scp,speech,sound "
         f"--valid_data_path_and_name_and_type {mp}/{VALID}/text,text,text "
         f"--ngpu {num_gpus} "
+        f"--pretrain_key {None} "
+        f"--pretrain_path {os.environ['HOME']+'/data/653d10049fdc264f694f57b49849343e/exp/asr_train_asr_transformer_e18_raw_bpe_sp/54epoch.pth'} "
         f"--multiprocessing_distributed {is_distributed} "
     )
     if not collect_stats:
@@ -204,25 +211,34 @@ CONFIG_YML = "config.yml"
 def run_espnet(args: argparse.Namespace):
     out_path = args.output_path
     os.makedirs(out_path, exist_ok=True)
-    data_io.write_file(f"{out_path}/{CONFIG_YML}", build_config(args))
+    config_file = f"{out_path}/{CONFIG_YML}"
+    if args.config_yml is None:
+        data_io.write_file(config_file, build_config(args))
+    else:
+        shutil.copyfile(args.config_yml,config_file)
 
     build_manifest_files(
-        f"{out_path}/{MANIFESTS}/{TRAIN}", args.train_path, limit=args.limit
+        f"{out_path}/{MANIFESTS}/{TRAIN}", args.train_path, limit=args.train_limit
     )
     build_manifest_files(
-        f"{out_path}/{MANIFESTS}/{VALID}", args.eval_path, limit=args.limit
+        f"{out_path}/{MANIFESTS}/{VALID}", args.eval_path, limit=args.eval_limit
     )
 
     if not os.path.isdir(f"{out_path}/{TOKENIZER}"):
         train_tokenizer(out_path, args.vocab_size)
 
     if not os.path.isdir(f"{out_path}/{STATS}"):
-        run_asr_task(out_path, f"{out_path}/{CONFIG_YML}", collect_stats=True)
+        run_asr_task(out_path, config_file,
+                     bpe_model=f"{out_path}/{TOKENIZER}/bpe.model",
+                     token_list=f"{out_path}/{TOKENIZER}/tokens.txt",
+                     collect_stats=True)
 
     run_asr_task(
         out_path,
-        f"{out_path}/{CONFIG_YML}",
+        config_file,
         num_workers=args.num_workers,
+        bpe_model=f"{out_path}/{TOKENIZER}/bpe.model",
+        token_list=f"{out_path}/{TOKENIZER}/tokens.txt",
         num_gpus=args.num_gpus,
         is_distributed=args.is_distributed,
     )
@@ -230,21 +246,35 @@ def run_espnet(args: argparse.Namespace):
 
 os.environ["LRU_CACHE_CAPACITY"] = str(1)
 # see [Memory leak when evaluating model on CPU with dynamic size tensor input](https://github.com/pytorch/pytorch/issues/29893) and [here](https://raberrytv.wordpress.com/2020/03/25/pytorch-free-your-memory/)
+"""
+### no idea: 
+allow_variable_data_keys: false 
 
+### some idea:
+bpemodel: /home/tilo/data/653d10049fdc264f694f57b49849343e/data/token_list/bpe_unigram5000/bpe.model
+
+"""
 if __name__ == "__main__":
+    # config_yml = "/home/tilo/data/653d10049fdc264f694f57b49849343e/exp/asr_train_asr_transformer_e18_raw_bpe_sp/config.yaml"
+    # with open(config_yml, "r", encoding="utf-8") as f:
+    #     d = yaml.safe_load(f)
+
     parser = argparse.ArgumentParser()
     # fmt:off
     parser.add_argument('--num_gpus', type=int, default=0) # used to support multi-GPU or CPU training
     parser.add_argument('--train_path', type=str, default=os.environ["HOME"]+"/data/asr_data/ENGLISH/LibriSpeech/dev-clean_preprocessed")
     parser.add_argument('--eval_path', type=str, default=os.environ["HOME"]+"/data/asr_data/ENGLISH/LibriSpeech/dev-clean_preprocessed")
-    parser.add_argument('--output_path', type=str, default="espnet_output")
+    parser.add_argument('--output_path', type=str, default="/tmp/espnet_output")
     parser.add_argument('--is_distributed', type=bool, default=False)
     parser.add_argument('--num_workers', type=int, default=1)
     parser.add_argument('--num_encoder_blocks', type=int, default=1)
-    parser.add_argument('--limit', type=int, default=200)
+    parser.add_argument('--train_limit', type=int, default=300)
+    parser.add_argument('--eval_limit', type=int, default=300)
+    parser.add_argument('--config_yml', type=str, default=None)
     parser.add_argument('--vocab_size', type=int, default=500)
     # fmt:on
     args = parser.parse_args()
+    print(args)
 
     run_espnet(args)
 
