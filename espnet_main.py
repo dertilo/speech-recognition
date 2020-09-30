@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 import wandb
 import yaml
 from pytorch_lightning import Trainer
+from pytorch_lightning.loggers import WandbLogger
 from typing import Optional, Union, List
 
 import os
@@ -223,10 +224,10 @@ def run_asr_task(
         espnet_collect_stats(args)
     else:
         # espnet_asr_train_validate(args)
-        wandb.init(project="espnet-asr")
+        logger = WandbLogger(name="debug", project="espnet-asr")
         model = LitEspnet(args)
         dm = LitEspnetDataModule(args)
-        trainer = Trainer(max_epochs=3)
+        trainer = Trainer(max_epochs=3,row_log_interval=10,logger=logger)
         trainer.fit(model,datamodule=dm)
     # ASRTask.main(args=args)
 

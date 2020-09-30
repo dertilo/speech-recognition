@@ -44,25 +44,27 @@ class LitEspnet(pl.LightningModule):
     def forward(self, batch):
         return self.model(**batch)
 
+    @staticmethod
+    def _log_results(results, loss, prefix, stats):
+        stats = {k: v for k, v in stats.items() if v is not None}
+        results.log(f"{prefix}loss", loss)
+        for k, v in stats.items():
+            results.log(f"{prefix}{k}", v, prog_bar=True)
+
     def training_step(self,ids_batch,batch_idx):
         ids, batch = ids_batch
         loss, stats, weight = self.model(**batch)
-        stats = {k: v for k, v in stats.items() if v is not None}
+        print(stats.keys())
         result = pl.TrainResult(loss)
-        result.log('train_loss', loss)
-        for k,v in stats.items():
-            result.log(k,v)
+        self._log_results(result, loss, 'train_', stats)
         return result
 
 
     def validation_step(self,ids_batch, batch_idx, dataloader_idx=0) -> EvalResult:
         ids, batch = ids_batch
         loss, stats, weight =self.model(**batch)
-        stats = {k: v for k, v in stats.items() if v is not None}
         result = pl.EvalResult()
-        result.log('eval_loss', loss)
-        for k, v in stats.items():
-            result.log(k, v)
+        self._log_results(result, loss, 'eval_', stats)
         return result
 
     def configure_optimizers(self) -> Optional[
