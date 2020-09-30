@@ -1,10 +1,11 @@
 import soundfile
 from espnet_model_zoo.downloader import ModelDownloader
 from espnet2.bin.asr_inference import Speech2Text
+import os
 
 if __name__ == '__main__':
 
-    d = ModelDownloader()
+    d = ModelDownloader(cachedir=os.environ["HOME"]+"/data/")
     model_name = "Shinji Watanabe/librispeech_asr_train_asr_transformer_e18_raw_bpe_sp_valid.acc.best"
     loaded = d.download_and_unpack(model_name)
     speech2text = Speech2Text(**loaded)
