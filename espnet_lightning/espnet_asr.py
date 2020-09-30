@@ -22,6 +22,8 @@ from espnet2.utils.yaml_no_alias_safe_dump import yaml_no_alias_safe_dump
 from pathlib import Path
 from typeguard import check_argument_types
 
+from espnet_lightning.trainer import Trainer
+
 cls = ASRTask
 
 
@@ -127,7 +129,7 @@ def train_validate(
             logging.warning("No keep_nbest_models is given. Change to [1]")
             args.keep_nbest_models = [1]
         keep_nbest_models = max(args.keep_nbest_models)
-    cls.trainer.run(
+    Trainer.run(
         model=model,
         optimizers=optimizers,
         schedulers=schedulers,
@@ -252,7 +254,6 @@ def setup(args):
 
 
 def build_model(args):
-    # 2. Build model
     model = cls.build_model(args=args)
     if not isinstance(model, AbsESPnetModel):
         raise RuntimeError(
