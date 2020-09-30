@@ -122,8 +122,8 @@ class Trainer:
         model: AbsESPnetModel,
         optimizers: Sequence[torch.optim.Optimizer],
         schedulers: Sequence[Optional[AbsScheduler]],
-        train_iter_factory: AbsIterFactory,
-        valid_iter_factory: AbsIterFactory,
+        train_dataloader,
+        valid_dataloader,
         plot_attention_iter_factory: Optional[AbsIterFactory],
         reporter: Reporter,
         scaler: Optional[GradScaler],
@@ -205,7 +205,7 @@ class Trainer:
                     model=dp_model,
                     optimizers=optimizers,
                     schedulers=schedulers,
-                    iterator=train_iter_factory.build_iter(iepoch),
+                    iterator=train_dataloader,
                     reporter=sub_reporter,
                     scaler=scaler,
                     summary_writer=summary_writer,
@@ -215,7 +215,7 @@ class Trainer:
             with reporter.observe("valid") as sub_reporter:
                 cls.validate_one_epoch(
                     model=dp_model,
-                    iterator=valid_iter_factory.build_iter(iepoch),
+                    iterator=valid_dataloader,
                     reporter=sub_reporter,
                     options=trainer_options,
                 )

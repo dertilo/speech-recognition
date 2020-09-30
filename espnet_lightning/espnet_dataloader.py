@@ -1,3 +1,4 @@
+from espnet2.utils.build_dataclass import build_dataclass
 from typing import Union, Sequence, Any
 
 import logging
@@ -12,7 +13,7 @@ from espnet2.samplers.build_batch_sampler import build_batch_sampler
 from espnet2.tasks.abs_task import IteratorOptions
 from espnet2.train.collate_fn import CommonCollateFn
 from espnet2.train.dataset import ESPnetDataset
-from espnet2.train.distributed_utils import DistributedOption
+from espnet2.train.distributed_utils import DistributedOption, resolve_distributed_mode
 from espnet2.train.preprocessor import CommonPreprocessor
 from torch.utils.data import DataLoader
 from typeguard import check_return_type
@@ -69,72 +70,17 @@ class SequenceIterFactory(AbsIterFactory):
         self.collate_fn = collate_fn
         # https://discuss.pytorch.org/t/what-is-the-disadvantage-of-using-pin-memory/1702
         self.pin_memory = pin_memory
+        self._epoch = 0
 
-    def build_iter(self, epoch: int, shuffle: bool = None) -> DataLoader:
-        if shuffle is None:
-            shuffle = self.shuffle
+    def build_iter(self) -> DataLoader:
 
-        if self.num_iters_per_epoch is not None:
-            N = len(self.sampler)
-            # If corpus size is larger than the num_per_epoch
-            if self.num_iters_per_epoch < N:
-                N = len(self.sampler)
-                real_epoch, offset = divmod(self.num_iters_per_epoch * epoch, N)
+        shuffle = self.shuffle
+        assert self.num_iters_per_epoch is None
 
-                if offset >= self.num_iters_per_epoch:
-                    current_batches = self.sampler.generate(real_epoch + self.seed)
-                    if shuffle:
-                        np.random.RandomState(real_epoch + self.seed).shuffle(
-                            current_batches
-                        )
-                    batches = current_batches[
-                        offset - self.num_iters_per_epoch : offset
-                    ]
-                else:
-                    prev_batches = self.sampler.generate(real_epoch - 1 + self.seed)
-                    current_batches = self.sampler.generate(real_epoch + self.seed)
-                    if shuffle:
-                        np.random.RandomState(real_epoch - 1 + self.seed).shuffle(
-                            prev_batches
-                        )
-                        np.random.RandomState(real_epoch + self.seed).shuffle(
-                            current_batches
-                        )
-                    batches = (
-                        prev_batches[offset - self.num_iters_per_epoch :]
-                        + current_batches[:offset]
-                    )
-
-            # If corpus size is less than the num_per_epoch
-            else:
-                _epoch, _cursor = divmod(self.num_iters_per_epoch * (epoch - 1), N)
-                _remain = self.num_iters_per_epoch
-                batches = []
-                current_batches = self.sampler.generate(_epoch + self.seed)
-                if shuffle:
-                    np.random.RandomState(_epoch + self.seed).shuffle(current_batches)
-                while _remain > 0:
-
-                    _batches = current_batches[_cursor : _cursor + _remain]
-                    batches += _batches
-                    if _cursor + _remain >= N:
-                        _epoch += 1
-                        _cursor = 0
-                        current_batches = self.sampler.generate(_epoch + self.seed)
-                        if shuffle:
-                            np.random.RandomState(_epoch + self.seed).shuffle(
-                                current_batches
-                            )
-                    else:
-                        _cursor = _cursor + _remain
-                    _remain -= len(_batches)
-
-                assert len(batches) == self.num_iters_per_epoch
-
-        else:
-            batches = self.sampler.generate(epoch + self.seed)
-            if shuffle:
-                np.random.RandomState(epoch + self.seed).shuffle(batches)
+        batches = self.sampler.generate(self.seed)
+        if shuffle:
+            np.random.RandomState(self._epoch + self.seed).shuffle(batches)
+            self._epoch +=1
 
         # For backward compatibility for pytorch DataLoader
         if self.collate_fn is not None:
@@ -257,8 +203,11 @@ def build_iter_options(
 
 def build_sequence_iter_factory(
     args: argparse.Namespace, mode: str,
-        distributed_option: DistributedOption,
 ):
+    resolve_distributed_mode(args)
+    distributed_option = build_dataclass(DistributedOption, args)
+    distributed_option.init()
+
     iter_options = build_iter_options(args, distributed_option, mode)
 
 

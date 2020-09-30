@@ -21,6 +21,7 @@ from pathlib import Path
 from typeguard import check_argument_types
 
 from espnet_lightning.espnet_dataloader import build_sequence_iter_factory
+from espnet_lightning.lit_espnet import LitEspnetDataModule
 from espnet_lightning.trainer import Trainer
 
 cls = ASRTask
@@ -109,12 +110,10 @@ def train_validate(
 ):
     train_iter_factory = build_sequence_iter_factory(
         args=args,
-        distributed_option=distributed_option,
         mode="train",
     )
     valid_iter_factory = build_sequence_iter_factory(
         args=args,
-        distributed_option=distributed_option,
         mode="valid",
     )
     # 9. Start training
@@ -128,12 +127,14 @@ def train_validate(
             logging.warning("No keep_nbest_models is given. Change to [1]")
             args.keep_nbest_models = [1]
         keep_nbest_models = max(args.keep_nbest_models)
+
+    dm = LitEspnetDataModule(args)
     Trainer.run(
         model=model,
         optimizers=optimizers,
         schedulers=schedulers,
-        train_iter_factory=train_iter_factory,
-        valid_iter_factory=valid_iter_factory,
+        train_dataloader=dm.train_dataloader(),
+        valid_dataloader=dm.val_dataloader(),
         plot_attention_iter_factory=None,
         reporter=reporter,
         scaler=scaler,
