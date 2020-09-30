@@ -20,10 +20,6 @@ if __name__ == "__main__":
     # fmt:on
     args = parser.parse_args()
 
-    dev_name = "dev-clean-some_preprocessed"
-    cmd = "tar xzf %s -C %s" % (input_path + "/" + dev_name + ".tar.gz", input_path)
-    assert os.system(cmd) == 0
-    print(os.listdir(input_path))
 
     os.environ["LRU_CACHE_CAPACITY"] = str(1)
 
@@ -34,6 +30,11 @@ if __name__ == "__main__":
     os.makedirs(wandb_run_dir, exist_ok=True)
     os.makedirs(espnet_tensorboard,exist_ok=True)
     assert os.system(f"ln -s {espnet_tensorboard} {wandb_run_dir}") == 0
+
+    dev_name = "dev-clean-some_preprocessed"
+    cmd = "tar xzf %s -C %s" % (input_path + "/" + dev_name + ".tar.gz", input_path)
+    assert os.system(cmd) == 0
+    print(os.listdir(input_path))
 
     dev_path = f"{input_path}/{dev_name}"
     run_espnet(
