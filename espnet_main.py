@@ -15,7 +15,7 @@ from util import data_io, util_methods
 import sentencepiece as spm
 import shlex
 
-from espnet_lightning.espnet_asr import espnet_asr_main
+from espnet_lightning.espnet_asr import espnet_asr_train_validate, espnet_collect_stats
 
 TRAIN = "train"
 VALID = "valid"
@@ -217,7 +217,10 @@ def run_asr_task(
         args.normalize_conf = d
 
     args.num_att_plot=0
-    espnet_asr_main(args)
+    if args.collect_stats:
+        espnet_collect_stats(args)
+    else:
+        espnet_asr_train_validate(args)
     # ASRTask.main(args=args)
 
 
