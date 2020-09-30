@@ -216,6 +216,7 @@ def run_asr_task(
         d["stats_file"]=f"{pretrain_config['pretrained_base']}/exp/asr_stats_raw_sp/train/feats_stats.npz"# TODO(tilo)
         args.normalize_conf = d
 
+    args.num_att_plot=0
     espnet_asr_main(args)
     # ASRTask.main(args=args)
 

@@ -25,21 +25,7 @@ from typeguard import check_argument_types
 cls = ASRTask
 def espnet_asr_main(args: argparse.Namespace):
     # -------------------AbsTask.main--------------------------------------------
-    cmd = None
-    if cls.num_optimizers != cls.trainer.num_optimizers:
-        raise RuntimeError(
-            f"Task.num_optimizers != Task.trainer.num_optimizers: "
-            f"{cls.num_optimizers} != {cls.trainer.num_optimizers}"
-        )
-    assert check_argument_types()
     print(get_commandline_args(), file=sys.stderr)
-    if args is None:
-        parser = cls.get_parser()
-        args = parser.parse_args(cmd)
-    if args.print_config:
-        cls.print_config()
-        sys.exit(0)
-    cls.check_required_command_args(args)
 
     # "distributed" is decided using the other command args
     resolve_distributed_mode(args)
@@ -50,33 +36,7 @@ def espnet_asr_main(args: argparse.Namespace):
     distributed_option = build_dataclass(DistributedOption, args)
     distributed_option.init()
 
-    # NOTE(kamo): Don't use logging before invoking logging.basicConfig()
-    if not distributed_option.distributed or distributed_option.dist_rank == 0:
-        if not distributed_option.distributed:
-            _rank = ""
-        else:
-            _rank = (
-                f":{distributed_option.dist_rank}/"
-                f"{distributed_option.dist_world_size}"
-            )
-
-        # NOTE(kamo):
-        # logging.basicConfig() is invoked in main_worker() instead of main()
-        # because it can be invoked only once in a process.
-        # FIXME(kamo): Should we use logging.getLogger()?
-        logging.basicConfig(
-            level=args.log_level,
-            format=f"[{os.uname()[1].split('.')[0]}{_rank}]"
-                   f" %(asctime)s (%(module)s:%(lineno)d) %(levelname)s: %(message)s",
-        )
-    else:
-        # Suppress logging if RANK != 0
-        logging.basicConfig(
-            level="ERROR",
-            format=f"[{os.uname()[1].split('.')[0]}"
-                   f":{distributed_option.dist_rank}/{distributed_option.dist_world_size}]"
-                   f" %(asctime)s (%(module)s:%(lineno)d) %(levelname)s: %(message)s",
-        )
+    _rank = ""
 
     # 1. Set random-seed
     set_all_random_seed(args.seed)
@@ -127,13 +87,13 @@ def espnet_asr_main(args: argparse.Namespace):
     # NOTE(kamo): "args" should be saved after object-buildings are done
     #  because they are allowed to modify "args".
     output_dir = Path(args.output_dir)
-    if not distributed_option.distributed or distributed_option.dist_rank == 0:
-        output_dir.mkdir(parents=True, exist_ok=True)
-        with (output_dir / "config.yaml").open("w", encoding="utf-8") as f:
-            logging.info(
-                f'Saving the configuration in {output_dir / "config.yaml"}'
-            )
-            yaml_no_alias_safe_dump(vars(args), f, indent=4, sort_keys=False)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    with (output_dir / "config.yaml").open("w", encoding="utf-8") as f:
+        logging.info(
+            f'Saving the configuration in {output_dir / "config.yaml"}'
+        )
+        yaml_no_alias_safe_dump(vars(args), f, indent=4, sort_keys=False)
 
     # 6. Loads pre-trained model
     for p, k in zip(args.pretrain_path, args.pretrain_key):
@@ -222,32 +182,16 @@ def espnet_asr_main(args: argparse.Namespace):
         )
     else:
 
-        # 8. Build iterator factories
-        if args.multiple_iterator:
-            train_iter_factory = cls.build_multiple_iter_factory(
-                args=args,
-                distributed_option=distributed_option,
-                mode="train",
-            )
-        else:
-            train_iter_factory = cls.build_iter_factory(
-                args=args,
-                distributed_option=distributed_option,
-                mode="train",
-            )
+        train_iter_factory = cls.build_iter_factory(
+            args=args,
+            distributed_option=distributed_option,
+            mode="train",
+        )
         valid_iter_factory = cls.build_iter_factory(
             args=args,
             distributed_option=distributed_option,
             mode="valid",
         )
-        if args.num_att_plot != 0:
-            plot_attention_iter_factory = cls.build_iter_factory(
-                args=args,
-                distributed_option=distributed_option,
-                mode="plot_att",
-            )
-        else:
-            plot_attention_iter_factory = None
 
         # 9. Start training
         # Don't give args to trainer.run() directly!!!
@@ -268,7 +212,7 @@ def espnet_asr_main(args: argparse.Namespace):
             schedulers=schedulers,
             train_iter_factory=train_iter_factory,
             valid_iter_factory=valid_iter_factory,
-            plot_attention_iter_factory=plot_attention_iter_factory,
+            plot_attention_iter_factory=None,
             reporter=reporter,
             scaler=scaler,
             output_dir=output_dir,
