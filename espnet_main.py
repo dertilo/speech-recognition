@@ -15,6 +15,8 @@ from util import data_io, util_methods
 import sentencepiece as spm
 import shlex
 
+from espnet_lightning.espnet_asr import espnet_asr_main
+
 TRAIN = "train"
 VALID = "valid"
 MANIFESTS = "manifests"
@@ -214,7 +216,8 @@ def run_asr_task(
         d["stats_file"]=f"{pretrain_config['pretrained_base']}/exp/asr_stats_raw_sp/train/feats_stats.npz"# TODO(tilo)
         args.normalize_conf = d
 
-    ASRTask.main(args=args)
+    espnet_asr_main(args)
+    # ASRTask.main(args=args)
 
 
 CONFIG_YML = "config.yml"
@@ -334,6 +337,7 @@ if __name__ == "__main__":
     parser.add_argument('--batch_bins', type=int, default=16_0_000)
     # fmt:on
     args = parser.parse_args()
+    shutil.rmtree("/tmp/espnet_output")
     print(args)
 
     if "WANDB_PROJECT" in os.environ:
@@ -341,12 +345,3 @@ if __name__ == "__main__":
 
     train_from_scratch(args)
     # finetune_espnet(args)
-
-    """
-    LRU_CACHE_CAPACITY=1 python ~/code/SPEECH/espnet/espnet2/bin/main.py
-
-    [tilo-ThinkPad-X1-Carbon-6th] 2020-09-17 18:14:26,464 (trainer:243) INFO: 1epoch results: [train] iter_time=0.164, forward_time=0.952, loss=480.386, loss_att=191.654, loss_ctc=1.154e+03, acc=1.022e-04, backward_time=0.973, optim_step_time=0.007, lr_0=2.080e-06, train_time=2.105, time=1 minute and 43.19 seconds, total_count=49, [valid] loss=479.955, loss_att=191.637, loss_ctc=1.153e+03, acc=1.030e-04, cer=1.010, wer=1.000, cer_ctc=4.993, time=50.5 seconds, total_count=49, [att_plot] time=3.2 seconds, total_count=0
-    [tilo-ThinkPad-X1-Carbon-6th] 2020-09-17 18:14:28,067 (trainer:286) INFO: The best model has been updated: valid.acc
-    [tilo-ThinkPad-X1-Carbon-6th] 2020-09-17 18:14:28,068 (trainer:322) INFO: The training was finished at 1 epochs 
-
-    """
