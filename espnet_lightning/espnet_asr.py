@@ -1,8 +1,6 @@
-import sys
-
 import argparse
 import logging
-import os
+import sys
 import torch
 from distutils.version import LooseVersion
 from espnet.utils.cli_utils import get_commandline_args
@@ -22,6 +20,7 @@ from espnet2.utils.yaml_no_alias_safe_dump import yaml_no_alias_safe_dump
 from pathlib import Path
 from typeguard import check_argument_types
 
+from espnet_lightning.espnet_dataloader import build_sequence_iter_factory
 from espnet_lightning.trainer import Trainer
 
 cls = ASRTask
@@ -108,12 +107,12 @@ def train_validate(
     scaler,
     schedulers,
 ):
-    train_iter_factory = cls.build_iter_factory(
+    train_iter_factory = build_sequence_iter_factory(
         args=args,
         distributed_option=distributed_option,
         mode="train",
     )
-    valid_iter_factory = cls.build_iter_factory(
+    valid_iter_factory = build_sequence_iter_factory(
         args=args,
         distributed_option=distributed_option,
         mode="valid",
