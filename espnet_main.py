@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 
 import wandb
 import yaml
+from pytorch_lightning import Trainer
 from typing import Optional, Union, List
 
 import os
@@ -16,6 +17,7 @@ import sentencepiece as spm
 import shlex
 
 from espnet_lightning.espnet_asr import espnet_asr_train_validate, espnet_collect_stats
+from espnet_lightning.lit_espnet import LitEspnetDataModule, LitEspnet
 
 TRAIN = "train"
 VALID = "valid"
@@ -220,7 +222,12 @@ def run_asr_task(
     if args.collect_stats:
         espnet_collect_stats(args)
     else:
-        espnet_asr_train_validate(args)
+        # espnet_asr_train_validate(args)
+        wandb.init(project="espnet-asr")
+        model = LitEspnet(args)
+        dm = LitEspnetDataModule(args)
+        trainer = Trainer(max_epochs=3)
+        trainer.fit(model,datamodule=dm)
     # ASRTask.main(args=args)
 
 

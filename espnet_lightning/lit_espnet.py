@@ -1,14 +1,80 @@
+from pathlib import Path
+
+import argparse
+
 import torch
 from argparse import ArgumentParser
+from espnet2.tasks.asr import ASRTask
 
-from pytorch_lightning import EvalResult, TrainResult
+from pytorch_lightning import EvalResult, TrainResult, Trainer
+from torch.optim import Optimizer
 from torch.utils.data import DataLoader
-from typing import Union, List, Any, Optional
+from typing import Union, List, Any, Optional, Sequence, Dict, Tuple
 
 import pytorch_lightning as pl
 import numpy as np
 
+from espnet_lightning.espnet_asr import build_model, build_schedulers, load_pretrained, \
+    resume
 from espnet_lightning.espnet_dataloader import RawSampler, build_sequence_iter_factory
+
+
+class LitEspnet(pl.LightningModule):
+
+    def __init__(self, args:argparse.Namespace):
+        super().__init__()
+        self.args = args
+        self.model = build_model(args)
+        load_pretrained(args.pretrain_path, args.pretrain_key,self.model,args.ngpu)
+
+        # output_dir = Path(args.output_dir) # TODO(tilo)
+        # output_dir.mkdir(parents=True, exist_ok=True)
+        # if args.resume and (output_dir / "checkpoint.pth").exists():
+        #     resume(
+        #         checkpoint=output_dir / "checkpoint.pth",
+        #         model=self.model,
+        #         optimizers=optimizers,
+        #         schedulers=schedulers,
+        #         reporter=reporter,
+        #         scaler=scaler,
+        #         ngpu=args.ngpu,
+        #     )
+
+
+    def forward(self, batch):
+        return self.model(**batch)
+
+    def training_step(self,ids_batch,batch_idx):
+        ids, batch = ids_batch
+        loss, stats, weight = self.model(**batch)
+        stats = {k: v for k, v in stats.items() if v is not None}
+        result = pl.TrainResult(loss)
+        result.log('train_loss', loss)
+        for k,v in stats.items():
+            result.log(k,v)
+        return result
+
+
+    def validation_step(self,ids_batch, batch_idx, dataloader_idx=0) -> EvalResult:
+        ids, batch = ids_batch
+        loss, stats, weight =self.model(**batch)
+        stats = {k: v for k, v in stats.items() if v is not None}
+        result = pl.EvalResult()
+        result.log('eval_loss', loss)
+        for k, v in stats.items():
+            result.log(k, v)
+        return result
+
+    def configure_optimizers(self) -> Optional[
+        Union[Optimizer, Sequence[Optimizer], Dict, Sequence[Dict], Tuple[List, List]]]:
+        optimizers = ASRTask.build_optimizers(self.args, model=self.model)
+        schedulers = build_schedulers(self.args, optimizers)
+        return optimizers,schedulers
+
+    #
+    # def validation_epoch_end(self, outputs: Union[
+    #     EvalResult, List[EvalResult]]) -> EvalResult:
+    #     return super().validation_epoch_end(outputs)
 
 
 class LitEspnetDataModule(pl.LightningDataModule):

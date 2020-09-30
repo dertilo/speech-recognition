@@ -149,36 +149,7 @@ class Trainer:
                 f"The training has already reached at max_epoch: {start_epoch}"
             )
 
-        if distributed_option.distributed:
-            dp_model = torch.nn.parallel.DistributedDataParallel(
-                model,
-                device_ids=(
-                    # Perform multi-Process with multi-GPUs
-                    [torch.cuda.current_device()]
-                    if distributed_option.ngpu == 1
-                    # Perform single-Process with multi-GPUs
-                    else None
-                ),
-                output_device=(
-                    torch.cuda.current_device()
-                    if distributed_option.ngpu == 1
-                    else None
-                ),
-            )
-        elif distributed_option.ngpu > 1:
-            dp_model = torch.nn.parallel.DataParallel(
-                model,
-                device_ids=list(range(distributed_option.ngpu)),
-            )
-        else:
-            # NOTE(kamo): DataParallel also should work with ngpu=1,
-            # but for debuggability it's better to keep this block.
-            dp_model = model
-
-        if not distributed_option.distributed or distributed_option.dist_rank == 0:
-            summary_writer = SummaryWriter(str(output_dir / "tensorboard"))
-        else:
-            summary_writer = None
+        summary_writer = SummaryWriter(str(output_dir / "tensorboard"))
 
         start_time = time.perf_counter()
         for iepoch in range(start_epoch, max_epoch + 1):
@@ -202,7 +173,7 @@ class Trainer:
             # 1. Train and validation for one-epoch
             with reporter.observe("train") as sub_reporter:
                 all_steps_are_invalid = cls.train_one_epoch(
-                    model=dp_model,
+                    model=model,
                     optimizers=optimizers,
                     schedulers=schedulers,
                     iterator=train_dataloader,
@@ -214,7 +185,7 @@ class Trainer:
 
             with reporter.observe("valid") as sub_reporter:
                 cls.validate_one_epoch(
-                    model=dp_model,
+                    model=model,
                     iterator=valid_dataloader,
                     reporter=sub_reporter,
                     options=trainer_options,

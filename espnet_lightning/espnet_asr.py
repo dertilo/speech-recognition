@@ -1,3 +1,6 @@
+from espnet2.schedulers.abs_scheduler import AbsScheduler
+from typing import Union, Sequence, Optional
+
 import argparse
 import logging
 import sys
@@ -21,7 +24,6 @@ from pathlib import Path
 from typeguard import check_argument_types
 
 from espnet_lightning.espnet_dataloader import build_sequence_iter_factory
-from espnet_lightning.lit_espnet import LitEspnetDataModule
 from espnet_lightning.trainer import Trainer
 
 cls = ASRTask
@@ -128,13 +130,12 @@ def train_validate(
             args.keep_nbest_models = [1]
         keep_nbest_models = max(args.keep_nbest_models)
 
-    dm = LitEspnetDataModule(args)
     Trainer.run(
         model=model,
         optimizers=optimizers,
         schedulers=schedulers,
-        train_dataloader=dm.train_dataloader(),
-        valid_dataloader=dm.val_dataloader(),
+        train_dataloader=train_iter_factory.build_iter(),
+        valid_dataloader=valid_iter_factory.build_iter(),
         plot_attention_iter_factory=None,
         reporter=reporter,
         scaler=scaler,
@@ -160,6 +161,23 @@ def train_validate(
 
 
 def setup(args):
+    def logging_in_setup(args, model, optimizers, schedulers):
+        logging.info(pytorch_cudnn_version())
+        logging.info(model_summary(model))
+        for i, (o, s) in enumerate(zip(optimizers, schedulers), 1):
+            suf = "" if i == 1 else str(i)
+            logging.info(f"Optimizer{suf}:\n{o}")
+            logging.info(f"Scheduler{suf}: {s}")
+        # 5. Dump "args" to config.yaml
+        # NOTE(kamo): "args" should be saved after object-buildings are done
+        #  because they are allowed to modify "args".
+        output_dir = Path(args.output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        with (output_dir / "config.yaml").open("w", encoding="utf-8") as f:
+            logging.info(f'Saving the configuration in {output_dir / "config.yaml"}')
+            yaml_no_alias_safe_dump(vars(args), f, indent=4, sort_keys=False)
+        return output_dir
+
     # -------------------AbsTask.main--------------------------------------------
     print(get_commandline_args(), file=sys.stderr)
     # "distributed" is decided using the other command args
@@ -180,50 +198,10 @@ def setup(args):
     # 3. Build optimizer
     optimizers = cls.build_optimizers(args, model=model)
     # 4. Build schedulers
-    schedulers = []
-    for i, optim in enumerate(optimizers, 1):
-        suf = "" if i == 1 else str(i)
-        name = getattr(args, f"scheduler{suf}")
-        conf = getattr(args, f"scheduler{suf}_conf")
-        if name is not None:
-            cls_ = scheduler_classes.get(name)
-            if cls_ is None:
-                raise ValueError(f"must be one of {list(scheduler_classes)}: {name}")
-            scheduler = cls_(optim, **conf)
-        else:
-            scheduler = None
+    schedulers = build_schedulers(args, optimizers)
 
-        schedulers.append(scheduler)
-    logging.info(pytorch_cudnn_version())
-    logging.info(model_summary(model))
-    for i, (o, s) in enumerate(zip(optimizers, schedulers), 1):
-        suf = "" if i == 1 else str(i)
-        logging.info(f"Optimizer{suf}:\n{o}")
-        logging.info(f"Scheduler{suf}: {s}")
-    # 5. Dump "args" to config.yaml
-    # NOTE(kamo): "args" should be saved after object-buildings are done
-    #  because they are allowed to modify "args".
-    output_dir = Path(args.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    with (output_dir / "config.yaml").open("w", encoding="utf-8") as f:
-        logging.info(f'Saving the configuration in {output_dir / "config.yaml"}')
-        yaml_no_alias_safe_dump(vars(args), f, indent=4, sort_keys=False)
-    # 6. Loads pre-trained model
-    for p, k in zip(args.pretrain_path, args.pretrain_key):
-        load_pretrained_model(
-            model=model,
-            # Directly specify the model path e.g. exp/train/loss.best.pt
-            pretrain_path=p,
-            # if pretrain_key is None -> model
-            # elif pretrain_key is str e.g. "encoder" -> model.encoder
-            pretrain_key=k,
-            # NOTE(kamo): "cuda" for torch.load always indicates cuda:0
-            #   in PyTorch<=1.4
-            map_location=f"cuda:{torch.cuda.current_device()}"
-            if args.ngpu > 0
-            else "cpu",
-        )
+    output_dir = logging_in_setup(args, model, optimizers, schedulers)
+    load_pretrained(args.pretrain_path, args.pretrain_key, model,args.ngpu)
     # 7. Resume the training state from the previous epoch
     reporter = Reporter()
     if args.use_amp:
@@ -233,7 +211,7 @@ def setup(args):
     else:
         scaler = None
     if args.resume and (output_dir / "checkpoint.pth").exists():
-        cls.resume(
+        resume(
             checkpoint=output_dir / "checkpoint.pth",
             model=model,
             optimizers=optimizers,
@@ -251,6 +229,69 @@ def setup(args):
         scaler,
         schedulers,
     )
+
+
+def resume(
+    checkpoint: Union[str, Path],
+    model: torch.nn.Module,
+    reporter: Reporter,
+    optimizers: Sequence[torch.optim.Optimizer],
+    schedulers: Sequence[Optional[AbsScheduler]],
+    scaler: Optional[GradScaler],
+    ngpu: int = 0,
+):
+    states = torch.load(
+        checkpoint,
+        map_location=f"cuda:{torch.cuda.current_device()}" if ngpu > 0 else "cpu",
+    )
+    model.load_state_dict(states["model"])
+    reporter.load_state_dict(states["reporter"])
+    for optimizer, state in zip(optimizers, states["optimizers"]):
+        optimizer.load_state_dict(state)
+    for scheduler, state in zip(schedulers, states["schedulers"]):
+        if scheduler is not None:
+            scheduler.load_state_dict(state)
+    if scaler is not None:
+        if states["scaler"] is None:
+            logging.warning("scaler state is not found")
+        else:
+            scaler.load_state_dict(states["scaler"])
+
+    logging.info(f"The training was resumed using {checkpoint}")
+
+def load_pretrained(pretrain_path, pretrain_key, model,ngpu):
+    for p, k in zip(pretrain_path, pretrain_key):
+        load_pretrained_model(
+            model=model,
+            # Directly specify the model path e.g. exp/train/loss.best.pt
+            pretrain_path=p,
+            # if pretrain_key is None -> model
+            # elif pretrain_key is str e.g. "encoder" -> model.encoder
+            pretrain_key=k,
+            # NOTE(kamo): "cuda" for torch.load always indicates cuda:0
+            #   in PyTorch<=1.4
+            map_location=f"cuda:{torch.cuda.current_device()}"
+            if ngpu > 0
+            else "cpu",
+        )
+
+
+def build_schedulers(args, optimizers):
+    schedulers = []
+    for i, optim in enumerate(optimizers, 1):
+        suf = "" if i == 1 else str(i)
+        name = getattr(args, f"scheduler{suf}")
+        conf = getattr(args, f"scheduler{suf}_conf")
+        if name is not None:
+            cls_ = scheduler_classes.get(name)
+            if cls_ is None:
+                raise ValueError(f"must be one of {list(scheduler_classes)}: {name}")
+            scheduler = cls_(optim, **conf)
+        else:
+            scheduler = None
+
+        schedulers.append(scheduler)
+    return schedulers
 
 
 def build_model(args):
