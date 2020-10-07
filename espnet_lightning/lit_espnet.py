@@ -14,18 +14,21 @@ from typing import Union, List, Any, Optional, Sequence, Dict, Tuple
 import pytorch_lightning as pl
 import numpy as np
 
-from espnet_lightning.espnet_asr import build_model, build_schedulers, load_pretrained, \
-    resume
+from espnet_lightning.espnet_asr import (
+    build_model,
+    build_schedulers,
+    load_pretrained,
+    resume,
+)
 from espnet_lightning.espnet_dataloader import RawSampler, build_sequence_iter_factory
 
 
 class LitEspnet(pl.LightningModule):
-
-    def __init__(self, args:argparse.Namespace):
+    def __init__(self, args: argparse.Namespace):
         super().__init__()
         self.args = args
         self.model = build_model(args)
-        load_pretrained(args.pretrain_path, args.pretrain_key,self.model,args.ngpu)
+        load_pretrained(args.pretrain_path, args.pretrain_key, self.model, args.ngpu)
 
         # output_dir = Path(args.output_dir) # TODO(tilo)
         # output_dir.mkdir(parents=True, exist_ok=True)
@@ -40,7 +43,6 @@ class LitEspnet(pl.LightningModule):
         #         ngpu=args.ngpu,
         #     )
 
-
     def forward(self, batch):
         return self.model(**batch)
 
@@ -51,27 +53,29 @@ class LitEspnet(pl.LightningModule):
         for k, v in stats.items():
             results.log(f"{prefix}{k}", v, prog_bar=True)
 
-    def training_step(self,ids_batch,batch_idx):
+    def training_step(self, ids_batch, batch_idx):
         ids, batch = ids_batch
         loss, stats, weight = self.model(**batch)
         print(stats.keys())
         result = pl.TrainResult(loss)
-        self._log_results(result, loss, 'train_', stats)
+        self._log_results(result, loss, "train_", stats)
         return result
 
-
-    def validation_step(self,ids_batch, batch_idx, dataloader_idx=0) -> EvalResult:
+    def validation_step(self, ids_batch, batch_idx, dataloader_idx=0) -> EvalResult:
         ids, batch = ids_batch
-        loss, stats, weight =self.model(**batch)
+        loss, stats, weight = self.model(**batch)
         result = pl.EvalResult()
-        self._log_results(result, loss, 'eval_', stats)
+        self._log_results(result, loss, "eval_", stats)
         return result
 
-    def configure_optimizers(self) -> Optional[
-        Union[Optimizer, Sequence[Optimizer], Dict, Sequence[Dict], Tuple[List, List]]]:
+    def configure_optimizers(
+        self,
+    ) -> Optional[
+        Union[Optimizer, Sequence[Optimizer], Dict, Sequence[Dict], Tuple[List, List]]
+    ]:
         optimizers = ASRTask.build_optimizers(self.args, model=self.model)
         schedulers = build_schedulers(self.args, optimizers)
-        return optimizers,schedulers
+        return optimizers, schedulers
 
     #
     # def validation_epoch_end(self, outputs: Union[
