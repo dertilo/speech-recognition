@@ -1,12 +1,25 @@
-### gunther
-    rsync -avz -e "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" --exclude=.git --exclude=data --max-size=1m /home/tilo/code/SPEECH/speech-recognition gunther@gunther:/home/gunther/tilo_data/SPEECH/
-    docker build -t deepspeech .
-    docker run --shm-size 8G --runtime=nvidia --rm -it -v /home/gunther/tilo_data:/docker-share --net=host --env JOBLIB_TEMP_FOLDER=/tmp/ deepspeech:latest bash
-    export PYTHONPATH=$HOME/SPEECH/speech-to-text:$HOME/SPEECH/speech-recognition:$HOME/UTIL/util
-preprocess data on gunther
-    `python data_related/librispeech.py`
-copy to hpc, because preprocessing on hpc is way to slow because of slow beegfs
-    `cp ~/gunther/data/asr_data/ENGLISH/LibriSpeech/*.jsonl.gz ~/hpc/data/asr_data/ENGLISH/LibriSpeech/`
+
+## deepspeech.pytorch
+### install [apex](https://github.com/NVIDIA/apex)
+* if on __hpc-node:__ do: `module load nvidia/cuda/10.1 && module load comp`
+* install it: `git clone https://github.com/NVIDIA/apex && cd apex && OMP_NUM_THREADS=8 pip install -v --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" ./`
+
+### train
+* on frontend:
+```shell script
+OMP_NUM_THREADS=2 wandb init
+```
+* on hpc
+    ```shell script
+    module load comp
+    export PYTHONPATH=$HOME/SPEECH/speech-to-text:$HOME/SPEECH/speech-recognition:$HOME/UTIL/util:$HOME/SPEECH/fairseq
+    WANDB_MODE=dryrun python train.py
+    ```
+### evaluate
+```shell script
+python evaluation.py --model libri_960_1024_32_11_04_2020/deepspeech_9.pth.tar --datasets test-clean
+```
+
 ### on hpc
 `module load comp`
 `export PYTHONPATH=$HOME/SPEECH/speech-to-text:$HOME/SPEECH/speech-recognition:$HOME/UTIL/util`
