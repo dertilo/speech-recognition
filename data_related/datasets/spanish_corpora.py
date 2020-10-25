@@ -1,9 +1,17 @@
-from typing import Union, List
+import shutil
+
+import torchaudio
+from tqdm import tqdm
+from typing import Union, List, Dict
 
 import wget
 from pathlib import Path
 
 import os
+from util import data_io
+from util.util_methods import process_with_threadpool, exec_command
+
+from data_related.utils import Sample, unzip
 
 
 def download_spanish_srl_corpora(
@@ -28,12 +36,82 @@ def download_spanish_srl_corpora(
     assert all([k in name_urls.keys() for k in datasets])
 
     datasets = list(name_urls.keys()) if datasets == "ALL" else datasets
+    corpusname_file = []
     for data_set in datasets:
         url = name_urls[data_set]
         localfile = os.path.join(download_folder, data_set + Path(url).suffix)
         if not os.path.exists(localfile):
             wget.download(url, localfile)
+        corpusname_file.append((data_set, localfile))
+    return corpusname_file
+
+
+def read_openslr(path) -> Dict[str, str]:
+    wavs = list(Path(path).rglob("*.wav"))
+    tsvs = list(Path(path).rglob("*.tsv"))
+
+    def parse_line(l):
+        file_name, text = l.split("\t")
+        return file_name + ".wav", text
+
+    key2text = {
+        file_name: text
+        for tsv_file in tsvs
+        for file_name, text in (
+            parse_line(l) for l in data_io.read_lines(os.path.join(path, str(tsv_file)))
+        )
+    }
+
+    def get_text(f):
+        key = str(f).split("/")[-1]
+        return key2text[key]
+
+    return {str(f): get_text(f) for f in wavs}
+
+
+MANIFEST_FILE = "manifest.jsonl.gz"
+
+
+def process_build_manifest(file2utt: Dict[str, str], processed_folder: str):
+    os.makedirs(processed_folder, exist_ok=True)
+
+    def convert_to_mp3_get_length(audio_file, text):
+        suffix = Path(audio_file).suffix
+        assert audio_file.startswith("/")
+        mp3_file_name = audio_file[1:].replace("/", "_").replace(suffix, ".mp3")
+
+        mp3_file = f"{processed_folder}/{mp3_file_name}"
+        exec_command(f"sox {audio_file} {mp3_file}")
+
+        si, ei = torchaudio.info(mp3_file)
+        num_frames = si.length / si.channels
+        len_in_seconds = num_frames / si.rate
+
+        return Sample(mp3_file_name, text, len_in_seconds, num_frames)
+
+    samples_to_dump = process_with_threadpool(
+        ({"audio_file": f, "text": t} for f, t in file2utt.items()),
+        convert_to_mp3_get_length,
+        max_workers=10,
+    )
+    data_io.write_jsonl(
+        f"{processed_folder}/{MANIFEST_FILE}",
+        tqdm(s._asdict() for s in samples_to_dump),
+    )
+
+
+def unzip_things(corpusname_file, unzip_folder):
+    for corpusname, f in corpusname_file:
+        extract_folder = f"/{unzip_folder}/{corpusname}"
+        if not os.path.exists(extract_folder):
+            unzip(f, extract_folder)
 
 
 if __name__ == "__main__":
-    download_spanish_srl_corpora(["74_pr_female"], "/tmp")
+    base_dir = "/tmp/SPANISH"
+    corpusname_file = download_spanish_srl_corpora(["74_pr_female"], base_dir)
+    raw_folder = f"{base_dir}/raw"
+    unzip_things(corpusname_file, raw_folder)
+    file2utt = read_openslr(raw_folder)
+    process_build_manifest(file2utt, "/tmp/SPANISH/processed")
+    shutil.rmtree(raw_folder)
