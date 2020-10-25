@@ -1,3 +1,5 @@
+import argparse
+
 from functools import partial
 
 import shutil
@@ -19,6 +21,8 @@ from data_related.utils import Sample, unzip
 def download_spanish_srl_corpora(
     datasets: Union[str, List[str]] = "ALL", download_folder="/tmp"
 ):
+    os.makedirs(download_folder, exist_ok=True)
+
     base_url = "https://www.openslr.org/resources"
 
     name_urls = {
@@ -34,15 +38,19 @@ def download_spanish_srl_corpora(
         for sex in ["male", "female"]
         if not (eid == "74" and sex == "male")  # cause 74 has no male speaker
     }
-    name_urls["67_tedx"] = "tedx_spanish_corpus.tgz"
-    assert all([k in name_urls.keys() for k in datasets])
+    name_urls["67_tedx"] = f"{base_url}/{67}/tedx_spanish_corpus.tgz"
 
-    datasets = list(name_urls.keys()) if datasets == "ALL" else datasets
+    if datasets == "ALL":
+        datasets = list(name_urls.keys())
+    else:
+        assert all([k in name_urls.keys() for k in datasets])
+
     corpusname_file = []
     for data_set in datasets:
         url = name_urls[data_set]
         localfile = os.path.join(download_folder, data_set + Path(url).suffix)
         if not os.path.exists(localfile):
+            print(f"downloading: {url}")
             wget.download(url, localfile)
         corpusname_file.append((data_set, localfile))
     return corpusname_file
@@ -94,7 +102,7 @@ def process_data(
 ) -> Generator[Sample, None, None]:
 
     for corpusname, f in corpusname_file:
-        extract_folder = f"/tmp/{corpusname}"
+        extract_folder = f"/{processed_folder}/raw/{corpusname}"
         unzip(f, extract_folder)
         file2utt = read_openslr(extract_folder)
         process_fun = partial(
@@ -107,12 +115,16 @@ def process_data(
         )
         shutil.rmtree(extract_folder)
 
+parser = argparse.ArgumentParser(description='LibriSpeech Data download')
+parser.add_argument("--download_dir", required=True, default=None, type=str)
+parser.add_argument("--processed_dir", required=True, default=None, type=str)
+parser.add_argument("--data_sets", default="ALL", type=str)
+args = parser.parse_args()
 
 if __name__ == "__main__":
-    base_dir = "/tmp/SPANISH"
-    corpusname_file = download_spanish_srl_corpora(["74_pr_female"], base_dir)
+    corpusname_file = download_spanish_srl_corpora(args.data_sets,args.download_dir)
+    processed_folder = args.processed_dir
 
-    processed_folder = "/tmp/SPANISH/processed"
     os.makedirs(processed_folder, exist_ok=True)
 
     data_io.write_jsonl(
