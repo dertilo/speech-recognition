@@ -5,8 +5,8 @@ from typing import NamedTuple, List
 from data_related.audio_feature_extraction import (
     AudioFeaturesConfig,
     AudioFeatureExtractor,
-    AUDIOFEATUREEXTRACTORS, Sample,
-)
+    AUDIOFEATUREEXTRACTORS, )
+from data_related.utils import Sample
 from utils import HOME
 
 

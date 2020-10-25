@@ -2,7 +2,6 @@ import librosa
 import numpy as np
 from abc import abstractmethod
 
-import math
 import numpy
 from tempfile import NamedTemporaryFile
 from typing import List, NamedTuple
@@ -13,13 +12,6 @@ import torchaudio
 
 from data_related.data_augmentation.signal_augment import augment_with_sox
 from data_related.data_augmentation.spec_augment import spec_augment
-
-
-class Sample(NamedTuple):
-    audio_file: str
-    text: str
-    length: float  # in seconds
-    num_frames:int
 
 
 def load_audio(audio_file: str, target_rate=16_000) -> numpy.ndarray:

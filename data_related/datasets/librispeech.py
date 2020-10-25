@@ -18,9 +18,9 @@ from util.util_methods import process_with_threadpool, merge_dicts, exec_command
 from data_related.audio_feature_extraction import (
     get_length,
     AudioFeaturesConfig,
-    Sample,
 )
 from data_related.char_stt_dataset import DataConfig, CharSTTDataset
+from data_related.utils import Sample
 from utils import HOME, BLANK_SYMBOL, SPACE
 
 
