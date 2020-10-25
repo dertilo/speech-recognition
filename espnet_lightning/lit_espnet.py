@@ -100,8 +100,8 @@ class LitEspnetDataModule(pl.LightningDataModule):
         it_fact = build_sequence_iter_factory(self.args, mode)
         return it_fact.build_iter()
 
-    def train_dataloader(self, *args, **kwargs) -> DataLoader:
+    def train_dataloader(self) -> DataLoader:
         return self._dataloader("train")
 
-    def val_dataloader(self, *args, **kwargs) -> Union[DataLoader, List[DataLoader]]:
+    def val_dataloader(self) -> Union[DataLoader, List[DataLoader]]:
         return self._dataloader("valid")

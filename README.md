@@ -1,5 +1,11 @@
 # Speech-Recognition
+
+## based on [NeMo](https://github.com/NVIDIA/NeMo)
+* [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/dertilo/speech-recognition/blob/master/nemo_asr/nemo.ipynb)
+
 ## based on [espnet](https://github.com/espnet/espnet)
+* [no batch inference yet?](https://github.com/espnet/espnet/issues/2186)
+* [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/dertilo/speech-recognition/blob/master/espnet_lightning/espnet.ipynb)
 
 ## based on [deepspeech.pytorch](https://github.com/SeanNaren/deepspeech.pytorch)
 PyTorch implementation of [DeepSpeech2](http://arxiv.org/pdf/1512.02595v1.pdf) trained with the CTC objective.
