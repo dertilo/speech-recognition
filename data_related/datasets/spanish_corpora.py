@@ -15,11 +15,11 @@ import os
 from util import data_io
 from util.util_methods import process_with_threadpool, exec_command
 
-from data_related.utils import Sample, unzip
+from data_related.utils import Sample, unzip, folder_to_targz
 
 
 def download_spanish_srl_corpora(
-    datasets: Union[str, List[str]] = "ALL", download_folder="/tmp"
+    datasets: List[str] = ["ALL"], download_folder="/tmp"
 ):
     os.makedirs(download_folder, exist_ok=True)
 
@@ -40,7 +40,7 @@ def download_spanish_srl_corpora(
     }
     name_urls["67_tedx"] = f"{base_url}/{67}/tedx_spanish_corpus.tgz"
 
-    if datasets == "ALL":
+    if len(datasets) == 1 and datasets[0] == "ALL":
         datasets = list(name_urls.keys())
     else:
         assert all([k in name_urls.keys() for k in datasets])
@@ -52,6 +52,8 @@ def download_spanish_srl_corpora(
         if not os.path.exists(localfile):
             print(f"downloading: {url}")
             wget.download(url, localfile)
+        else:
+            print(f"found: {localfile} no need to download")
         corpusname_file.append((data_set, localfile))
     return corpusname_file
 
@@ -97,37 +99,47 @@ def convert_to_mp3_get_length(audio_file, text, processed_folder) -> Sample:
     return Sample(mp3_file_name, text, len_in_seconds, num_frames)
 
 
-def process_data(
-    corpusname_file: List[Tuple[str, str]], processed_folder
-) -> Generator[Sample, None, None]:
+import multiprocessing
 
-    for corpusname, f in corpusname_file:
+num_cpus = multiprocessing.cpu_count()
+
+
+def process_data(
+    corpusname_file: List[Tuple[str, str]], processed_folder, targz_dump_dir=None
+):
+
+    for corpusname, raw_zipfile in corpusname_file:
         extract_folder = f"/{processed_folder}/raw/{corpusname}"
-        unzip(f, extract_folder)
+        corpus_folder = os.path.join(processed_folder, f"{corpusname}_processed")
+        unzip(raw_zipfile, extract_folder)
         file2utt = read_openslr(extract_folder)
-        process_fun = partial(
-            convert_to_mp3_get_length, processed_folder=processed_folder
-        )
-        yield from process_with_threadpool(
-            ({"audio_file": f, "text": t} for f, t in file2utt.items()),
-            process_fun,
-            max_workers=10,
-        )
+
+        process_write_manifest(corpus_folder, file2utt)
+        if targz_dump_dir is not None:
+            folder_to_targz(targz_dump_dir, corpus_folder)
         shutil.rmtree(extract_folder)
 
-parser = argparse.ArgumentParser(description='LibriSpeech Data download')
-parser.add_argument("--download_dir", required=True, default=None, type=str)
+
+def process_write_manifest(corpus_folder, file2utt):
+    samples = tqdm(
+        s._asdict()
+        for s in process_with_threadpool(
+            ({"audio_file": f, "text": t} for f, t in file2utt.items()),
+            partial(convert_to_mp3_get_length, processed_folder=corpus_folder),
+            max_workers=2 * num_cpus,
+        )
+    )
+    data_io.write_jsonl(f"{corpus_folder}/{MANIFEST_FILE}", samples)
+
+
+parser = argparse.ArgumentParser(description="LibriSpeech Data download")
+parser.add_argument("--dump_dir", required=True, default=None, type=str)
 parser.add_argument("--processed_dir", required=True, default=None, type=str)
-parser.add_argument("--data_sets", default="ALL", type=str)
+parser.add_argument("--data_sets", nargs='+', default="ALL", type=str)
 args = parser.parse_args()
 
 if __name__ == "__main__":
-    corpusname_file = download_spanish_srl_corpora(args.data_sets,args.download_dir)
-    processed_folder = args.processed_dir
 
-    os.makedirs(processed_folder, exist_ok=True)
-
-    data_io.write_jsonl(
-        f"{processed_folder}/{MANIFEST_FILE}",
-        tqdm(s._asdict() for s in process_data(corpusname_file, processed_folder)),
-    )
+    corpusname_file = download_spanish_srl_corpora(args.data_sets, args.dump_dir)
+    os.makedirs(args.processed_dir, exist_ok=True)
+    process_data(corpusname_file,args.processed_dir,targz_dump_dir=args.dump_dir)

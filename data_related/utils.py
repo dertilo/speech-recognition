@@ -1,3 +1,5 @@
+import os
+
 import tarfile
 
 from zipfile import ZipFile
@@ -21,3 +23,8 @@ def unzip(zipfile: str, dest_dir: str) -> None:
         with tarfile.open(zipfile, mode="r:gz") as tar:
             tar.extractall(dest_dir)
 
+
+def folder_to_targz(destination_path, source_dir):
+    folder_name = os.path.basename(source_dir)
+    with tarfile.open(f"{destination_path}/{folder_name}.tar.gz", "w:gz") as tar:
+        tar.add(source_dir, arcname=folder_name)
