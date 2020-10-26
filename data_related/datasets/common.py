@@ -1,8 +1,11 @@
+from __future__ import annotations
+import shutil
+
 import torchaudio
 from functools import partial
 
 from tqdm import tqdm
-from typing import Dict
+from typing import Dict, List
 
 from abc import abstractmethod
 
@@ -13,8 +16,7 @@ import os
 from util import data_io
 from util.util_methods import process_with_threadpool, exec_command
 
-from data_related.utils import unzip, Sample
-
+from data_related.utils import unzip, Sample, folder_to_targz
 import multiprocessing
 
 num_cpus = multiprocessing.cpu_count()
@@ -51,6 +53,11 @@ class SpeechCorpus:
     def build_audiofile2text(self, path) -> Dict[str, str]:
         raise NotImplementedError
 
+    @staticmethod
+    @abstractmethod
+    def get_corpora()->List[SpeechCorpus]:
+        raise NotImplementedError
+
 def convert_to_mp3_get_length(audio_file, text, processed_folder) -> Sample:
     suffix = Path(audio_file).suffix
     assert audio_file.startswith("/")
@@ -74,3 +81,48 @@ def maybe_download(data_set, download_folder, url):
         print(f"found: {localfile} no need to download")
     return localfile
 
+
+def prepare_corpora(corpora:List[SpeechCorpus],dump_dir:str,processed_folder:str):
+    os.makedirs(dump_dir, exist_ok=True)
+    os.makedirs(processed_folder, exist_ok=True)
+    for corpus in corpora:
+        raw_zipfile = corpus.maybe_download(dump_dir)
+
+        extract_folder = f"{processed_folder}/raw/{corpus.name}"
+        corpus_folder = os.path.join(processed_folder, f"{corpus.name}_processed")
+        os.makedirs(corpus_folder, exist_ok=True)
+        dumped_targz_file = f"{dump_dir}/{corpus.name}_processed.tar.gz"
+        if not os.path.isfile(dumped_targz_file):
+            corpus.extract_downloaded(raw_zipfile, extract_folder)
+            file2utt = corpus.build_audiofile2text(extract_folder)
+            corpus.process_write_manifest(corpus_folder, file2utt)
+            folder_to_targz(dump_dir, corpus_folder)
+            print(f"wrote {dumped_targz_file}")
+            shutil.rmtree(extract_folder)
+        else:
+            print(f"found {dumped_targz_file}")
+            unzip(dumped_targz_file, processed_folder)
+
+
+def find_files_build_audio2text_openslr(
+    path, parse_line_fun, audio_suffix=".wav", transcript_suffix=".tsv"
+) -> Dict[str, str]:
+    def build_file2text(parse_line, transcripts, audios):
+        key2text = {
+            file_name: text
+            for tsv_file in transcripts
+            for file_name, text in (
+                parse_line(l) for l in data_io.read_lines(str(tsv_file))
+            )
+        }
+
+        def get_text(f):
+            key = str(f).split("/")[-1]
+            return key2text[key]
+
+        return {str(f): get_text(f) for f in audios}
+    # ------------------------------------------------------------------------
+    audio_files = list(Path(path).rglob(f"*{audio_suffix}"))
+    assert len(audio_files)
+    transcript_files = list(Path(path).rglob(f"*{transcript_suffix}"))
+    return build_file2text(parse_line_fun, transcript_files, audio_files)
