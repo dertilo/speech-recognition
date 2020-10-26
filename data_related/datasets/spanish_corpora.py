@@ -18,9 +18,7 @@ from util.util_methods import process_with_threadpool, exec_command
 from data_related.utils import Sample, unzip, folder_to_targz
 
 
-def download_spanish_srl_corpora(
-    datasets: List[str] = ["ALL"], download_folder="/tmp"
-):
+def download_spanish_srl_corpora(datasets: List[str] = ["ALL"], download_folder="/tmp"):
     os.makedirs(download_folder, exist_ok=True)
 
     base_url = "https://www.openslr.org/resources"
@@ -86,14 +84,16 @@ MANIFEST_FILE = "manifest.jsonl.gz"
 
 def convert_to_mp3_get_length(audio_file, text, processed_folder) -> Sample:
     suffix = Path(audio_file).suffix
-    assert audio_file.startswith("/")
-    mp3_file_name = audio_file[1:].replace("/", "_").replace(suffix, ".mp3")
+    mp3_file_name = audio_file.replace("/", "_").replace(suffix, ".mp3")
+
+    while mp3_file_name.startswith("_"):
+        mp3_file_name = mp3_file_name[1:]
 
     mp3_file = f"{processed_folder}/{mp3_file_name}"
     exec_command(f"sox {audio_file} {mp3_file}")
 
     si, ei = torchaudio.info(mp3_file)
-    num_frames = si.length / si.channels
+    num_frames = si.duration / si.channels
     len_in_seconds = num_frames / si.rate
 
     return Sample(mp3_file_name, text, len_in_seconds, num_frames)
@@ -105,19 +105,24 @@ num_cpus = multiprocessing.cpu_count()
 
 
 def process_data(
-    corpusname_file: List[Tuple[str, str]], processed_folder, targz_dump_dir=None
+    corpusname_file: List[Tuple[str, str]], processed_folder, targz_dump_dir
 ):
 
     for corpusname, raw_zipfile in corpusname_file:
         extract_folder = f"/{processed_folder}/raw/{corpusname}"
         corpus_folder = os.path.join(processed_folder, f"{corpusname}_processed")
-        unzip(raw_zipfile, extract_folder)
-        file2utt = read_openslr(extract_folder)
-
-        process_write_manifest(corpus_folder, file2utt)
-        if targz_dump_dir is not None:
+        os.makedirs(corpus_folder, exist_ok=True)
+        dumped_targz_file = f"{targz_dump_dir}/{corpusname}_processed.tar.gz"
+        if not os.path.isfile(dumped_targz_file):
+            unzip(raw_zipfile, extract_folder)
+            file2utt = read_openslr(extract_folder)
+            process_write_manifest(corpus_folder, file2utt)
             folder_to_targz(targz_dump_dir, corpus_folder)
-        shutil.rmtree(extract_folder)
+            print(f"wrote {dumped_targz_file}")
+            shutil.rmtree(extract_folder)
+        else:
+            print(f"found {dumped_targz_file}")
+            unzip(dumped_targz_file, processed_folder)
 
 
 def process_write_manifest(corpus_folder, file2utt):
@@ -135,11 +140,11 @@ def process_write_manifest(corpus_folder, file2utt):
 parser = argparse.ArgumentParser(description="LibriSpeech Data download")
 parser.add_argument("--dump_dir", required=True, default=None, type=str)
 parser.add_argument("--processed_dir", required=True, default=None, type=str)
-parser.add_argument("--data_sets", nargs='+', default="ALL", type=str)
+parser.add_argument("--data_sets", nargs="+", default="ALL", type=str)
 args = parser.parse_args()
 
 if __name__ == "__main__":
 
     corpusname_file = download_spanish_srl_corpora(args.data_sets, args.dump_dir)
     os.makedirs(args.processed_dir, exist_ok=True)
-    process_data(corpusname_file,args.processed_dir,targz_dump_dir=args.dump_dir)
+    process_data(corpusname_file, args.processed_dir, targz_dump_dir=args.dump_dir)
