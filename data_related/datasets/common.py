@@ -16,7 +16,7 @@ import os
 from util import data_io
 from util.util_methods import process_with_threadpool, exec_command
 
-from data_related.utils import unzip, Sample, folder_to_targz
+from data_related.utils import unzip, Sample, folder_to_targz, COMPRESSION_SUFFIXES
 import multiprocessing
 
 num_cpus = multiprocessing.cpu_count()
@@ -29,9 +29,12 @@ class SpeechCorpus:
         super().__init__()
         self.url = url
         self.name = name
+        suffs = [suff for suff in COMPRESSION_SUFFIXES if self.url.endswith(suff)]
+        assert len(suffs)==1
+        self.suffix = suffs[0]
 
     def maybe_download(self, download_folder)->str:
-        return maybe_download(self.name, download_folder, self.url)
+        return maybe_download(self.name, download_folder, self.url,self.suffix)
 
     @staticmethod
     def extract_downloaded(raw_zipfile,extract_folder):
@@ -72,8 +75,8 @@ def convert_to_mp3_get_length(audio_file, text, processed_folder) -> Sample:
 
     return Sample(mp3_file_name, text, len_in_seconds, num_frames)
 
-def maybe_download(data_set, download_folder, url):
-    localfile = os.path.join(download_folder, data_set + Path(url).suffix)
+def maybe_download(data_set, download_folder, url,suffix):
+    localfile = os.path.join(download_folder, data_set + suffix)
     if not os.path.exists(localfile):
         print(f"downloading: {url}")
         wget.download(url, localfile)
@@ -89,16 +92,17 @@ def prepare_corpora(corpora:List[SpeechCorpus],dump_dir:str,processed_folder:str
         raw_zipfile = corpus.maybe_download(dump_dir)
 
         extract_folder = f"{processed_folder}/raw/{corpus.name}"
+        os.makedirs(extract_folder, exist_ok=True)
         corpus_folder = os.path.join(processed_folder, f"{corpus.name}_processed")
         os.makedirs(corpus_folder, exist_ok=True)
         dumped_targz_file = f"{dump_dir}/{corpus.name}_processed.tar.gz"
         if not os.path.isfile(dumped_targz_file):
-            corpus.extract_downloaded(raw_zipfile, extract_folder)
+            #corpus.extract_downloaded(raw_zipfile, extract_folder)
             file2utt = corpus.build_audiofile2text(extract_folder)
             corpus.process_write_manifest(corpus_folder, file2utt)
             folder_to_targz(dump_dir, corpus_folder)
             print(f"wrote {dumped_targz_file}")
-            shutil.rmtree(extract_folder)
+            # shutil.rmtree(extract_folder)
         else:
             print(f"found {dumped_targz_file}")
             unzip(dumped_targz_file, processed_folder)

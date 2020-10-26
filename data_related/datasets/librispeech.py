@@ -32,7 +32,7 @@ class LibriSpeech(SpeechCorpus):
 
         def parse_line(l):
             s = l.split(" ")
-            return s[0], " ".join(s[1:])
+            return s[0]+audio_suffix, " ".join(s[1:])
 
         return find_files_build_audio2text_openslr(
             path,
