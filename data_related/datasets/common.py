@@ -53,16 +53,14 @@ class SpeechCorpus:
 
 def convert_to_mp3_get_length(audio_file, text, processed_folder) -> Sample:
     suffix = Path(audio_file).suffix
-    mp3_file_name = audio_file.replace("/", "_").replace(suffix, ".mp3")
-
-    while mp3_file_name.startswith("_"):
-        mp3_file_name = mp3_file_name[1:]
+    assert audio_file.startswith("/")
+    mp3_file_name = audio_file[1:].replace("/", "_").replace(suffix, ".mp3")
 
     mp3_file = f"{processed_folder}/{mp3_file_name}"
     exec_command(f"sox {audio_file} {mp3_file}")
 
     si, ei = torchaudio.info(mp3_file)
-    num_frames = si.duration / si.channels
+    num_frames = si.length / si.channels
     len_in_seconds = num_frames / si.rate
 
     return Sample(mp3_file_name, text, len_in_seconds, num_frames)
