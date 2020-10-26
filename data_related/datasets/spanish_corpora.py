@@ -14,17 +14,26 @@ import os
 from util import data_io
 from util.util_methods import process_with_threadpool, exec_command
 
-from data_related.datasets.common import download_data
+from data_related.datasets.common import SpeechCorpus
 from data_related.utils import Sample, unzip, folder_to_targz
 
+class SpanishDialect(SpeechCorpus):
 
-def download_spanish_srl_corpora(download_folder,datasets: List[str] = ["ALL"]):
-    name_urls = build_name2url()
-    corpusname_file = download_data(datasets, download_folder, name_urls)
-    return corpusname_file
+    def build_audiofile2text(self,path)->Dict[str,str]:
+        return read_openslr(path)
+
+class TedxSpanish(SpeechCorpus):
 
 
-def build_name2url()->Dict[str, str]:
+    def __init__(self) -> None:
+        base_url = "https://www.openslr.org/resources"
+        super().__init__("67_tedx", f"{base_url}/{67}/tedx_spanish_corpus.tgz")
+
+    def build_audiofile2text(self, path) -> Dict[str, str]:
+        return read_openslr(path,transcript_suffix=".transcription")
+
+
+def build_spanish_latino_speech_corpora()->List[SpeechCorpus]:
     base_url = "https://www.openslr.org/resources"
     name_urls = {
         f"{eid}_{abbrev}_{sex}": f"{base_url}/{eid}/es_{abbrev}_{sex}.zip"
@@ -39,13 +48,13 @@ def build_name2url()->Dict[str, str]:
         for sex in ["male", "female"]
         if not (eid == "74" and sex == "male")  # cause 74 has no male speaker
     }
-    name_urls["67_tedx"] = f"{base_url}/{67}/tedx_spanish_corpus.tgz"
-    return name_urls
+
+    return [SpeechCorpus(n,u) for n,u in name_urls.items()]
 
 
-def read_openslr(path) -> Dict[str, str]:
-    wavs = list(Path(path).rglob("*.wav"))
-    tsvs = list(Path(path).rglob("*.tsv"))
+def read_openslr(path,audio_suffix=".wav",transcript_suffix=".tsv") -> Dict[str, str]:
+    wavs = list(Path(path).rglob(audio_suffix))
+    tsvs = list(Path(path).rglob(transcript_suffix))
 
     def parse_line(l):
         file_name, text = l.split("\t")
@@ -66,63 +75,6 @@ def read_openslr(path) -> Dict[str, str]:
     return {str(f): get_text(f) for f in wavs}
 
 
-MANIFEST_FILE = "manifest.jsonl.gz"
-
-
-def convert_to_mp3_get_length(audio_file, text, processed_folder) -> Sample:
-    suffix = Path(audio_file).suffix
-    mp3_file_name = audio_file.replace("/", "_").replace(suffix, ".mp3")
-
-    while mp3_file_name.startswith("_"):
-        mp3_file_name = mp3_file_name[1:]
-
-    mp3_file = f"{processed_folder}/{mp3_file_name}"
-    exec_command(f"sox {audio_file} {mp3_file}")
-
-    si, ei = torchaudio.info(mp3_file)
-    num_frames = si.duration / si.channels
-    len_in_seconds = num_frames / si.rate
-
-    return Sample(mp3_file_name, text, len_in_seconds, num_frames)
-
-
-import multiprocessing
-
-num_cpus = multiprocessing.cpu_count()
-
-
-def process_data(
-    corpusname_file: List[Tuple[str, str]], processed_folder, targz_dump_dir
-):
-
-    for corpusname, raw_zipfile in corpusname_file:
-        extract_folder = f"/{processed_folder}/raw/{corpusname}"
-        corpus_folder = os.path.join(processed_folder, f"{corpusname}_processed")
-        os.makedirs(corpus_folder, exist_ok=True)
-        dumped_targz_file = f"{targz_dump_dir}/{corpusname}_processed.tar.gz"
-        if not os.path.isfile(dumped_targz_file):
-            unzip(raw_zipfile, extract_folder)
-            file2utt = read_openslr(extract_folder)
-            process_write_manifest(corpus_folder, file2utt)
-            folder_to_targz(targz_dump_dir, corpus_folder)
-            print(f"wrote {dumped_targz_file}")
-            shutil.rmtree(extract_folder)
-        else:
-            print(f"found {dumped_targz_file}")
-            unzip(dumped_targz_file, processed_folder)
-
-
-def process_write_manifest(corpus_folder, file2utt):
-    samples = tqdm(
-        s._asdict()
-        for s in process_with_threadpool(
-            ({"audio_file": f, "text": t} for f, t in file2utt.items()),
-            partial(convert_to_mp3_get_length, processed_folder=corpus_folder),
-            max_workers=2 * num_cpus,
-        )
-    )
-    data_io.write_jsonl(f"{corpus_folder}/{MANIFEST_FILE}", samples)
-
 
 parser = argparse.ArgumentParser(description="LibriSpeech Data download")
 parser.add_argument("--dump_dir", required=True, default=None, type=str)
@@ -132,6 +84,35 @@ args = parser.parse_args()
 
 if __name__ == "__main__":
 
-    corpusname_file = download_spanish_srl_corpora(args.dump_dir,args.data_sets)
-    os.makedirs(args.processed_dir, exist_ok=True)
-    process_data(corpusname_file, args.processed_dir, targz_dump_dir=args.dump_dir)
+    dump_dir = args.dump_dir
+    os.makedirs(dump_dir, exist_ok=True)
+
+    processed_folder = args.processed_dir
+    os.makedirs(processed_folder, exist_ok=True)
+
+    corpora:List[SpeechCorpus] = build_spanish_latino_speech_corpora()
+    corpora.append(TedxSpanish())
+
+    datasets = args.data_sets
+    if len(datasets) > 1 or datasets[0] != "ALL":
+        corpora = [c for c in corpora if c.name in datasets]
+
+
+    for corpus in corpora:
+        raw_zipfile = corpus.maybe_download(dump_dir)
+
+        extract_folder = f"/{processed_folder}/raw/{corpus.name}"
+        corpus_folder = os.path.join(processed_folder, f"{corpus.name}_processed")
+        os.makedirs(corpus_folder, exist_ok=True)
+        dumped_targz_file = f"{dump_dir}/{corpus.name}_processed.tar.gz"
+        if not os.path.isfile(dumped_targz_file):
+            corpus.extract_downloaded(raw_zipfile, extract_folder)
+            file2utt = corpus.build_audiofile2text(extract_folder)
+            corpus.process_write_manifest(corpus_folder, file2utt)
+            folder_to_targz(dump_dir, corpus_folder)
+            print(f"wrote {dumped_targz_file}")
+            shutil.rmtree(extract_folder)
+        else:
+            print(f"found {dumped_targz_file}")
+            unzip(dumped_targz_file, processed_folder)
+
