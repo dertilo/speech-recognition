@@ -89,30 +89,28 @@ class LibriSpeech(SpeechCorpus):
             ]
         ]
 
+class Caito(SpeechCorpus):
+
+    def build_audiofile2text(self, path) -> Dict[str, str]:
+        raise NotImplementedError
+
+    @staticmethod
+    def get_corpora() -> List[SpeechCorpus]:
+        url = "http://www.caito.de/data/Training/stt_tts"
+        return [Caito(n,f"{url}/{n}.tgz") for n in ["es_ES","en_US","en_UK","de_DE"] ]
+
+class HeroicoUSMA(SpeechCorpus):
+
+    def build_audiofile2text(self, path) -> Dict[str, str]:
+        raise NotImplementedError
+
+    @staticmethod
+    def get_corpora() -> List[SpeechCorpus]:
+        url = "http://www.openslr.org/resources/39"
+        return [HeroicoUSMA("heroico",f"{url}/LDC2006S37.tar.gz")]
+
+
 CORPORA = {
     "spanish": [TedxSpanish.get_corpora()] + SpanishDialect.get_corpora(),
     "librispeech":LibriSpeech.get_corpora(),
 }
-
-if __name__ == "__main__":
-    """
-    python $HOME/code/SPEECH/speech-recognition/data_related/datasets/spanish_corpora.py \
-    --dump_dir /tmp/SPANISH \
-    --processed_dir /tmp/SPANISH \
-    --data_sets "67_tedx"
-    """
-
-    parser = argparse.ArgumentParser(description="LibriSpeech Data download")
-    parser.add_argument("--dump_dir", required=True, default=None, type=str)
-    parser.add_argument("--processed_dir", required=True, default=None, type=str)
-    parser.add_argument("--data_sets", nargs="+", default="ALL", type=str)
-    args = parser.parse_args()
-
-    dump_dir = args.dump_dir
-    processed_folder = args.processed_dir
-    datasets = args.data_sets
-
-    if len(datasets) > 1 or datasets[0] != "ALL":
-        corpora = [c for c in corpora if c.name in datasets]
-
-    prepare_corpora(corpora, dump_dir, processed_folder)
