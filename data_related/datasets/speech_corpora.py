@@ -57,12 +57,42 @@ class TedxSpanish(SpeechCorpus):
         base_url = "https://www.openslr.org/resources"
         return [TedxSpanish("67_tedx", f"{base_url}/{67}/tedx_spanish_corpus.tgz")]
 
+class LibriSpeech(SpeechCorpus):
 
-parser = argparse.ArgumentParser(description="LibriSpeech Data download")
-parser.add_argument("--dump_dir", required=True, default=None, type=str)
-parser.add_argument("--processed_dir", required=True, default=None, type=str)
-parser.add_argument("--data_sets", nargs="+", default="ALL", type=str)
-args = parser.parse_args()
+    def build_audiofile2text(self, path) -> Dict[str, str]:
+        audio_suffix = ".flac"
+
+        def parse_line(l):
+            s = l.split(" ")
+            return s[0]+audio_suffix, " ".join(s[1:])
+
+        return find_files_build_audio2text_openslr(
+            path,
+            parse_line,
+            audio_suffix=audio_suffix,
+            transcript_suffix=".trans.txt",
+        )
+
+    @staticmethod
+    def get_corpora() -> List[SpeechCorpus]:
+        base_url = "http://www.openslr.org/resources/12"
+        return [
+            LibriSpeech(name, f"{base_url}/{name}.tar.gz")
+            for name in [
+                "train-clean-100",
+                "train-clean-360",
+                "train-other-500",
+                "dev-clean",
+                "dev-other",
+                "test-clean",
+                "test-other",
+            ]
+        ]
+
+CORPORA = {
+    "spanish": [TedxSpanish.get_corpora()] + SpanishDialect.get_corpora(),
+    "librispeech":LibriSpeech.get_corpora(),
+}
 
 if __name__ == "__main__":
     """
@@ -72,13 +102,16 @@ if __name__ == "__main__":
     --data_sets "67_tedx"
     """
 
+    parser = argparse.ArgumentParser(description="LibriSpeech Data download")
+    parser.add_argument("--dump_dir", required=True, default=None, type=str)
+    parser.add_argument("--processed_dir", required=True, default=None, type=str)
+    parser.add_argument("--data_sets", nargs="+", default="ALL", type=str)
+    args = parser.parse_args()
+
     dump_dir = args.dump_dir
     processed_folder = args.processed_dir
-
-    corpora: List[SpeechCorpus] = SpanishDialect.get_corpora()
-    corpora.extend(TedxSpanish.get_corpora())
-
     datasets = args.data_sets
+
     if len(datasets) > 1 or datasets[0] != "ALL":
         corpora = [c for c in corpora if c.name in datasets]
 

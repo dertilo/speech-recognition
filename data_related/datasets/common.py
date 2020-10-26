@@ -97,12 +97,12 @@ def prepare_corpora(corpora:List[SpeechCorpus],dump_dir:str,processed_folder:str
         os.makedirs(corpus_folder, exist_ok=True)
         dumped_targz_file = f"{dump_dir}/{corpus.name}_processed.tar.gz"
         if not os.path.isfile(dumped_targz_file):
-            #corpus.extract_downloaded(raw_zipfile, extract_folder)
+            corpus.extract_downloaded(raw_zipfile, extract_folder)
             file2utt = corpus.build_audiofile2text(extract_folder)
             corpus.process_write_manifest(corpus_folder, file2utt)
             folder_to_targz(dump_dir, corpus_folder)
             print(f"wrote {dumped_targz_file}")
-            # shutil.rmtree(extract_folder)
+            shutil.rmtree(extract_folder)
         else:
             print(f"found {dumped_targz_file}")
             unzip(dumped_targz_file, processed_folder)
