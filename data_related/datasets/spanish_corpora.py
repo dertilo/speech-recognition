@@ -6,23 +6,26 @@ import shutil
 
 import torchaudio
 from tqdm import tqdm
-from typing import Union, List, Dict, Generator, Tuple
+from typing import List, Dict, Tuple
 
-import wget
 from pathlib import Path
 
 import os
 from util import data_io
 from util.util_methods import process_with_threadpool, exec_command
 
+from data_related.datasets.common import download_data
 from data_related.utils import Sample, unzip, folder_to_targz
 
 
-def download_spanish_srl_corpora(datasets: List[str] = ["ALL"], download_folder="/tmp"):
-    os.makedirs(download_folder, exist_ok=True)
+def download_spanish_srl_corpora(download_folder,datasets: List[str] = ["ALL"]):
+    name_urls = build_name2url()
+    corpusname_file = download_data(datasets, download_folder, name_urls)
+    return corpusname_file
 
+
+def build_name2url()->Dict[str, str]:
     base_url = "https://www.openslr.org/resources"
-
     name_urls = {
         f"{eid}_{abbrev}_{sex}": f"{base_url}/{eid}/es_{abbrev}_{sex}.zip"
         for eid, abbrev in [
@@ -37,23 +40,7 @@ def download_spanish_srl_corpora(datasets: List[str] = ["ALL"], download_folder=
         if not (eid == "74" and sex == "male")  # cause 74 has no male speaker
     }
     name_urls["67_tedx"] = f"{base_url}/{67}/tedx_spanish_corpus.tgz"
-
-    if len(datasets) == 1 and datasets[0] == "ALL":
-        datasets = list(name_urls.keys())
-    else:
-        assert all([k in name_urls.keys() for k in datasets])
-
-    corpusname_file = []
-    for data_set in datasets:
-        url = name_urls[data_set]
-        localfile = os.path.join(download_folder, data_set + Path(url).suffix)
-        if not os.path.exists(localfile):
-            print(f"downloading: {url}")
-            wget.download(url, localfile)
-        else:
-            print(f"found: {localfile} no need to download")
-        corpusname_file.append((data_set, localfile))
-    return corpusname_file
+    return name_urls
 
 
 def read_openslr(path) -> Dict[str, str]:
@@ -145,6 +132,6 @@ args = parser.parse_args()
 
 if __name__ == "__main__":
 
-    corpusname_file = download_spanish_srl_corpora(args.data_sets, args.dump_dir)
+    corpusname_file = download_spanish_srl_corpora(args.dump_dir,args.data_sets)
     os.makedirs(args.processed_dir, exist_ok=True)
     process_data(corpusname_file, args.processed_dir, targz_dump_dir=args.dump_dir)

@@ -20,46 +20,59 @@ from data_related.audio_feature_extraction import (
     AudioFeaturesConfig,
 )
 from data_related.char_stt_dataset import DataConfig, CharSTTDataset
+from data_related.datasets.common import download_data
 from data_related.utils import Sample
 from utils import HOME, BLANK_SYMBOL, SPACE
 
 
 def download_librispeech_en(
-    data_folder,
-    base_url="http://www.openslr.org/resources/12",
-    files=[
-        "train-clean-100.tar.gz",
-        "train-clean-360.tar.gz",
-        "train-other-500.tar.gz",
-        "dev-clean.tar.gz",
-        "dev-other.tar.gz",
-        "test-clean.tar.gz",
-        "test-other.tar.gz",
-    ],
+    download_folder,
+    datasets=["ALL"],
 ):
-    for file_name in files:
-        data_io.download_data(
-            base_url,
-            file_name,
-            data_folder,
-            unzip_it=True,
-            verbose=True,
-        )
-        split_name = file_name.split(".")[0]
-        deeper_foler = f"{data_folder}/{split_name}/LibriSpeech/{split_name}"
-        if os.path.isdir(deeper_foler):
-            datasplit_folder = f"{data_folder}/{split_name}"
-            if not os.path.isfile(f"{data_folder}/LICENSE.TXT"):
-                for f in list(Path(deeper_foler).rglob("*.TXT")):
-                    shutil.move(str(f), datasplit_folder)
+    name_urls = build_name2url()
+    corpusname_file = download_data(datasets, download_folder, name_urls)
+    return corpusname_file
 
-            tmp_folder = f"{data_folder}/tmp"
-            shutil.move(deeper_foler, tmp_folder)
-            shutil.rmtree(datasplit_folder)
-            shutil.move(tmp_folder, datasplit_folder)
+    # for file_name in files:
+    #     data_io.download_data(
+    #         base_url,
+    #         file_name,
+    #         download_folder,
+    #         unzip_it=True,
+    #         verbose=True,
+    #     )
+    #     split_name = file_name.split(".")[0]
+    #     deeper_foler = f"{download_folder}/{split_name}/LibriSpeech/{split_name}"
+    #     if os.path.isdir(deeper_foler):
+    #         datasplit_folder = f"{download_folder}/{split_name}"
+    #         if not os.path.isfile(f"{download_folder}/LICENSE.TXT"):
+    #             for f in list(Path(deeper_foler).rglob("*.TXT")):
+    #                 shutil.move(str(f), datasplit_folder)
+    #
+    #         tmp_folder = f"{download_folder}/tmp"
+    #         shutil.move(deeper_foler, tmp_folder)
+    #         shutil.rmtree(datasplit_folder)
+    #         shutil.move(tmp_folder, datasplit_folder)
 
 
-def read_librispeech(librispeech_folder: str,limit = None) -> Dict[str, str]:
+def build_name2url():
+    base_url = ("http://www.openslr.org/resources/12",)
+    name_urls = {
+        name: f"{base_url}/{name}.tar.gz"
+        for name in [
+            "train-clean-100",
+            "train-clean-360",
+            "train-other-500",
+            "dev-clean",
+            "dev-other",
+            "test-clean",
+            "test-other",
+        ]
+    }
+    return name_urls
+
+
+def read_librispeech(librispeech_folder: str, limit=None) -> Dict[str, str]:
     """:return dictionary where keys are filenames and values are utterances"""
     p = Path(librispeech_folder)
     audio_files = list(p.rglob("*.flac"))
@@ -95,11 +108,12 @@ def load_samples(file: str, base_path: str) -> List[Sample]:
 
 
 MANIFEST_FILE = "manifest.jsonl.gz"
-LIMIT = None # just for debugging
+LIMIT = None  # just for debugging
+
 
 def build_samples(folders, raw_data_path, convert_folder):
     corpus = merge_dicts(
-        [read_librispeech(os.path.join(raw_data_path, f),limit=LIMIT) for f in folders]
+        [read_librispeech(os.path.join(raw_data_path, f), limit=LIMIT) for f in folders]
     )
     assert len(corpus) > 0
 
@@ -115,15 +129,10 @@ def build_samples(folders, raw_data_path, convert_folder):
         exec_command(f"sox {flac_file} {mp3_file}")
 
         si, ei = torchaudio.info(mp3_file)
-        num_frames = si.length / si.channels
+        num_frames = si.duration / si.channels
         len_in_seconds = num_frames / si.rate
 
-        return Sample(
-            mp3_file_name,
-            text,
-            len_in_seconds,
-            num_frames
-        )
+        return Sample(mp3_file_name, text, len_in_seconds, num_frames)
 
     samples_to_dump = process_with_threadpool(
         ({"flac_file": f, "text": t} for f, t in corpus.items()),
