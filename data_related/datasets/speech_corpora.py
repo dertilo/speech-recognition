@@ -111,6 +111,6 @@ class HeroicoUSMA(SpeechCorpus):
 
 
 CORPORA = {
-    "spanish": [TedxSpanish.get_corpora()] + SpanishDialect.get_corpora(),
+    "spanish": TedxSpanish.get_corpora() + SpanishDialect.get_corpora(),
     "librispeech":LibriSpeech.get_corpora(),
 }
