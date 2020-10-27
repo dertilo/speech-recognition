@@ -5,7 +5,7 @@ import torchaudio
 from functools import partial
 
 from tqdm import tqdm
-from typing import Dict, List
+from typing import Dict, List, NamedTuple
 
 from abc import abstractmethod
 
@@ -23,34 +23,22 @@ num_cpus = multiprocessing.cpu_count()
 
 MANIFEST_FILE = "manifest.jsonl.gz"
 
-class SpeechCorpus:
 
+class SpeechCorpus:
     def __init__(self, name: str, url: str) -> None:
         super().__init__()
         self.url = url
         self.name = name
         suffs = [suff for suff in COMPRESSION_SUFFIXES if self.url.endswith(suff)]
-        assert len(suffs)==1
+        assert len(suffs) == 1
         self.suffix = suffs[0]
 
-    def maybe_download(self, download_folder)->str:
-        return maybe_download(self.name, download_folder, self.url,self.suffix)
+    def maybe_download(self, download_folder) -> str:
+        return maybe_download(self.name, download_folder, self.url, self.suffix)
 
     @staticmethod
-    def extract_downloaded(raw_zipfile,extract_folder):
+    def extract_downloaded(raw_zipfile, extract_folder):
         unzip(raw_zipfile, extract_folder)
-
-    @staticmethod
-    def process_write_manifest(corpus_folder, file2utt):
-        samples = tqdm(
-            s._asdict()
-            for s in process_with_threadpool(
-                ({"audio_file": f, "text": t} for f, t in file2utt.items()),
-                partial(convert_to_mp3_get_length, processed_folder=corpus_folder),
-                max_workers=2 * num_cpus,
-            )
-        )
-        data_io.write_jsonl(f"{corpus_folder}/{MANIFEST_FILE}", samples)
 
     @abstractmethod
     def build_audiofile2text(self, path) -> Dict[str, str]:
@@ -58,24 +46,48 @@ class SpeechCorpus:
 
     @staticmethod
     @abstractmethod
-    def get_corpora()->List[SpeechCorpus]:
+    def get_corpora() -> List[SpeechCorpus]:
         raise NotImplementedError
 
-def convert_to_mp3_get_length(audio_file, text, processed_folder) -> Sample:
+
+def process_write_manifest(corpus_folder, file2utt, audio_conf: AudioConfig):
+    samples = tqdm(
+        s._asdict()
+        for s in process_with_threadpool(
+            ({"audio_file": f, "text": t} for f, t in file2utt.items()),
+            partial(process_build_sample, processed_folder=corpus_folder),
+            max_workers=2 * num_cpus,
+        )
+    )
+    data_io.write_jsonl(f"{corpus_folder}/{MANIFEST_FILE}", samples)
+
+
+class AudioConfig(NamedTuple):
+    format: str = "wav"
+    bitrate: int = None
+
+
+def process_build_sample(audio_file, text, processed_folder, ac: AudioConfig) -> Sample:
     suffix = Path(audio_file).suffix
     assert audio_file.startswith("/")
-    mp3_file_name = audio_file[1:].replace("/", "_").replace(suffix, ".mp3")
+    audio_processed = audio_file[1:].replace("/", "_").replace(suffix, f".{ac.format}")
+    mp3_file = f"{processed_folder}/{audio_processed}"
 
-    mp3_file = f"{processed_folder}/{mp3_file_name}"
-    exec_command(f"sox {audio_file} {mp3_file}")
+    if ac.bitrate is not None:
+        cmd = f"sox {audio_file} -C {ac.bitrate} {audio_processed}"
+    else:
+        cmd = f"sox {audio_file} {audio_processed}"
+
+    exec_command(cmd)
 
     si, ei = torchaudio.info(mp3_file)
     num_frames = si.length / si.channels
     len_in_seconds = num_frames / si.rate
 
-    return Sample(mp3_file_name, text, len_in_seconds, num_frames)
+    return Sample(audio_processed, text, len_in_seconds, num_frames)
 
-def maybe_download(data_set, download_folder, url,suffix):
+
+def maybe_download(data_set, download_folder, url, suffix):
     localfile = os.path.join(download_folder, data_set + suffix)
     if not os.path.exists(localfile):
         print(f"downloading: {url}")
@@ -85,7 +97,12 @@ def maybe_download(data_set, download_folder, url,suffix):
     return localfile
 
 
-def prepare_corpora(corpora:List[SpeechCorpus],dump_dir:str,processed_folder:str):
+def prepare_corpora(
+    corpora: List[SpeechCorpus],
+    dump_dir: str,
+    processed_folder: str,
+    audio_config: AudioConfig,
+):
     os.makedirs(dump_dir, exist_ok=True)
     os.makedirs(processed_folder, exist_ok=True)
     for corpus in corpora:
@@ -99,7 +116,7 @@ def prepare_corpora(corpora:List[SpeechCorpus],dump_dir:str,processed_folder:str
         if not os.path.isfile(dumped_targz_file):
             corpus.extract_downloaded(raw_zipfile, extract_folder)
             file2utt = corpus.build_audiofile2text(extract_folder)
-            corpus.process_write_manifest(corpus_folder, file2utt)
+            process_write_manifest(corpus_folder, file2utt, audio_config)
             folder_to_targz(dump_dir, corpus_folder)
             print(f"wrote {dumped_targz_file}")
             shutil.rmtree(extract_folder)
@@ -125,6 +142,7 @@ def find_files_build_audio2text_openslr(
             return key2text[key]
 
         return {str(f): get_text(f) for f in audios}
+
     # ------------------------------------------------------------------------
     audio_files = list(Path(path).rglob(f"*{audio_suffix}"))
     assert len(audio_files)
