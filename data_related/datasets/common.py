@@ -55,7 +55,7 @@ def process_write_manifest(corpus_folder, file2utt, audio_conf: AudioConfig):
         s._asdict()
         for s in process_with_threadpool(
             ({"audio_file": f, "text": t} for f, t in file2utt.items()),
-            partial(process_build_sample, processed_folder=corpus_folder),
+            partial(process_build_sample, processed_folder=corpus_folder,ac = audio_conf),
             max_workers=2 * num_cpus,
         )
     )
@@ -70,21 +70,21 @@ class AudioConfig(NamedTuple):
 def process_build_sample(audio_file, text, processed_folder, ac: AudioConfig) -> Sample:
     suffix = Path(audio_file).suffix
     assert audio_file.startswith("/")
-    audio_processed = audio_file[1:].replace("/", "_").replace(suffix, f".{ac.format}")
-    mp3_file = f"{processed_folder}/{audio_processed}"
+    file_name = audio_file[1:].replace("/", "_").replace(suffix, f".{ac.format}")
+    processed_audio_file = f"{processed_folder}/{file_name}"
 
     if ac.bitrate is not None:
-        cmd = f"sox {audio_file} -C {ac.bitrate} {audio_processed}"
+        cmd = f"sox {audio_file} -C {ac.bitrate} {processed_audio_file}"
     else:
-        cmd = f"sox {audio_file} {audio_processed}"
+        cmd = f"sox {audio_file} {processed_audio_file}"
 
     exec_command(cmd)
 
-    si, ei = torchaudio.info(mp3_file)
+    si, ei = torchaudio.info(processed_audio_file)
     num_frames = si.length / si.channels
     len_in_seconds = num_frames / si.rate
 
-    return Sample(audio_processed, text, len_in_seconds, num_frames)
+    return Sample(processed_audio_file, text, len_in_seconds, num_frames)
 
 
 def maybe_download(data_set, download_folder, url, suffix):
@@ -110,9 +110,11 @@ def prepare_corpora(
 
         extract_folder = f"{processed_folder}/raw/{corpus.name}"
         os.makedirs(extract_folder, exist_ok=True)
-        corpus_folder = os.path.join(processed_folder, f"{corpus.name}_processed")
+        ac = f"{audio_config.format}{'' if audio_config.bitrate is None else '_'+str(audio_config.bitrate)}"
+        corpus_folder_name = f"{corpus.name}_processed_{ac}"
+        corpus_folder = os.path.join(processed_folder, corpus_folder_name)
         os.makedirs(corpus_folder, exist_ok=True)
-        dumped_targz_file = f"{dump_dir}/{corpus.name}_processed.tar.gz"
+        dumped_targz_file = f"{dump_dir}/{corpus_folder_name}.tar.gz"
         if not os.path.isfile(dumped_targz_file):
             corpus.extract_downloaded(raw_zipfile, extract_folder)
             file2utt = corpus.build_audiofile2text(extract_folder)
