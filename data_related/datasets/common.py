@@ -84,7 +84,7 @@ def process_build_sample(audio_file, text, processed_folder, ac: AudioConfig) ->
     num_frames = si.length / si.channels
     len_in_seconds = num_frames / si.rate
 
-    return Sample(processed_audio_file, text, len_in_seconds, num_frames)
+    return Sample(file_name, text, len_in_seconds, num_frames)
 
 
 def maybe_download(data_set, download_folder, url, suffix):
