@@ -1,8 +1,11 @@
 from __future__ import annotations
+
+import os
+
 import argparse
 from typing import List, Dict
 from data_related.datasets.common import SpeechCorpus, prepare_corpora, \
-    find_files_build_audio2text_openslr
+    find_files_build_audio2text_openslr, AudioConfig
 
 
 class SpanishDialect(SpeechCorpus):
@@ -114,3 +117,15 @@ CORPORA = {
     "spanish": TedxSpanish.get_corpora() + SpanishDialect.get_corpora(),
     "librispeech":LibriSpeech.get_corpora(),
 }
+
+if __name__ == '__main__':
+
+    datasets = ["dev-other"]
+    corpora = [c for c in CORPORA["librispeech"] if c.name in datasets]
+    # corpora = CORPORA["spanish"][:1]
+
+    print(corpora)
+    dump_dir = f"{os.environ['HOME']}/data/asr_data/ENGLISH"
+    processed_folder = dump_dir
+
+    prepare_corpora(corpora, dump_dir, processed_folder, AudioConfig("mp3"))
