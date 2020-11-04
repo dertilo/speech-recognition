@@ -1,11 +1,18 @@
 from __future__ import annotations
 
+import torchaudio
+from pathlib import Path
+
 import os
 
 import argparse
+from tqdm import tqdm
 from typing import List, Dict
+from util import data_io
+
 from data_related.datasets.common import SpeechCorpus, prepare_corpora, \
-    find_files_build_audio2text_openslr, AudioConfig
+    find_files_build_audio2text_openslr, AudioConfig, MANIFEST_FILE
+from data_related.utils import Sample
 
 
 class SpanishDialect(SpeechCorpus):
@@ -112,20 +119,68 @@ class HeroicoUSMA(SpeechCorpus):
         url = "http://www.openslr.org/resources/39"
         return [HeroicoUSMA("heroico",f"{url}/LDC2006S37.tar.gz")]
 
+class TEDLIUM(SpeechCorpus):
+    #TODO(tilo): very hacky!!!
+    def __init__(self, name: str, url: str) -> None:
+        self.name = name
+
+    def build_audiofile2text(self, path) -> Dict[str, str]:
+        audio_suffix = "mp3"
+        transcript_suffix = "txt"
+        audio_files = list(Path(path).rglob(f"*.{audio_suffix}"))
+        assert len(audio_files) > 0
+        transcript_files = list(Path(path).rglob(f"*.{transcript_suffix}"))
+
+        key2text = {
+            file_name: text
+            for t_file in transcript_files
+            for file_name, text in (
+                (str(t_file).split("/")[-1].replace(".txt",""),l) for l in data_io.read_lines(str(t_file))
+            )
+        }
+
+
+        def get_text(f):
+            key = str(f).split("/")[-1].replace(f".{audio_suffix}","")
+            return key2text[key]
+
+        return {str(f): get_text(f) for f in audio_files}
+
+    @staticmethod
+    def get_corpora() -> List[SpeechCorpus]:
+        return [TEDLIUM(n,None) for n in ["train","dev","test"]]
+
+    @staticmethod
+    def process_build_sample(audio_file, text, processed_folder,
+                             ac: AudioConfig) -> Sample:
+
+        si, ei = torchaudio.info(audio_file)
+        num_frames = si.length / si.channels
+        len_in_seconds = num_frames / si.rate
+
+        return Sample(audio_file, text, len_in_seconds, num_frames)
+
 
 CORPORA = {
     "spanish": TedxSpanish.get_corpora() + SpanishDialect.get_corpora(),
     "librispeech":LibriSpeech.get_corpora(),
+    "tedlium": TEDLIUM.get_corpora()
 }
 
 if __name__ == '__main__':
 
-    datasets = ["dev-other"]
-    corpora = [c for c in CORPORA["librispeech"] if c.name in datasets]
+    datasets = ["train","test" ,"dev"]
+    corpora:List[TEDLIUM] = [c for c in CORPORA["tedlium"] if c.name in datasets]
     # corpora = CORPORA["spanish"][:1]
 
-    print(corpora)
     dump_dir = f"{os.environ['HOME']}/data/asr_data/ENGLISH"
     processed_folder = dump_dir
+    for c in corpora:
+        processed_folder = f"{dump_dir}/tedlium_mp3/{c.name}"
+        audio2text = c.build_audiofile2text(processed_folder)
+        samples_g = (
+        c.process_build_sample(f, t, processed_folder, AudioConfig("mp3"))._asdict() for
+        f, t in tqdm(audio2text.items()))
+        data_io.write_jsonl(f"{processed_folder}/{MANIFEST_FILE}", samples_g)
 
-    prepare_corpora(corpora, dump_dir, processed_folder, AudioConfig("mp3"))
+    # prepare_corpora(corpora, dump_dir, processed_folder, AudioConfig("mp3",32))

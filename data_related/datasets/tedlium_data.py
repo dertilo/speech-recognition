@@ -57,10 +57,10 @@ def get_utterances_from_stm(stm_file):
 
 
 def cut_utterance(src_sph_file, target_wav_file, start_time, end_time, sample_rate=16000):
-    subprocess.call(["sox {}  -r {} -b 16 -c 1 {} trim {} ={}".format(src_sph_file, str(sample_rate),
+    subprocess.call(["sox {}  -r {} -c 1 {} trim {} ={}".format(src_sph_file, str(sample_rate),
                                                                       target_wav_file, start_time, end_time)],
                     shell=True)
-
+# TODO(tilo): sox cannot enforce `-b 16` when converting to mp3
 
 def _preprocess_transcript(phrase):
     return phrase.strip().upper()
