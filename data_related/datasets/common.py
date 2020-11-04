@@ -55,7 +55,9 @@ def process_write_manifest(corpus_folder, file2utt, audio_conf: AudioConfig):
         s._asdict()
         for s in process_with_threadpool(
             ({"audio_file": f, "text": t} for f, t in file2utt.items()),
-            partial(process_build_sample, processed_folder=corpus_folder,ac = audio_conf),
+            partial(
+                process_build_sample, processed_folder=corpus_folder, ac=audio_conf
+            ),
             max_workers=2 * num_cpus,
         )
     )
@@ -87,13 +89,13 @@ def process_build_sample(audio_file, text, processed_folder, ac: AudioConfig) ->
     return Sample(file_name, text, len_in_seconds, num_frames)
 
 
-def maybe_download(data_set, download_folder, url, suffix):
+def maybe_download(data_set, download_folder, url, suffix, verbose=False):
     localfile = os.path.join(download_folder, data_set + suffix)
-    if not os.path.exists(localfile):
-        print(f"downloading: {url}")
-        wget.download(url, localfile)
-    else:
-        print(f"found: {localfile} no need to download")
+
+    cmd = f"wget -c -N{' -q' if not verbose else ''} -O {localfile} {url}"
+    err_code = os.system(cmd)
+    if err_code != 0:
+        raise FileNotFoundError("could not downloaded %s" % url.split("/")[-1])
     return localfile
 
 
@@ -147,6 +149,6 @@ def find_files_build_audio2text_openslr(
 
     # ------------------------------------------------------------------------
     audio_files = list(Path(path).rglob(f"*{audio_suffix}"))
-    assert len(audio_files)
+    assert len(audio_files)>0
     transcript_files = list(Path(path).rglob(f"*{transcript_suffix}"))
     return build_file2text(parse_line_fun, transcript_files, audio_files)
