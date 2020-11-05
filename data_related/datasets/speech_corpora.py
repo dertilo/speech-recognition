@@ -157,8 +157,8 @@ class TEDLIUM(SpeechCorpus):
         si, ei = torchaudio.info(audio_file)
         num_frames = si.length / si.channels
         len_in_seconds = num_frames / si.rate
-
-        return Sample(audio_file, text, len_in_seconds, num_frames)
+        file_name = audio_file.split("/")[-1]
+        return Sample(file_name, text, len_in_seconds, num_frames)
 
 
 CORPORA = {
