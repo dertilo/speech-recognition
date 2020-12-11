@@ -1,4 +1,8 @@
 # [NeMo](https://github.com/NVIDIA/NeMo)
+### TODO
+* evaluate the pretrained `QuartzNet15x5Base-En`: wav+soundfile vs. mp3+torchaudio
+* unicode for manifests: `json.dump(metadata, f, ensure_ascii=False)`
+
 ### Info
 * [pretrained models](https://api.ngc.nvidia.com/v2/models/nvidia/nemospeechmodels)
 * rclone , synchronize to colab
@@ -21,9 +25,7 @@ rclone sync -P --exclude ".git/**" --exclude ".idea/**" --exclude "build/**" --e
 78M	/content/LibriSpeech/dev-other-processed_mp3_32
 149M	/content/LibriSpeech/dev-other-processed_mp3_64
 ```
-### TODO
-* evaluate the pretrained `QuartzNet15x5Base-En`: wav+soundfile vs. mp3+torchaudio
-* unicode for manifests: `json.dump(metadata, f, ensure_ascii=False)`
+![wav_vs_mp3](wav_vs_mp3_librispeech_devother.png)
 
 ### Sagemaker
 
