@@ -20,8 +20,8 @@ MILLISECONDS_TO_SECONDS = 0.001
 
 
 def sort_samples_in_corpus(samples: List[Sample], min_len, max_len) -> List[Sample]:
-    f_samples_g = filter(lambda s: s.length > min_len and s.length < max_len, samples)
-    s_samples: List[Sample] = sorted(f_samples_g, key=lambda s: s.length)
+    f_samples_g = filter(lambda s: s.duration > min_len and s.duration < max_len, samples)
+    s_samples: List[Sample] = sorted(f_samples_g, key=lambda s: s.duration)
     assert len(s_samples) > 0
     print("%d of %d samples are suitable for training" % (len(s_samples), len(samples)))
     return s_samples

@@ -158,4 +158,4 @@ AUDIOFEATUREEXTRACTORS = {
 
 def get_length(audio_file):
     si, ei = torchaudio.info(audio_file)
-    return si.length / si.channels / si.rate
+    return si.duration / si.channels / si.rate
