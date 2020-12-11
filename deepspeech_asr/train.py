@@ -1,5 +1,6 @@
 from data_related.audio_feature_extraction import AudioFeaturesConfig
-from data_related.datasets.librispeech import build_dataset, LibrispeechDataModule
+from data_related.datasets.librispeech import build_dataset
+from data_related.datasets.librispeech_datamodule import LibrispeechDataModule
 from lightning.litutil import build_args, generic_train
 import os
 
