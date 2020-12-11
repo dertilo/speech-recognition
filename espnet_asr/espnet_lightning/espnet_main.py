@@ -349,11 +349,12 @@ if __name__ == "__main__":
     parser.add_argument('--batch_bins', type=int, default=16_0_000)
     # fmt:on
     args = parser.parse_args()
-    shutil.rmtree("/tmp/espnet_output")
+    # if os.path.isdir("/tmp/espnet_output"):
+    #     shutil.rmtree("/tmp/espnet_output")
     print(args)
 
     if "WANDB_PROJECT" in os.environ:
         wandb.init(project=os.environ["WANDB_PROJECT"]) # , sync_tensorboard=True
 
-    train_from_scratch(args)
-    # finetune_espnet(args)
+    # train_from_scratch(args)
+    finetune_espnet(args)
