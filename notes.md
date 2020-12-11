@@ -1,3 +1,18 @@
+## espnet-based
+* evaluation
+    * end2end: beam-search on scores produced by ASR, LM + whatever
+    * ASR-only: greedy-search
+    
+* pretrained espnet model
+* take pretrained librispeech model, evaluate on spanish dataset
+
+* [no batch inference yet?](https://github.com/espnet/espnet/issues/2186)
+
+### TODO
+* transformer-encoder only
+    * compare vs. full-architecture
+* spanish data
+
 
 ## deepspeech.pytorch
 ### install [apex](https://github.com/NVIDIA/apex)
