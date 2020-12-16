@@ -34,10 +34,12 @@ class SpeechCorpus:
         self.suffix = suffs[0]
 
     def maybe_download(self, download_folder) -> str:
+        os.makedirs(download_folder, exist_ok=True)
         return maybe_download(self.name, download_folder, self.url, self.suffix)
 
     @staticmethod
     def extract_downloaded(raw_zipfile, extract_folder):
+        os.makedirs(extract_folder, exist_ok=True)
         unzip(raw_zipfile, extract_folder)
 
     @abstractmethod
@@ -50,18 +52,20 @@ class SpeechCorpus:
         raise NotImplementedError
 
 
-def process_write_manifest(corpus_folder, file2utt, audio_conf: AudioConfig):
+def process_write_manifest(processed_dir, file2utt, audio_conf: AudioConfig):
+    os.makedirs(processed_dir, exist_ok=True)
+
     samples = tqdm(
         s._asdict()
         for s in process_with_threadpool(
             ({"audio_file": f, "text": t} for f, t in file2utt.items()),
             partial(
-                process_build_sample, processed_folder=corpus_folder, ac=audio_conf
+                process_build_sample, processed_folder=processed_dir, ac=audio_conf
             ),
             max_workers=2 * num_cpus,
         )
     )
-    data_io.write_jsonl(f"{corpus_folder}/{MANIFEST_FILE}", samples)
+    data_io.write_jsonl(f"{processed_dir}/{MANIFEST_FILE}", samples)
 
 
 class AudioConfig(NamedTuple):
@@ -101,32 +105,29 @@ def maybe_download(data_set, download_folder, url, suffix, verbose=False):
 
 def prepare_corpora(
     corpora: List[SpeechCorpus],
-    dump_dir: str,
-    processed_folder: str,
+    download_dir: str,
+    processed_dir: str,
     audio_config: AudioConfig,
 ):
-    os.makedirs(dump_dir, exist_ok=True)
-    os.makedirs(processed_folder, exist_ok=True)
     for corpus in corpora:
-        raw_zipfile = corpus.maybe_download(dump_dir)
+        raw_zipfile = corpus.maybe_download(download_dir)
 
-        extract_folder = f"{processed_folder}/raw/{corpus.name}"
-        os.makedirs(extract_folder, exist_ok=True)
+
         ac = f"{audio_config.format}{'' if audio_config.bitrate is None else '_'+str(audio_config.bitrate)}"
         corpus_folder_name = f"{corpus.name}_processed_{ac}"
-        corpus_folder = os.path.join(processed_folder, corpus_folder_name)
-        os.makedirs(corpus_folder, exist_ok=True)
-        dumped_targz_file = f"{dump_dir}/{corpus_folder_name}.tar.gz"
-        if not os.path.isfile(dumped_targz_file):
+        processed_corpus_dir = os.path.join(processed_dir, corpus_folder_name)
+        processed_targz = f"{download_dir}/{corpus_folder_name}.tar.gz"
+        if not os.path.isfile(processed_targz):
+            extract_folder = f"{processed_dir}/raw/{corpus.name}"
             corpus.extract_downloaded(raw_zipfile, extract_folder)
             file2utt = corpus.build_audiofile2text(extract_folder)
-            process_write_manifest(corpus_folder, file2utt, audio_config)
-            folder_to_targz(dump_dir, corpus_folder)
-            print(f"wrote {dumped_targz_file}")
+            process_write_manifest(processed_corpus_dir, file2utt, audio_config)
+            folder_to_targz(download_dir, processed_corpus_dir)
+            print(f"wrote {processed_targz}")
             shutil.rmtree(extract_folder)
         else:
-            print(f"found {dumped_targz_file}")
-            unzip(dumped_targz_file, processed_folder)
+            print(f"found {processed_targz}")
+            unzip(processed_targz, processed_dir)
 
 
 def find_files_build_audio2text_openslr(

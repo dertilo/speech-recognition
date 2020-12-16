@@ -10,7 +10,7 @@ from tqdm import tqdm
 from typing import List, Dict
 from util import data_io
 
-from data_related.datasets.common import SpeechCorpus, prepare_corpora, \
+from datasets.common import SpeechCorpus, prepare_corpora, \
     find_files_build_audio2text_openslr, AudioConfig, MANIFEST_FILE
 from data_related.utils import Sample
 
@@ -169,18 +169,25 @@ CORPORA = {
 
 if __name__ == '__main__':
 
-    datasets = ["train","test" ,"dev"]
-    corpora:List[TEDLIUM] = [c for c in CORPORA["tedlium"] if c.name in datasets]
+    # datasets = ["train","test" ,"dev"]
+    # corpora:List[TEDLIUM] = [c for c in CORPORA["tedlium"] if c.name in datasets]
+    # # corpora = CORPORA["spanish"][:1]
+    #
+    # dump_dir = f"{os.environ['HOME']}/data/asr_data/ENGLISH"
+    # processed_folder = dump_dir
+    # for c in corpora:
+    #     processed_folder = f"{dump_dir}/tedlium_mp3/{c.name}"
+    #     audio2text = c.build_audiofile2text(processed_folder)
+    #     samples_g = (
+    #     c.process_build_sample(f, t, processed_folder, AudioConfig("mp3"))._asdict() for
+    #     f, t in tqdm(audio2text.items()))
+    #     data_io.write_jsonl(f"{processed_folder}/{MANIFEST_FILE}", samples_g)
+
+    datasets = ["dev-other"]
+    corpora = [c for c in CORPORA["librispeech"] if c.name in datasets]
     # corpora = CORPORA["spanish"][:1]
 
     dump_dir = f"{os.environ['HOME']}/data/asr_data/ENGLISH"
     processed_folder = dump_dir
-    for c in corpora:
-        processed_folder = f"{dump_dir}/tedlium_mp3/{c.name}"
-        audio2text = c.build_audiofile2text(processed_folder)
-        samples_g = (
-        c.process_build_sample(f, t, processed_folder, AudioConfig("mp3"))._asdict() for
-        f, t in tqdm(audio2text.items()))
-        data_io.write_jsonl(f"{processed_folder}/{MANIFEST_FILE}", samples_g)
 
-    # prepare_corpora(corpora, dump_dir, processed_folder, AudioConfig("mp3",32))
+    prepare_corpora(corpora, dump_dir, processed_folder, AudioConfig("mp3",32))
