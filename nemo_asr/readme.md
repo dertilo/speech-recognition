@@ -1,6 +1,8 @@
 # [NeMo](https://github.com/NVIDIA/NeMo)
+### fine-tuning
+* [gtcooke94 diskussion](https://github.com/NVIDIA/NeMo/issues/1510)
+   * [gist by gtcooke94](https://gist.github.com/gtcooke94/89d933cda31ee75fec3c32e295b5b718)
 ### TODO
-* evaluate the pretrained `QuartzNet15x5Base-En`: wav+soundfile vs. mp3+torchaudio
 * unicode for manifests: `json.dump(metadata, f, ensure_ascii=False)`
 
 ### Info
