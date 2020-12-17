@@ -2,7 +2,6 @@
 import argparse
 import fnmatch
 import json
-import logging
 import os
 import subprocess
 import tarfile
@@ -11,12 +10,6 @@ import urllib.request
 from sox import Transformer
 from tqdm import tqdm
 
-parser = argparse.ArgumentParser(description='LibriSpeech Data download')
-parser.add_argument("--data_root", required=False, default="/tmp/asr_data/ENGLISH", type=str)
-parser.add_argument("--data_sets", default="dev_clean", type=str)
-parser.add_argument("--bits", default=None, type=int)
-parser.add_argument("--format", default="wav", type=str)
-args = parser.parse_args()
 
 URLS = {
     'TRAIN_CLEAN_100': ("http://www.openslr.org/resources/12/train-clean-100.tar.gz"),
@@ -40,12 +33,8 @@ def __maybe_download_file(destination: str, source: str):
     """
     source = URLS[source]
     if not os.path.exists(destination):
-        logging.info("{0} does not exist. Downloading ...".format(destination))
         urllib.request.urlretrieve(source, filename=destination + '.tmp')
         os.rename(destination + '.tmp', destination)
-        logging.info("Downloaded {0}.".format(destination))
-    else:
-        logging.info("Destination {0} exists. Skipping.".format(destination))
     return destination
 
 
@@ -55,8 +44,7 @@ def __extract_file(filepath: str, data_dir: str):
         tar.extractall(data_dir)
         tar.close()
     except Exception:
-        logging.info('Not extracting. Maybe already there?')
-
+        pass
 
 def __process_data(data_folder: str, dst_folder: str, manifest_file: str, audio_format = "wav",bits=None):
     """
@@ -109,34 +97,33 @@ def __process_data(data_folder: str, dst_folder: str, manifest_file: str, audio_
             fout.write(json.dumps(m) + '\n')
 
 
-def main():
-    data_root = args.data_root
-    data_sets = args.data_sets
-    bitss = f"_{args.bits}" if args.bits is not None else ""
+def main(
+    data_root="/tmp/asr_data/ENGLISH",
+    data_sets="dev_other",
+    bits=32,
+    format="wav",
+):
+    os.makedirs(data_root,exist_ok=True)
+    bitss = f"_{bits}" if bits is not None else ""
 
     if data_sets == "ALL":
         data_sets = "dev_clean,dev_other,train_clean_100,train_clean_360,train_other_500,test_clean,test_other"
 
     for data_set in data_sets.split(','):
-        logging.info("\n\nWorking on: {0}".format(data_set))
         filepath = os.path.join(data_root, data_set + ".tar.gz")
-        logging.info("Getting {0}".format(data_set))
         __maybe_download_file(filepath, data_set.upper())
-        logging.info("Extracting {0}".format(data_set))
         __extract_file(filepath, data_root)
-        logging.info("Processing {0}".format(data_set))
         data_folder = os.path.join(os.path.join(data_root, "LibriSpeech"),
                             data_set.replace("_", "-"), )
         __process_data(
             data_folder,
             data_folder + "-processed",
-            os.path.join(data_root, data_set + f"_{args.format}{bitss}.json"),
-            audio_format=args.format,
-            bits=args.bits
+            os.path.join(data_root, data_set + f"_{format}{bitss}.json"),
+            audio_format=format,
+            bits=bits,
         )
         #shutil.rmtree(data_folder)
 
-    logging.info('Done!')
 
 
 if __name__ == "__main__":
