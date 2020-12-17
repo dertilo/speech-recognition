@@ -110,10 +110,10 @@ def prepare_corpora(
     audio_config: AudioConfig,
 ):
     for corpus in corpora:
-        prepare_corpus(audio_config, corpus, download_dir, processed_dir)
+        get_extract_process_zip_data(audio_config, corpus, download_dir, processed_dir)
 
 
-def prepare_corpus(audio_config, corpus, download_dir, processed_dir):
+def get_extract_process_zip_data(audio_config, corpus, download_dir, processed_dir):
     raw_zipfile = corpus.maybe_download(download_dir)
     ac = f"{audio_config.format}{'' if audio_config.bitrate is None else '_' + str(audio_config.bitrate)}"
     corpus_folder_name = f"{corpus.name}_processed_{ac}"
@@ -135,23 +135,13 @@ def prepare_corpus(audio_config, corpus, download_dir, processed_dir):
 def find_files_build_audio2text_openslr(
     path, parse_line_fun, audio_suffix=".wav", transcript_suffix=".tsv"
 ) -> Dict[str, str]:
-    def build_file2text(parse_line, transcripts, audios):
-        key2text = {
-            file_name: text
-            for tsv_file in transcripts
-            for file_name, text in (
-                parse_line(l) for l in data_io.read_lines(str(tsv_file))
-            )
-        }
-
-        def get_text(f):
-            key = str(f).split("/")[-1]
-            return key2text[key]
-
-        return {str(f): get_text(f) for f in audios}
-
-    # ------------------------------------------------------------------------
-    audio_files = list(Path(path).rglob(f"*{audio_suffix}"))
+    audio_files = [str(f) for f in Path(path).rglob(f"*{audio_suffix}")]
     assert len(audio_files) > 0
+
     transcript_files = list(Path(path).rglob(f"*{transcript_suffix}"))
-    return build_file2text(parse_line_fun, transcript_files, audio_files)
+    lines = (l for f in transcript_files for l in data_io.read_lines(str(f)))
+    parsed_lines = (parse_line_fun(l) for l in lines)
+    key2text = {file_name: text for file_name, text in parsed_lines}
+
+    audio_file_key = ((f, f.split("/")[-1]) for f in audio_files)
+    return {f: key2text[k] for f, k in audio_file_key}
