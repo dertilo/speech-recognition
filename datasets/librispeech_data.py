@@ -1,4 +1,6 @@
 # stolen from nvidia nemo
+from typing import NamedTuple
+
 import argparse
 import fnmatch
 import json
@@ -9,7 +11,7 @@ import urllib.request
 
 from sox import Transformer
 from tqdm import tqdm
-
+from util import data_io
 
 URLS = {
     "TRAIN_CLEAN_100": ("http://www.openslr.org/resources/12/train-clean-100.tar.gz"),
@@ -47,6 +49,12 @@ def __extract_file(filepath: str, data_dir: str):
         pass
 
 
+class ASRSample(NamedTuple):
+    audiofile_path: str
+    duration: float
+    text: str
+
+
 def __process_data(
     data_folder: str, dst_folder: str, manifest_file: str, audio_format="wav", bits=None
 ):
@@ -63,39 +71,36 @@ def __process_data(
     if not os.path.exists(dst_folder):
         os.makedirs(dst_folder)
 
-    files = []
+    trans_roots = []
     entries = []
 
     for root, dirnames, filenames in os.walk(data_folder):
         for filename in fnmatch.filter(filenames, "*.trans.txt"):
-            files.append((os.path.join(root, filename), root))
+            trans_roots.append((filename, root))
 
-    for transcripts_file, root in tqdm(files):
-        with open(transcripts_file, encoding="utf-8") as fin:
-            for line in fin:
-                id, text = line[: line.index(" ")], line[line.index(" ") + 1 :]
-                transcript_text = text.lower().strip()
+    for transcripts_file_name, root in tqdm(trans_roots):
+        for line in data_io.read_lines(os.path.join(root,transcripts_file_name)):
+            id, text = line[: line.index(" ")], line[line.index(" ") + 1 :]
+            transcript_text = text.lower().strip()
 
-                # Convert FLAC file to WAV
-                flac_file = os.path.join(root, id + ".flac")
-                wav_file = os.path.join(dst_folder, f"{id}.{audio_format}")
-                if not os.path.exists(wav_file):
-                    if bits is not None:
-                        cmd = f"sox {flac_file} -C {bits} {wav_file}"
-                    else:
-                        cmd = f"sox {flac_file} {wav_file}"
-                    assert os.system(cmd) == 0
-                    # audio_converter.build(flac_file, wav_file,extra_args=["-C",128])
-                # check duration
-                duration = subprocess.check_output(
-                    "soxi -D {0}".format(wav_file), shell=True
+            flac_file = os.path.join(root, id + ".flac")
+            wav_file = os.path.join(dst_folder, f"{id}.{audio_format}")
+            if not os.path.exists(wav_file):
+                if bits is not None:
+                    cmd = f"sox {flac_file} -C {bits} {wav_file}"
+                else:
+                    cmd = f"sox {flac_file} {wav_file}"
+                assert os.system(cmd) == 0
+                # audio_converter.build(flac_file, wav_file,extra_args=["-C",128])
+            duration = subprocess.check_output(
+                "soxi -D {0}".format(wav_file), shell=True
+            )
+
+            entries.append(
+                ASRSample(
+                    os.path.abspath(wav_file), float(duration), transcript_text
                 )
-
-                entry = {}
-                entry["audio_filepath"] = os.path.abspath(wav_file)
-                entry["duration"] = float(duration)
-                entry["text"] = transcript_text
-                entries.append(entry)
+            )
 
     with open(f"{manifest_file}", "w") as fout:
         for m in entries:
