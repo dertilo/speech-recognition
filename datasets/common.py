@@ -110,24 +110,26 @@ def prepare_corpora(
     audio_config: AudioConfig,
 ):
     for corpus in corpora:
-        raw_zipfile = corpus.maybe_download(download_dir)
+        prepare_corpus(audio_config, corpus, download_dir, processed_dir)
 
 
-        ac = f"{audio_config.format}{'' if audio_config.bitrate is None else '_'+str(audio_config.bitrate)}"
-        corpus_folder_name = f"{corpus.name}_processed_{ac}"
-        processed_corpus_dir = os.path.join(processed_dir, corpus_folder_name)
-        processed_targz = f"{download_dir}/{corpus_folder_name}.tar.gz"
-        if not os.path.isfile(processed_targz):
-            extract_folder = f"{processed_dir}/raw/{corpus.name}"
-            corpus.extract_downloaded(raw_zipfile, extract_folder)
-            file2utt = corpus.build_audiofile2text(extract_folder)
-            process_write_manifest(processed_corpus_dir, file2utt, audio_config)
-            folder_to_targz(download_dir, processed_corpus_dir)
-            print(f"wrote {processed_targz}")
-            shutil.rmtree(extract_folder)
-        else:
-            print(f"found {processed_targz}")
-            unzip(processed_targz, processed_dir)
+def prepare_corpus(audio_config, corpus, download_dir, processed_dir):
+    raw_zipfile = corpus.maybe_download(download_dir)
+    ac = f"{audio_config.format}{'' if audio_config.bitrate is None else '_' + str(audio_config.bitrate)}"
+    corpus_folder_name = f"{corpus.name}_processed_{ac}"
+    processed_corpus_dir = os.path.join(processed_dir, corpus_folder_name)
+    processed_targz = f"{download_dir}/{corpus_folder_name}.tar.gz"
+    if not os.path.isfile(processed_targz):
+        extract_folder = f"{processed_dir}/raw/{corpus.name}"
+        corpus.extract_downloaded(raw_zipfile, extract_folder)
+        file2utt = corpus.build_audiofile2text(extract_folder)
+        process_write_manifest(processed_corpus_dir, file2utt, audio_config)
+        folder_to_targz(download_dir, processed_corpus_dir)
+        print(f"wrote {processed_targz}")
+        shutil.rmtree(extract_folder)
+    else:
+        print(f"found {processed_targz}")
+        unzip(processed_targz, processed_dir)
 
 
 def find_files_build_audio2text_openslr(
@@ -150,6 +152,6 @@ def find_files_build_audio2text_openslr(
 
     # ------------------------------------------------------------------------
     audio_files = list(Path(path).rglob(f"*{audio_suffix}"))
-    assert len(audio_files)>0
+    assert len(audio_files) > 0
     transcript_files = list(Path(path).rglob(f"*{transcript_suffix}"))
     return build_file2text(parse_line_fun, transcript_files, audio_files)
