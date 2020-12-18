@@ -1,4 +1,7 @@
 from __future__ import annotations
+
+from dataclasses import dataclass
+
 import shutil
 
 import torchaudio
@@ -23,12 +26,10 @@ num_cpus = multiprocessing.cpu_count()
 
 MANIFEST_FILE = "manifest.jsonl.gz"
 
-
+@dataclass
 class SpeechCorpus:
-    def __init__(self, name: str, url: str) -> None:
-        super().__init__()
-        self.url = url
-        self.name = name
+    name:str
+    url:str
 
     @abstractmethod
     def build_audiofile2text(self, path) -> Dict[str, str]:
