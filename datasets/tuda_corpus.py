@@ -9,11 +9,10 @@ import os
 from util import data_io
 
 from datasets.common import (
-    maybe_download_compressed,
     SpeechCorpus,
     maybe_download,
     get_extract_process_zip_data,
-    AudioConfig,
+    AudioConfig, maybe_extract,
 )
 
 
@@ -61,6 +60,11 @@ class Tuda(SpeechCorpus):
         if not os.path.isfile(local_file):
             maybe_download(local_file, self.url, False)
         return local_file
+
+    def maybe_extract_raw(self, raw_zipfile, processed_dir):
+        raw_extracted_dir = f"{processed_dir}/raw/train_dev_test"
+        maybe_extract(raw_zipfile, raw_extracted_dir)
+        return f"{raw_extracted_dir}/{self.name}"
 
 
 if __name__ == "__main__":

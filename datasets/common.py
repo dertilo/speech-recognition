@@ -44,8 +44,10 @@ class SpeechCorpus:
     def get_raw_zipfile(self,download_dir) -> str:
         return maybe_download_compressed(self.name, download_dir, self.url)
 
-    def maybe_extract_raw(self,raw_zipfile,raw_extracted_dir):
+    def maybe_extract_raw(self,raw_zipfile,processed_dir):
+        raw_extracted_dir = f"{processed_dir}/raw/{self.name}"
         maybe_extract(raw_zipfile, raw_extracted_dir, False)
+        return raw_extracted_dir
 
 
 
@@ -118,7 +120,6 @@ def get_extract_process_zip_data(
     corpus: SpeechCorpus,
     download_dir:str,
     processed_dir:str,
-    overwrite_raw_extract=False,
 ):
     raw_zipfile = corpus.get_raw_zipfile(download_dir)
     ac = f"{audio_config.format}{'' if audio_config.bitrate is None else '_' + str(audio_config.bitrate)}"
@@ -126,13 +127,12 @@ def get_extract_process_zip_data(
     processed_targz = f"{download_dir}/{corpus_folder_name}.tar.gz"
     if not os.path.isfile(processed_targz):
         processed_corpus_dir = os.path.join(processed_dir, corpus_folder_name)
-        raw_extracted_dir = f"{processed_dir}/raw/{corpus.name}"
-        corpus.maybe_extract_raw(raw_zipfile,raw_extracted_dir)
-        file2utt = corpus.build_audiofile2text(raw_extracted_dir)
+        raw_data_dir = corpus.maybe_extract_raw(raw_zipfile,processed_dir)
+        file2utt = corpus.build_audiofile2text(raw_data_dir)
         process_write_manifest(processed_corpus_dir, file2utt, audio_config)
         folder_to_targz(download_dir, processed_corpus_dir)
         print(f"wrote {processed_targz}")
-        shutil.rmtree(raw_extracted_dir)
+        shutil.rmtree(raw_data_dir)
     else:
         print(f"found {processed_targz}")
         unzip(processed_targz, processed_dir)
