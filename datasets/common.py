@@ -114,10 +114,8 @@ def get_extract_process_zip_data(
     if not os.path.isfile(processed_targz):
         processed_corpus_dir = os.path.join(processed_dir, corpus_folder_name)
         raw_extracted_dir = f"{processed_dir}/raw/{corpus.name}"
-        if not os.path.isdir(raw_extracted_dir) or overwrite_raw_extract:
-            if overwrite_raw_extract:
-                shutil.rmtree(raw_extracted_dir)
-            unzip(raw_zipfile, raw_extracted_dir)
+        maybe_extract(overwrite_raw_extract, raw_extracted_dir, raw_zipfile)
+
         file2utt = corpus.build_audiofile2text(raw_extracted_dir)
         process_write_manifest(processed_corpus_dir, file2utt, audio_config)
         folder_to_targz(download_dir, processed_corpus_dir)
@@ -127,7 +125,12 @@ def get_extract_process_zip_data(
         print(f"found {processed_targz}")
         unzip(processed_targz, processed_dir)
 
-    return processed_corpus_dir
+
+def maybe_extract(overwrite_raw_extract, raw_extracted_dir, raw_zipfile):
+    if not os.path.isdir(raw_extracted_dir) or overwrite_raw_extract:
+        if overwrite_raw_extract:
+            shutil.rmtree(raw_extracted_dir)
+        unzip(raw_zipfile, raw_extracted_dir)
 
 
 def find_files_build_audio2text_openslr(
