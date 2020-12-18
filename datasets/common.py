@@ -29,13 +29,10 @@ class SpeechCorpus:
         super().__init__()
         self.url = url
         self.name = name
-        suffs = [suff for suff in COMPRESSION_SUFFIXES if self.url.endswith(suff)]
-        assert len(suffs) == 1
-        self.suffix = suffs[0]
 
     def maybe_download(self, download_folder) -> str:
         os.makedirs(download_folder, exist_ok=True)
-        return maybe_download(self.name, download_folder, self.url, self.suffix)
+        return maybe_download_compressed(self.name, download_folder, self.url)
 
     @staticmethod
     def extract_downloaded(raw_zipfile, extract_folder):
@@ -93,7 +90,12 @@ def process_build_sample(audio_file, text, processed_folder, ac: AudioConfig) ->
     return ASRSample(file_name, text, len_in_seconds, num_frames)
 
 
-def maybe_download(data_set, download_folder, url, suffix, verbose=False):
+def maybe_download_compressed(data_set, download_folder, url, verbose=False):
+
+    suffs = [suff for suff in COMPRESSION_SUFFIXES if url.endswith(suff)]
+    assert len(suffs) == 1
+    suffix = suffs[0]
+
     localfile = os.path.join(download_folder, data_set + suffix)
 
     cmd = f"wget -c -N{' -q' if not verbose else ''} -O {localfile} {url}"
