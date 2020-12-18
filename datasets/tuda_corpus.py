@@ -8,7 +8,13 @@ from typing import List, Dict
 import os
 from util import data_io
 
-from datasets.common import maybe_download_compressed, SpeechCorpus
+from datasets.common import (
+    maybe_download_compressed,
+    SpeechCorpus,
+    maybe_download,
+    get_extract_process_zip_data,
+    AudioConfig,
+)
 
 
 class Tuda(SpeechCorpus):
@@ -45,13 +51,25 @@ class Tuda(SpeechCorpus):
         kaldi_tuda_de_corpus_server = (
             "http://ltdata1.informatik.uni-hamburg.de/kaldi_tuda_de/"
         )
-        dataset_name = "german-speechdata-package-v2"
-        url = f"{kaldi_tuda_de_corpus_server}/{dataset_name}.tar.gz"
+        corpus_name = "german-speechdata-package-v2"
+        url = f"{kaldi_tuda_de_corpus_server}/{corpus_name}.tar.gz"
 
-        return [Tuda(dataset_name, url)]
+        return [Tuda(ds_name, url) for ds_name in ["train", "dev", "test"]]
+
+    def get_raw_zipfile(self, download_dir) -> str:
+        local_file = f"{download_dir}/{self.url.split('/')[-1]}"
+        if not os.path.isfile(local_file):
+            maybe_download(local_file, self.url, False)
+        return local_file
 
 
 if __name__ == "__main__":
-    corpus = Tuda.get_corpora()[0]
-    dir = "/home/tilo/data/asr_data/GERMAN/raw/german-speechdata-package-v2/dev"
-    a2t = corpus.build_audiofile2text(dir)
+    corpus = Tuda.get_corpora()[1]
+    dump_dir = "/home/tilo/data/asr_data/GERMAN/tuda"
+    # dir = "/home/tilo/data/asr_data/GERMAN/raw/german-speechdata-package-v2/dev"
+    # a2t = corpus.build_audiofile2text(dir)
+
+    audio_config = AudioConfig("mp3", 32)
+
+    processed_dir = dump_dir
+    get_extract_process_zip_data(audio_config, corpus, dump_dir, processed_dir)

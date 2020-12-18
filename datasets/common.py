@@ -44,6 +44,9 @@ class SpeechCorpus:
     def get_raw_zipfile(self,download_dir) -> str:
         return maybe_download_compressed(self.name, download_dir, self.url)
 
+    def maybe_extract_raw(self,raw_zipfile,raw_extracted_dir):
+        maybe_extract(raw_zipfile, raw_extracted_dir, False)
+
 
 
 
@@ -124,8 +127,7 @@ def get_extract_process_zip_data(
     if not os.path.isfile(processed_targz):
         processed_corpus_dir = os.path.join(processed_dir, corpus_folder_name)
         raw_extracted_dir = f"{processed_dir}/raw/{corpus.name}"
-        maybe_extract(overwrite_raw_extract, raw_extracted_dir, raw_zipfile)
-
+        corpus.maybe_extract_raw(raw_zipfile,raw_extracted_dir)
         file2utt = corpus.build_audiofile2text(raw_extracted_dir)
         process_write_manifest(processed_corpus_dir, file2utt, audio_config)
         folder_to_targz(download_dir, processed_corpus_dir)
@@ -136,7 +138,7 @@ def get_extract_process_zip_data(
         unzip(processed_targz, processed_dir)
 
 
-def maybe_extract(overwrite_raw_extract, raw_extracted_dir, raw_zipfile):
+def maybe_extract(raw_zipfile, raw_extracted_dir, overwrite_raw_extract=False):
     if not os.path.isdir(raw_extracted_dir) or overwrite_raw_extract:
         if overwrite_raw_extract:
             shutil.rmtree(raw_extracted_dir)
