@@ -30,15 +30,6 @@ class SpeechCorpus:
         self.url = url
         self.name = name
 
-    def maybe_download(self, download_folder) -> str:
-        os.makedirs(download_folder, exist_ok=True)
-        return maybe_download_compressed(self.name, download_folder, self.url)
-
-    @staticmethod
-    def extract_downloaded(raw_zipfile, extract_folder):
-        os.makedirs(extract_folder, exist_ok=True)
-        unzip(raw_zipfile, extract_folder)
-
     @abstractmethod
     def build_audiofile2text(self, path) -> Dict[str, str]:
         raise NotImplementedError
@@ -92,13 +83,14 @@ def process_build_sample(
     return ASRSample(file_name, text, len_in_seconds, num_frames)
 
 
-def maybe_download_compressed(data_set, download_folder, url, verbose=False):
+def maybe_download_compressed(local_filename, download_folder, url, verbose=False):
+    os.makedirs(download_folder, exist_ok=True)
 
     suffs = [suff for suff in COMPRESSION_SUFFIXES if url.endswith(suff)]
     assert len(suffs) == 1
     suffix = suffs[0]
 
-    localfile = os.path.join(download_folder, data_set + suffix)
+    localfile = os.path.join(download_folder, local_filename + suffix)
 
     cmd = f"wget -c -N{' -q' if not verbose else ''} -O {localfile} {url}"
     err_code = os.system(cmd)
@@ -118,9 +110,13 @@ def prepare_corpora(
 
 
 def get_extract_process_zip_data(
-    audio_config, corpus, download_dir, processed_dir, overwrite_raw_extract=False
+    audio_config,
+    corpus: SpeechCorpus,
+    download_dir,
+    processed_dir,
+    overwrite_raw_extract=False,
 ):
-    raw_zipfile = corpus.maybe_download(download_dir)
+    raw_zipfile = maybe_download_compressed(corpus.name, download_dir, corpus.url)
     ac = f"{audio_config.format}{'' if audio_config.bitrate is None else '_' + str(audio_config.bitrate)}"
     corpus_folder_name = f"{corpus.name}_processed_{ac}"
     processed_corpus_dir = os.path.join(processed_dir, corpus_folder_name)
@@ -130,7 +126,7 @@ def get_extract_process_zip_data(
         if not os.path.isdir(raw_extracted_dir) or overwrite_raw_extract:
             if overwrite_raw_extract:
                 shutil.rmtree(raw_extracted_dir)
-            corpus.extract_downloaded(raw_zipfile, raw_extracted_dir)
+            unzip(raw_zipfile, raw_extracted_dir)
         file2utt = corpus.build_audiofile2text(raw_extracted_dir)
         process_write_manifest(processed_corpus_dir, file2utt, audio_config)
         folder_to_targz(download_dir, processed_corpus_dir)

@@ -19,6 +19,8 @@ COMPRESSION_SUFFIXES = ZIP_SUFFIXES + TAR_GZ_SUFFIXES
 
 def unzip(zipfile: str, dest_dir: str) -> None:
 
+    os.makedirs(dest_dir, exist_ok=True)
+
     if any([zipfile.endswith(s) for s in ZIP_SUFFIXES ]):
         with ZipFile(zipfile, "r") as zipObj:
             zipObj.extractall(dest_dir)
