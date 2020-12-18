@@ -41,6 +41,12 @@ class SpeechCorpus:
         raise NotImplementedError
 
 
+    def get_raw_zipfile(self,download_dir) -> str:
+        return maybe_download_compressed(self.name, download_dir, self.url)
+
+
+
+
 def process_write_manifest(processed_dir, file2utt, audio_conf: AudioConfig):
     os.makedirs(processed_dir, exist_ok=True)
 
@@ -93,11 +99,15 @@ def maybe_download_compressed(local_filename, download_folder, url, verbose=Fals
 
     localfile = os.path.join(download_folder, local_filename + suffix)
 
+    maybe_download(localfile, url, verbose)
+    return localfile
+
+
+def maybe_download(localfile, url, verbose):
     cmd = f"wget -c -N{' -q' if not verbose else ''} -O {localfile} {url}"
     err_code = os.system(cmd)
     if err_code != 0:
         raise FileNotFoundError("could not downloaded %s" % url.split("/")[-1])
-    return localfile
 
 
 def get_extract_process_zip_data(
@@ -107,7 +117,7 @@ def get_extract_process_zip_data(
     processed_dir:str,
     overwrite_raw_extract=False,
 ):
-    raw_zipfile = maybe_download_compressed(corpus.name, download_dir, corpus.url)
+    raw_zipfile = corpus.get_raw_zipfile(download_dir)
     ac = f"{audio_config.format}{'' if audio_config.bitrate is None else '_' + str(audio_config.bitrate)}"
     corpus_folder_name = f"{corpus.name}_processed_{ac}"
     processed_targz = f"{download_dir}/{corpus_folder_name}.tar.gz"
