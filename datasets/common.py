@@ -16,7 +16,7 @@ import os
 from util import data_io
 from util.util_methods import process_with_threadpool, exec_command
 
-from data_related.utils import unzip, Sample, folder_to_targz, COMPRESSION_SUFFIXES
+from data_related.utils import unzip, ASRSample, folder_to_targz, COMPRESSION_SUFFIXES
 import multiprocessing
 
 num_cpus = multiprocessing.cpu_count()
@@ -73,7 +73,7 @@ class AudioConfig(NamedTuple):
     bitrate: int = None
 
 
-def process_build_sample(audio_file, text, processed_folder, ac: AudioConfig) -> Sample:
+def process_build_sample(audio_file, text, processed_folder, ac: AudioConfig) -> ASRSample:
     suffix = Path(audio_file).suffix
     assert audio_file.startswith("/")
     file_name = audio_file[1:].replace("/", "_").replace(suffix, f".{ac.format}")
@@ -90,7 +90,7 @@ def process_build_sample(audio_file, text, processed_folder, ac: AudioConfig) ->
     num_frames = si.length / si.channels
     len_in_seconds = num_frames / si.rate
 
-    return Sample(file_name, text, len_in_seconds, num_frames)
+    return ASRSample(file_name, text, len_in_seconds, num_frames)
 
 
 def maybe_download(data_set, download_folder, url, suffix, verbose=False):
@@ -120,13 +120,13 @@ def get_extract_process_zip_data(audio_config, corpus, download_dir, processed_d
     processed_corpus_dir = os.path.join(processed_dir, corpus_folder_name)
     processed_targz = f"{download_dir}/{corpus_folder_name}.tar.gz"
     if not os.path.isfile(processed_targz):
-        extract_folder = f"{processed_dir}/raw/{corpus.name}"
-        corpus.extract_downloaded(raw_zipfile, extract_folder)
-        file2utt = corpus.build_audiofile2text(extract_folder)
+        raw_extracted_dir = f"{processed_dir}/raw/{corpus.name}"
+        corpus.extract_downloaded(raw_zipfile, raw_extracted_dir)
+        file2utt = corpus.build_audiofile2text(raw_extracted_dir)
         process_write_manifest(processed_corpus_dir, file2utt, audio_config)
         folder_to_targz(download_dir, processed_corpus_dir)
         print(f"wrote {processed_targz}")
-        shutil.rmtree(extract_folder)
+        shutil.rmtree(raw_extracted_dir)
     else:
         print(f"found {processed_targz}")
         unzip(processed_targz, processed_dir)

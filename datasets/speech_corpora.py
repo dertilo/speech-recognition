@@ -12,7 +12,7 @@ from util import data_io
 
 from datasets.common import SpeechCorpus, prepare_corpora, \
     find_files_build_audio2text_openslr, AudioConfig, MANIFEST_FILE
-from data_related.utils import Sample
+from data_related.utils import ASRSample
 
 
 class SpanishDialect(SpeechCorpus):
@@ -152,13 +152,13 @@ class TEDLIUM(SpeechCorpus):
 
     @staticmethod
     def process_build_sample(audio_file, text, processed_folder,
-                             ac: AudioConfig) -> Sample:
+                             ac: AudioConfig) -> ASRSample:
 
         si, ei = torchaudio.info(audio_file)
         num_frames = si.length / si.channels
         len_in_seconds = num_frames / si.rate
         file_name = audio_file.split("/")[-1]
-        return Sample(file_name, text, len_in_seconds, num_frames)
+        return ASRSample(file_name, text, len_in_seconds, num_frames)
 
 
 CORPORA = {

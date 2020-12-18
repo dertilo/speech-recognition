@@ -6,7 +6,7 @@ from data_related.audio_feature_extraction import (
     AudioFeaturesConfig,
     AudioFeatureExtractor,
     AUDIOFEATUREEXTRACTORS, )
-from data_related.utils import Sample
+from data_related.utils import ASRSample
 from utils import HOME
 
 
@@ -19,9 +19,9 @@ class DataConfig(NamedTuple):
 MILLISECONDS_TO_SECONDS = 0.001
 
 
-def sort_samples_in_corpus(samples: List[Sample], min_len, max_len) -> List[Sample]:
+def sort_samples_in_corpus(samples: List[ASRSample], min_len, max_len) -> List[ASRSample]:
     f_samples_g = filter(lambda s: s.duration > min_len and s.duration < max_len, samples)
-    s_samples: List[Sample] = sorted(f_samples_g, key=lambda s: s.duration)
+    s_samples: List[ASRSample] = sorted(f_samples_g, key=lambda s: s.duration)
     assert len(s_samples) > 0
     print("%d of %d samples are suitable for training" % (len(s_samples), len(samples)))
     return s_samples
@@ -30,7 +30,7 @@ def sort_samples_in_corpus(samples: List[Sample], min_len, max_len) -> List[Samp
 class CharSTTDataset(Dataset):
     def __init__(
         self,
-        samples: List[Sample],
+        samples: List[ASRSample],
         conf: DataConfig,
         audio_conf: AudioFeaturesConfig,
     ):
@@ -44,7 +44,7 @@ class CharSTTDataset(Dataset):
         super().__init__()
 
     def __getitem__(self, index):
-        s: Sample = self.samples[index]
+        s: ASRSample = self.samples[index]
         feat = self.audio_fe.process(s.audio_file)
         transcript = self.parse_transcript(s.text)
         return feat, transcript

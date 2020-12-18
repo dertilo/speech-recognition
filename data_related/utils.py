@@ -7,7 +7,7 @@ from zipfile import ZipFile
 from typing import List, Dict, Callable, Iterable, NamedTuple
 
 
-class Sample(NamedTuple):
+class ASRSample(NamedTuple):
     audio_file: str
     text: str
     duration: float  # in seconds
