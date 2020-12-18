@@ -12,10 +12,9 @@ from util import data_io
 
 from datasets.common import (
     SpeechCorpus,
-    prepare_corpora,
     find_files_build_audio2text_openslr,
     AudioConfig,
-    MANIFEST_FILE,
+    MANIFEST_FILE, get_extract_process_zip_data,
 )
 from data_related.utils import ASRSample
 
@@ -204,6 +203,8 @@ if __name__ == "__main__":
     # corpora = CORPORA["spanish"][:1]
 
     dump_dir = f"{os.environ['HOME']}/data/asr_data/ENGLISH"
-    processed_folder = dump_dir
+    processed_dir = dump_dir
 
-    prepare_corpora(corpora, dump_dir, processed_folder, AudioConfig("mp3", 32))
+    audio_config = AudioConfig("mp3", 32)
+    processed_dirs = [get_extract_process_zip_data(audio_config, corpus, dump_dir, processed_dir) for
+     corpus in corpora]

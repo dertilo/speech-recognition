@@ -100,29 +100,19 @@ def maybe_download_compressed(local_filename, download_folder, url, verbose=Fals
     return localfile
 
 
-def prepare_corpora(
-    corpora: List[SpeechCorpus],
-    download_dir: str,
-    processed_dir: str,
-    audio_config: AudioConfig,
-):
-    for corpus in corpora:
-        get_extract_process_zip_data(audio_config, corpus, download_dir, processed_dir)
-
-
 def get_extract_process_zip_data(
-    audio_config,
+    audio_config:AudioConfig,
     corpus: SpeechCorpus,
-    download_dir,
-    processed_dir,
+    download_dir:str,
+    processed_dir:str,
     overwrite_raw_extract=False,
 ):
     raw_zipfile = maybe_download_compressed(corpus.name, download_dir, corpus.url)
     ac = f"{audio_config.format}{'' if audio_config.bitrate is None else '_' + str(audio_config.bitrate)}"
     corpus_folder_name = f"{corpus.name}_processed_{ac}"
-    processed_corpus_dir = os.path.join(processed_dir, corpus_folder_name)
     processed_targz = f"{download_dir}/{corpus_folder_name}.tar.gz"
     if not os.path.isfile(processed_targz):
+        processed_corpus_dir = os.path.join(processed_dir, corpus_folder_name)
         raw_extracted_dir = f"{processed_dir}/raw/{corpus.name}"
         if not os.path.isdir(raw_extracted_dir) or overwrite_raw_extract:
             if overwrite_raw_extract:
@@ -136,6 +126,8 @@ def get_extract_process_zip_data(
     else:
         print(f"found {processed_targz}")
         unzip(processed_targz, processed_dir)
+
+    return processed_corpus_dir
 
 
 def find_files_build_audio2text_openslr(
