@@ -70,7 +70,9 @@ class AudioConfig(NamedTuple):
     bitrate: int = None
 
 
-def process_build_sample(audio_file, text, processed_folder, ac: AudioConfig) -> ASRSample:
+def process_build_sample(
+    audio_file, text, processed_folder, ac: AudioConfig
+) -> ASRSample:
     suffix = Path(audio_file).suffix
     assert audio_file.startswith("/")
     file_name = audio_file[1:].replace("/", "_").replace(suffix, f".{ac.format}")
@@ -115,7 +117,9 @@ def prepare_corpora(
         get_extract_process_zip_data(audio_config, corpus, download_dir, processed_dir)
 
 
-def get_extract_process_zip_data(audio_config, corpus, download_dir, processed_dir):
+def get_extract_process_zip_data(
+    audio_config, corpus, download_dir, processed_dir, overwrite_raw_extract=False
+):
     raw_zipfile = corpus.maybe_download(download_dir)
     ac = f"{audio_config.format}{'' if audio_config.bitrate is None else '_' + str(audio_config.bitrate)}"
     corpus_folder_name = f"{corpus.name}_processed_{ac}"
@@ -123,7 +127,10 @@ def get_extract_process_zip_data(audio_config, corpus, download_dir, processed_d
     processed_targz = f"{download_dir}/{corpus_folder_name}.tar.gz"
     if not os.path.isfile(processed_targz):
         raw_extracted_dir = f"{processed_dir}/raw/{corpus.name}"
-        corpus.extract_downloaded(raw_zipfile, raw_extracted_dir)
+        if not os.path.isdir(raw_extracted_dir) or overwrite_raw_extract:
+            if overwrite_raw_extract:
+                shutil.rmtree(raw_extracted_dir)
+            corpus.extract_downloaded(raw_zipfile, raw_extracted_dir)
         file2utt = corpus.build_audiofile2text(raw_extracted_dir)
         process_write_manifest(processed_corpus_dir, file2utt, audio_config)
         folder_to_targz(download_dir, processed_corpus_dir)
