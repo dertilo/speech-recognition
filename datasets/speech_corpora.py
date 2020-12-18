@@ -18,12 +18,16 @@ from data_related.utils import ASRSample
 class SpanishDialect(SpeechCorpus):
     def build_audiofile2text(self, path) -> Dict[str, str]:
         audio_suffix = ".wav"
+        transcript_suffix = ".tsv"
 
         def parse_line(l):
             file_name, text = l.split("\t")
             return file_name + audio_suffix, text
 
-        return find_files_build_audio2text_openslr(path, parse_line, audio_suffix=audio_suffix)
+        return find_files_build_audio2text_openslr(path, parse_line,
+                                                   audio_suffix=audio_suffix,
+                                                   transcript_suffix=transcript_suffix
+                                                   )
 
     @staticmethod
     def get_corpora() -> List[SpanishDialect]:
@@ -48,6 +52,7 @@ class TedxSpanish(SpeechCorpus):
 
     def build_audiofile2text(self, path) -> Dict[str, str]:
         audio_suffix = ".wav"
+        transcript_suffix = ".transcription"
 
         def parse_line(l):
             s = l.split(" ")
@@ -59,7 +64,7 @@ class TedxSpanish(SpeechCorpus):
             path,
             parse_line,
             audio_suffix=audio_suffix,
-            transcript_suffix=".transcription",
+            transcript_suffix=transcript_suffix,
         )
 
     @staticmethod
@@ -71,6 +76,7 @@ class LibriSpeech(SpeechCorpus):
 
     def build_audiofile2text(self, path) -> Dict[str, str]:
         audio_suffix = ".flac"
+        transcript_suffix = ".trans.txt"
 
         def parse_line(l):
             s = l.split(" ")
@@ -80,7 +86,7 @@ class LibriSpeech(SpeechCorpus):
             path,
             parse_line,
             audio_suffix=audio_suffix,
-            transcript_suffix=".trans.txt",
+            transcript_suffix=transcript_suffix,
         )
 
     @staticmethod
