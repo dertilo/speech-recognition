@@ -10,8 +10,13 @@ from tqdm import tqdm
 from typing import List, Dict
 from util import data_io
 
-from datasets.common import SpeechCorpus, prepare_corpora, \
-    find_files_build_audio2text_openslr, AudioConfig, MANIFEST_FILE
+from datasets.common import (
+    SpeechCorpus,
+    prepare_corpora,
+    find_files_build_audio2text_openslr,
+    AudioConfig,
+    MANIFEST_FILE,
+)
 from data_related.utils import ASRSample
 
 
@@ -24,10 +29,12 @@ class SpanishDialect(SpeechCorpus):
             file_name, text = l.split("\t")
             return file_name + audio_suffix, text
 
-        return find_files_build_audio2text_openslr(path, parse_line,
-                                                   audio_suffix=audio_suffix,
-                                                   transcript_suffix=transcript_suffix
-                                                   )
+        return find_files_build_audio2text_openslr(
+            path,
+            parse_line,
+            audio_suffix=audio_suffix,
+            transcript_suffix=transcript_suffix,
+        )
 
     @staticmethod
     def get_corpora() -> List[SpanishDialect]:
@@ -49,7 +56,6 @@ class SpanishDialect(SpeechCorpus):
 
 
 class TedxSpanish(SpeechCorpus):
-
     def build_audiofile2text(self, path) -> Dict[str, str]:
         audio_suffix = ".wav"
         transcript_suffix = ".transcription"
@@ -72,15 +78,15 @@ class TedxSpanish(SpeechCorpus):
         base_url = "https://www.openslr.org/resources"
         return [TedxSpanish("67_tedx", f"{base_url}/{67}/tedx_spanish_corpus.tgz")]
 
-class LibriSpeech(SpeechCorpus):
 
+class LibriSpeech(SpeechCorpus):
     def build_audiofile2text(self, path) -> Dict[str, str]:
         audio_suffix = ".flac"
         transcript_suffix = ".trans.txt"
 
         def parse_line(l):
             s = l.split(" ")
-            return s[0]+audio_suffix, " ".join(s[1:])
+            return s[0] + audio_suffix, " ".join(s[1:])
 
         return find_files_build_audio2text_openslr(
             path,
@@ -105,28 +111,31 @@ class LibriSpeech(SpeechCorpus):
             ]
         ]
 
-class Caito(SpeechCorpus):
 
+class Caito(SpeechCorpus):
     def build_audiofile2text(self, path) -> Dict[str, str]:
         raise NotImplementedError
 
     @staticmethod
     def get_corpora() -> List[SpeechCorpus]:
         url = "http://www.caito.de/data/Training/stt_tts"
-        return [Caito(n,f"{url}/{n}.tgz") for n in ["es_ES","en_US","en_UK","de_DE"] ]
+        return [
+            Caito(n, f"{url}/{n}.tgz") for n in ["es_ES", "en_US", "en_UK", "de_DE"]
+        ]
+
 
 class HeroicoUSMA(SpeechCorpus):
-
     def build_audiofile2text(self, path) -> Dict[str, str]:
         raise NotImplementedError
 
     @staticmethod
     def get_corpora() -> List[SpeechCorpus]:
         url = "http://www.openslr.org/resources/39"
-        return [HeroicoUSMA("heroico",f"{url}/LDC2006S37.tar.gz")]
+        return [HeroicoUSMA("heroico", f"{url}/LDC2006S37.tar.gz")]
+
 
 class TEDLIUM(SpeechCorpus):
-    #TODO(tilo): very hacky!!!
+    # TODO(tilo): very hacky!!!
     def __init__(self, name: str, url: str) -> None:
         self.name = name
 
@@ -141,24 +150,25 @@ class TEDLIUM(SpeechCorpus):
             file_name: text
             for t_file in transcript_files
             for file_name, text in (
-                (str(t_file).split("/")[-1].replace(".txt",""),l) for l in data_io.read_lines(str(t_file))
+                (str(t_file).split("/")[-1].replace(".txt", ""), l)
+                for l in data_io.read_lines(str(t_file))
             )
         }
 
-
         def get_text(f):
-            key = str(f).split("/")[-1].replace(f".{audio_suffix}","")
+            key = str(f).split("/")[-1].replace(f".{audio_suffix}", "")
             return key2text[key]
 
         return {str(f): get_text(f) for f in audio_files}
 
     @staticmethod
     def get_corpora() -> List[SpeechCorpus]:
-        return [TEDLIUM(n,None) for n in ["train","dev","test"]]
+        return [TEDLIUM(n, None) for n in ["train", "dev", "test"]]
 
     @staticmethod
-    def process_build_sample(audio_file, text, processed_folder,
-                             ac: AudioConfig) -> ASRSample:
+    def process_build_sample(
+        audio_file, text, processed_folder, ac: AudioConfig
+    ) -> ASRSample:
 
         si, ei = torchaudio.info(audio_file)
         num_frames = si.length / si.channels
@@ -169,11 +179,11 @@ class TEDLIUM(SpeechCorpus):
 
 CORPORA = {
     "spanish": TedxSpanish.get_corpora() + SpanishDialect.get_corpora(),
-    "librispeech":LibriSpeech.get_corpora(),
-    "tedlium": TEDLIUM.get_corpora()
+    "librispeech": LibriSpeech.get_corpora(),
+    "tedlium": TEDLIUM.get_corpora(),
 }
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     # datasets = ["train","test" ,"dev"]
     # corpora:List[TEDLIUM] = [c for c in CORPORA["tedlium"] if c.name in datasets]
@@ -196,4 +206,4 @@ if __name__ == '__main__':
     dump_dir = f"{os.environ['HOME']}/data/asr_data/ENGLISH"
     processed_folder = dump_dir
 
-    prepare_corpora(corpora, dump_dir, processed_folder, AudioConfig("mp3",32))
+    prepare_corpora(corpora, dump_dir, processed_folder, AudioConfig("mp3", 32))
