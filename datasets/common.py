@@ -61,7 +61,9 @@ def process_write_manifest(
         for s in process_with_threadpool(
             ({"audio_file": f, "text": t} for f, t in file2utt.items()),
             partial(
-                process_build_sample, processed_folder=raw_processed_dir, ac=audio_conf
+                process_build_sample,
+                raw_processed_dir=raw_processed_dir,
+                ac=audio_conf,
             ),
             max_workers=2 * num_cpus,
         )
@@ -94,7 +96,7 @@ def process_audio(audio_file, raw_processed_dir: Tuple, ac: AudioConfig):
     assert audio_file.startswith(raw_dir)
     suffix = Path(audio_file).suffix
     file_name = (
-        audio_file.replace(raw_dir, "")
+        audio_file.replace(f"{raw_dir}/", "")
         .replace("/", "_")
         .replace(suffix, f".{ac.format}")
     )
@@ -149,7 +151,9 @@ def get_extract_process_zip_data(
         processed_corpus_dir = os.path.join(work_dir, corpus_folder_name)
         raw_data_dir = corpus.maybe_extract_raw(raw_zipfile, work_dir)
         file2utt = corpus.build_audiofile2text(raw_data_dir)
-        process_write_manifest(processed_corpus_dir, file2utt, audio_config)
+        process_write_manifest(
+            (raw_data_dir, processed_corpus_dir), file2utt, audio_config
+        )
         folder_to_targz(processed_corpus_dir, dump_dir)
         print(f"wrote {processed_targz}")
         if remove_raw_extract:
