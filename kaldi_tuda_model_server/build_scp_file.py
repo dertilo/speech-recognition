@@ -31,13 +31,12 @@ if __name__ == "__main__":
     folder = "dev_processed_wav"
     asr_samples = (
         ASRSample(**s)
-        for s in data_io.read_jsonl(f"{base_path}/{folder}/manifest.jsonl.gz")
+        for s in data_io.read_jsonl(f"{base_path}/{folder}/manifest.jsonl.gz",limit=100)
     )
     data_io.write_lines(
         f"{base_path}/{folder}.scp",
         tqdm(
             f"{sample.audio_file} /docker-share/data/asr_data/GERMAN/tuda/{folder}/{sample.audio_file}"
             for sample in asr_samples
-            if "Samson" in sample.audio_file
         ),
     )

@@ -18,8 +18,10 @@ from datasets.common import (
 
 
 class Tuda(SpeechCorpus):
+    audio_suffix: str = ".wav"
+
     def build_audiofile2text(self, path) -> Dict[str, str]:
-        audio_suffix = ".wav"
+        audio_suffix = self.audio_suffix
         transcript_suffix = ".xml"
 
         audio_files = [str(f) for f in Path(path).rglob(f"*{audio_suffix}")]
@@ -78,11 +80,15 @@ if __name__ == "__main__":
     # dir = "/home/tilo/data/asr_data/GERMAN/raw/german-speechdata-package-v2/dev"
     # a2t = corpus.build_audiofile2text(dir)
 
-    audio_config = AudioConfig("mp3", 32)
+    audio_config = AudioConfig("wav", None)
 
     processed_dir = dump_dir
     for c in corpora:
-        get_extract_process_zip_data(audio_config, c, dump_dir, processed_dir, False)
+        if c.name == "dev":
+            c.audio_suffix = "_Samson.wav"
+            get_extract_process_zip_data(
+                audio_config, c, dump_dir, processed_dir, False
+            )
 
 """
 4648 have no transcripts # TODO(tilo) !?!?

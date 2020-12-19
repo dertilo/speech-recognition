@@ -140,7 +140,6 @@ def get_extract_process_zip_data(
     dump_dir: str,
     work_dir: str,
     remove_raw_extract=True,
-    reprocess = False
 ):
     """
     dump_dir: only zipped archives files here, NO unzipping/extracting! -> used for google-drive
@@ -150,7 +149,7 @@ def get_extract_process_zip_data(
     ac = f"{audio_config.format}{'' if audio_config.bitrate is None else '_' + str(audio_config.bitrate)}"
     corpus_folder_name = f"{corpus.name}_processed_{ac}"
     processed_targz = f"{dump_dir}/{corpus_folder_name}.tar.gz"
-    if not os.path.isfile(processed_targz) or reprocess:
+    if not os.path.isfile(processed_targz):
         processed_corpus_dir = os.path.join(work_dir, corpus_folder_name)
         raw_data_dir = corpus.maybe_extract_raw(raw_zipfile, work_dir)
         file2utt = corpus.build_audiofile2text(raw_data_dir)
