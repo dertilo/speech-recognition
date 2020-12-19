@@ -75,6 +75,7 @@ def process_write_manifest(
 class AudioConfig(NamedTuple):
     format: str = "wav"
     bitrate: int = None
+    min_dur_secs:float = 0.5 # seconds
 
 
 def process_build_sample(
@@ -84,6 +85,7 @@ def process_build_sample(
         file_name, len_in_seconds, num_frames = process_audio(
             audio_file, raw_processed_dir, ac
         )
+        assert len_in_seconds>ac.min_dur_secs
         asr_sample = ASRSample(file_name, text, len_in_seconds, num_frames)
     except Exception:
         print(f"failed to process {audio_file}")
@@ -138,6 +140,7 @@ def get_extract_process_zip_data(
     dump_dir: str,
     work_dir: str,
     remove_raw_extract=True,
+    reprocess = False
 ):
     """
     dump_dir: only zipped archives files here, NO unzipping/extracting! -> used for google-drive
@@ -147,13 +150,14 @@ def get_extract_process_zip_data(
     ac = f"{audio_config.format}{'' if audio_config.bitrate is None else '_' + str(audio_config.bitrate)}"
     corpus_folder_name = f"{corpus.name}_processed_{ac}"
     processed_targz = f"{dump_dir}/{corpus_folder_name}.tar.gz"
-    if not os.path.isfile(processed_targz):
+    if not os.path.isfile(processed_targz) or reprocess:
         processed_corpus_dir = os.path.join(work_dir, corpus_folder_name)
         raw_data_dir = corpus.maybe_extract_raw(raw_zipfile, work_dir)
         file2utt = corpus.build_audiofile2text(raw_data_dir)
         process_write_manifest(
             (raw_data_dir, processed_corpus_dir), file2utt, audio_config
         )
+        print(f"targzipping {processed_corpus_dir}")
         folder_to_targz(processed_corpus_dir, dump_dir)
         print(f"wrote {processed_targz}")
         if remove_raw_extract:
