@@ -12,7 +12,8 @@ from datasets.common import (
     SpeechCorpus,
     maybe_download,
     get_extract_process_zip_data,
-    AudioConfig, maybe_extract,
+    AudioConfig,
+    maybe_extract,
 )
 
 
@@ -43,7 +44,11 @@ class Tuda(SpeechCorpus):
             return file_name.split("_")[0]
 
         audio_file_key = ((f, audiofile_to_key(f)) for f in audio_files)
-        return {f: key2text[k] for f, k in audio_file_key}
+        audio_files_with_trans = [
+            (f, k) for f, k in audio_file_key if k in key2text.keys()
+        ]
+        print(f"{len(audio_files)-len(audio_files_with_trans)} have no transcripts")
+        return {f: key2text[k] for f, k in audio_files_with_trans}
 
     @staticmethod
     def get_corpora() -> List[Tuda]:
@@ -62,13 +67,13 @@ class Tuda(SpeechCorpus):
         return local_file
 
     def maybe_extract_raw(self, raw_zipfile, processed_dir):
-        raw_extracted_dir = f"{processed_dir}/raw/train_dev_test"
+        raw_extracted_dir = f"{processed_dir}/raw"
         maybe_extract(raw_zipfile, raw_extracted_dir)
-        return f"{raw_extracted_dir}/{self.name}"
+        return f"{raw_extracted_dir}/german-speechdata-package-v2/{self.name}"
 
 
 if __name__ == "__main__":
-    corpus = Tuda.get_corpora()[1]
+    corpora = Tuda.get_corpora()
     dump_dir = "/home/tilo/data/asr_data/GERMAN/tuda"
     # dir = "/home/tilo/data/asr_data/GERMAN/raw/german-speechdata-package-v2/dev"
     # a2t = corpus.build_audiofile2text(dir)
@@ -76,4 +81,5 @@ if __name__ == "__main__":
     audio_config = AudioConfig("mp3", 32)
 
     processed_dir = dump_dir
-    get_extract_process_zip_data(audio_config, corpus, dump_dir, processed_dir)
+    for c in corpora:
+        get_extract_process_zip_data(audio_config, c, dump_dir, processed_dir, False)
