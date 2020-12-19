@@ -8,7 +8,7 @@ import torchaudio
 from functools import partial
 
 from tqdm import tqdm
-from typing import Dict, List, NamedTuple
+from typing import Dict, List, NamedTuple, Tuple
 
 from abc import abstractmethod
 
@@ -50,18 +50,22 @@ class SpeechCorpus:
         return raw_extracted_dir
 
 
-def process_write_manifest(processed_dir, file2utt, audio_conf: AudioConfig):
+def process_write_manifest(
+    raw_processed_dir: Tuple[str, str], file2utt, audio_conf: AudioConfig
+):
+    raw_dir, processed_dir = raw_processed_dir
     os.makedirs(processed_dir, exist_ok=True)
-    failed = lambda x:x is None
+    failed = lambda x: x is None
     samples = tqdm(
         s._asdict()
         for s in process_with_threadpool(
             ({"audio_file": f, "text": t} for f, t in file2utt.items()),
             partial(
-                process_build_sample, processed_folder=processed_dir, ac=audio_conf
+                process_build_sample, processed_folder=raw_processed_dir, ac=audio_conf
             ),
             max_workers=2 * num_cpus,
-        ) if not failed(s)
+        )
+        if not failed(s)
     )
     data_io.write_jsonl(f"{processed_dir}/{MANIFEST_FILE}", samples)
 
@@ -72,11 +76,11 @@ class AudioConfig(NamedTuple):
 
 
 def process_build_sample(
-    audio_file, text, processed_folder, ac: AudioConfig
+    audio_file, text, raw_processed_dir: Tuple, ac: AudioConfig
 ) -> ASRSample:
     try:
         file_name, len_in_seconds, num_frames = process_audio(
-            audio_file, processed_folder, ac
+            audio_file, raw_processed_dir, ac
         )
         asr_sample = ASRSample(file_name, text, len_in_seconds, num_frames)
     except Exception:
@@ -85,11 +89,16 @@ def process_build_sample(
     return asr_sample
 
 
-def process_audio(audio_file, processed_folder, ac: AudioConfig):
+def process_audio(audio_file, raw_processed_dir: Tuple, ac: AudioConfig):
+    raw_dir, processed_dir = raw_processed_dir
+    assert audio_file.startswith(raw_dir)
     suffix = Path(audio_file).suffix
-    assert audio_file.startswith("/")
-    file_name = audio_file[1:].replace("/", "_").replace(suffix, f".{ac.format}")
-    processed_audio_file = f"{processed_folder}/{file_name}"
+    file_name = (
+        audio_file.replace(raw_dir, "")
+        .replace("/", "_")
+        .replace(suffix, f".{ac.format}")
+    )
+    processed_audio_file = f"{processed_dir}/{file_name}"
     if ac.bitrate is not None:
         cmd = f"sox {audio_file} -C {ac.bitrate} {processed_audio_file}"
     else:
