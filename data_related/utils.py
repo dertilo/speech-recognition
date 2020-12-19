@@ -31,7 +31,7 @@ def unzip(zipfile: str, dest_dir: str) -> None:
         raise NotImplementedError
 
 
-def folder_to_targz(destination_path, source_dir):
+def folder_to_targz(source_dir, destination_path):
     folder_name = os.path.basename(source_dir)
     with tarfile.open(f"{destination_path}/{folder_name}.tar.gz", "w:gz") as tar:
         tar.add(source_dir, arcname=folder_name)

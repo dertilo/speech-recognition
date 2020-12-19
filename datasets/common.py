@@ -124,26 +124,30 @@ def maybe_download(localfile, url, verbose):
 def get_extract_process_zip_data(
     audio_config: AudioConfig,
     corpus: SpeechCorpus,
-    download_dir: str,
-    processed_dir: str,
+    dump_dir: str,
+    work_dir: str,
     remove_raw_extract=True,
 ):
-    raw_zipfile = corpus.get_raw_zipfile(download_dir)
+    """
+    dump_dir: only zipped archives files here, NO unzipping/extracting! -> used for google-drive
+    work_dir: extracting+processing here, but volatile! -> content-dir on colab compute machine
+    """
+    raw_zipfile = corpus.get_raw_zipfile(dump_dir)
     ac = f"{audio_config.format}{'' if audio_config.bitrate is None else '_' + str(audio_config.bitrate)}"
     corpus_folder_name = f"{corpus.name}_processed_{ac}"
-    processed_targz = f"{download_dir}/{corpus_folder_name}.tar.gz"
+    processed_targz = f"{dump_dir}/{corpus_folder_name}.tar.gz"
     if not os.path.isfile(processed_targz):
-        processed_corpus_dir = os.path.join(processed_dir, corpus_folder_name)
-        raw_data_dir = corpus.maybe_extract_raw(raw_zipfile, processed_dir)
+        processed_corpus_dir = os.path.join(work_dir, corpus_folder_name)
+        raw_data_dir = corpus.maybe_extract_raw(raw_zipfile, work_dir)
         file2utt = corpus.build_audiofile2text(raw_data_dir)
         process_write_manifest(processed_corpus_dir, file2utt, audio_config)
-        folder_to_targz(download_dir, processed_corpus_dir)
+        folder_to_targz(processed_corpus_dir, dump_dir)
         print(f"wrote {processed_targz}")
         if remove_raw_extract:
             shutil.rmtree(raw_data_dir)
     else:
         print(f"found {processed_targz}")
-        unzip(processed_targz, processed_dir)
+        unzip(processed_targz, work_dir)
 
 
 def maybe_extract(raw_zipfile, raw_extracted_dir, overwrite_raw_extract=False):
