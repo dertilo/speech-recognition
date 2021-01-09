@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from dataclasses import asdict
+
+import shutil
+
 from bs4 import BeautifulSoup
 from pathlib import Path
 
@@ -74,7 +78,7 @@ class Tuda(SpeechCorpus):
         return f"{raw_extracted_dir}/german-speechdata-package-v2/{self.name}"
 
 
-if __name__ == "__main__":
+def main():
     corpora = Tuda.get_corpora()
     dump_dir = "/home/tilo/data/asr_data/GERMAN/tuda"
     # dir = "/home/tilo/data/asr_data/GERMAN/raw/german-speechdata-package-v2/dev"
@@ -87,21 +91,40 @@ if __name__ == "__main__":
         if c.name == "dev":
             c.audio_suffix = "_Samson.wav"
             get_extract_process_zip_data(
-                audio_config, c, dump_dir, processed_dir, False
+                audio_config, c, dump_dir, processed_dir, False,overwrite=True
             )
 
-"""
-4648 have no transcripts # TODO(tilo) !?!?
-18035it [04:54, 56.62it/s]formats: can't open input file `/home/tilo/data/asr_data/GERMAN/tuda/train_processed_mp3_32/home_tilo_data_asr_data_GERMAN_tuda_raw_german-speechdata-package-v2_train_2014-03-24-13-39-24_Kinect-RAW.mp3': No such file or directory
-failed to process /home/tilo/data/asr_data/GERMAN/tuda/raw/german-speechdata-package-v2/train/2014-03-24-13-39-24_Kinect-RAW.wav
-20780it [05:39, 61.90it/s]formats: can't open input file `/home/tilo/data/asr_data/GERMAN/tuda/train_processed_mp3_32/home_tilo_data_asr_data_GERMAN_tuda_raw_german-speechdata-package-v2_train_2014-03-27-11-50-33_Kinect-RAW.mp3': No such file or directory
-failed to process /home/tilo/data/asr_data/GERMAN/tuda/raw/german-speechdata-package-v2/train/2014-03-27-11-50-33_Kinect-RAW.wav
-21693it [05:54, 61.16it/s]
-wrote /home/tilo/data/asr_data/GERMAN/tuda/train_processed_mp3_32.tar.gz
-0it [00:00, ?it/s]0 have no transcripts
-5181it [01:08, 75.36it/s]
-wrote /home/tilo/data/asr_data/GERMAN/tuda/dev_processed_mp3_32.tar.gz
-0 have no transcripts
-5125it [01:09, 74.24it/s]
-wrote /home/tilo/data/asr_data/GERMAN/tuda/test_processed_mp3_32.tar.gz
-"""
+
+
+def test_type_hinting(tmp_path):
+    """
+    This is NOT a test!
+    pytest --typeguard-packages=corteconstitucional
+    """
+    from typeguard.util import TYPEGUARD_CACHE
+    from redbaron_type_hinting.adding_type_hints import enrich_pyfiles_by_type_hints
+
+    main()
+    type_logs = list(TYPEGUARD_CACHE.values())
+    enrich_pyfiles_by_type_hints(type_logs)
+    main() # rerun with newly added type-hints to check whether type-hints actually pass typeguard-checks
+
+
+if __name__ == "__main__":
+    main()
+
+    """
+    4648 have no transcripts # TODO(tilo) !?!?
+    18035it [04:54, 56.62it/s]formats: can't open input file `/home/tilo/data/asr_data/GERMAN/tuda/train_processed_mp3_32/home_tilo_data_asr_data_GERMAN_tuda_raw_german-speechdata-package-v2_train_2014-03-24-13-39-24_Kinect-RAW.mp3': No such file or directory
+    failed to process /home/tilo/data/asr_data/GERMAN/tuda/raw/german-speechdata-package-v2/train/2014-03-24-13-39-24_Kinect-RAW.wav
+    20780it [05:39, 61.90it/s]formats: can't open input file `/home/tilo/data/asr_data/GERMAN/tuda/train_processed_mp3_32/home_tilo_data_asr_data_GERMAN_tuda_raw_german-speechdata-package-v2_train_2014-03-27-11-50-33_Kinect-RAW.mp3': No such file or directory
+    failed to process /home/tilo/data/asr_data/GERMAN/tuda/raw/german-speechdata-package-v2/train/2014-03-27-11-50-33_Kinect-RAW.wav
+    21693it [05:54, 61.16it/s]
+    wrote /home/tilo/data/asr_data/GERMAN/tuda/train_processed_mp3_32.tar.gz
+    0it [00:00, ?it/s]0 have no transcripts
+    5181it [01:08, 75.36it/s]
+    wrote /home/tilo/data/asr_data/GERMAN/tuda/dev_processed_mp3_32.tar.gz
+    0 have no transcripts
+    5125it [01:09, 74.24it/s]
+    wrote /home/tilo/data/asr_data/GERMAN/tuda/test_processed_mp3_32.tar.gz
+    """
