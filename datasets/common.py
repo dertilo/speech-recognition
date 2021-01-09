@@ -82,7 +82,7 @@ class AudioConfig:
 
 def process_build_sample(
     audio_file, text, raw_processed_dir: Tuple, ac: AudioConfig
-) -> ASRSample:
+):
     try:
         file_name, len_in_seconds, num_frames = process_audio(
             audio_file, raw_processed_dir, ac
