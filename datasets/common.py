@@ -85,7 +85,7 @@ class AudioConfig:
 
 def process_build_sample(
     audio_file: str, text: str, raw_processed_dir: Tuple[str, str], ac: AudioConfig
-) -> Union[ASRSample, None]:
+) -> Optional[ASRSample]:
     try:
         file_name, len_in_seconds, num_frames = process_audio(
             audio_file, raw_processed_dir, ac
@@ -99,7 +99,7 @@ def process_build_sample(
 
 
 def process_audio(
-    audio_file: str, raw_processed_dir: Union[Tuple, Tuple[str, str]], ac: AudioConfig
+    audio_file: str, raw_processed_dir: Tuple[str, str], ac: AudioConfig
 ) -> Tuple[str, float, int]:
     raw_dir, processed_dir = raw_processed_dir
     assert audio_file.startswith(raw_dir)
@@ -143,7 +143,7 @@ def maybe_download(localfile, url, verbose):
 
 def get_extract_process_zip_data(
     audio_config: AudioConfig,
-    corpus: Union[SpeechCorpus, Tuda],
+    corpus: SpeechCorpus,
     dump_dir: str,
     work_dir: str,
     remove_raw_extract: bool = True,
