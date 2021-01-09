@@ -24,7 +24,7 @@ from datasets.common import (
 class Tuda(SpeechCorpus):
     audio_suffix: str = ".wav"
 
-    def build_audiofile2text(self, path) -> Dict[str, str]:
+    def build_audiofile2text(self, path:str) -> Dict[str,str]:
         audio_suffix = self.audio_suffix
         transcript_suffix = ".xml"
 
@@ -66,13 +66,13 @@ class Tuda(SpeechCorpus):
 
         return [Tuda(ds_name, url) for ds_name in ["train", "dev", "test"]]
 
-    def get_raw_zipfile(self, download_dir) -> str:
+    def get_raw_zipfile(self, download_dir:str) -> str:
         local_file = f"{download_dir}/{self.url.split('/')[-1]}"
         if not os.path.isfile(local_file):
             maybe_download(local_file, self.url, False)
         return local_file
 
-    def maybe_extract_raw(self, raw_zipfile, processed_dir):
+    def maybe_extract_raw(self, raw_zipfile:str, processed_dir:str)->str:
         raw_extracted_dir = f"{processed_dir}/raw"
         maybe_extract(raw_zipfile, raw_extracted_dir)
         return f"{raw_extracted_dir}/german-speechdata-package-v2/{self.name}"

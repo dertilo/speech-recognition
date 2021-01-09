@@ -1,4 +1,6 @@
 from __future__ import annotations
+from datasets.tuda_corpus import Tuda
+from typing import Union
 
 from dataclasses import dataclass, asdict
 
@@ -51,7 +53,9 @@ class SpeechCorpus:
 
 
 def process_write_manifest(
-    raw_processed_dir: Tuple[str, str], file2utt, audio_conf: AudioConfig
+    raw_processed_dir: Tuple[str, str],
+    file2utt: Dict[str, str],
+    audio_conf: AudioConfig,
 ):
     raw_dir, processed_dir = raw_processed_dir
     os.makedirs(processed_dir, exist_ok=True)
@@ -72,22 +76,21 @@ def process_write_manifest(
     data_io.write_jsonl(f"{processed_dir}/{MANIFEST_FILE}", samples)
 
 
-
 @dataclass(frozen=True, eq=True)
 class AudioConfig:
     format: str = "wav"
     bitrate: Optional[int] = None
-    min_dur_secs:float = 0.5 # seconds
+    min_dur_secs: float = 0.5  # seconds
 
 
 def process_build_sample(
-    audio_file, text, raw_processed_dir: Tuple, ac: AudioConfig
-):
+    audio_file: str, text: str, raw_processed_dir: Tuple[str, str], ac: AudioConfig
+) -> Union[ASRSample, None]:
     try:
         file_name, len_in_seconds, num_frames = process_audio(
             audio_file, raw_processed_dir, ac
         )
-        assert len_in_seconds>ac.min_dur_secs
+        assert len_in_seconds > ac.min_dur_secs
         asr_sample = ASRSample(file_name, text, len_in_seconds, num_frames)
     except Exception:
         print(f"failed to process {audio_file}")
@@ -95,7 +98,9 @@ def process_build_sample(
     return asr_sample
 
 
-def process_audio(audio_file, raw_processed_dir: Tuple, ac: AudioConfig):
+def process_audio(
+    audio_file: str, raw_processed_dir: Union[Tuple, Tuple[str, str]], ac: AudioConfig
+) -> Tuple[str, float, int]:
     raw_dir, processed_dir = raw_processed_dir
     assert audio_file.startswith(raw_dir)
     suffix = Path(audio_file).suffix
@@ -138,11 +143,11 @@ def maybe_download(localfile, url, verbose):
 
 def get_extract_process_zip_data(
     audio_config: AudioConfig,
-    corpus: SpeechCorpus,
+    corpus: Union[SpeechCorpus, Tuda],
     dump_dir: str,
     work_dir: str,
-    remove_raw_extract=True,
-    overwrite:bool=False
+    remove_raw_extract: bool = True,
+    overwrite: bool = False,
 ):
     """
     dump_dir: only zipped archives files here, NO unzipping/extracting! -> used for google-drive
@@ -169,7 +174,9 @@ def get_extract_process_zip_data(
         unzip(processed_targz, work_dir)
 
 
-def maybe_extract(raw_zipfile, raw_extracted_dir, overwrite_raw_extract=False):
+def maybe_extract(
+    raw_zipfile: str, raw_extracted_dir: str, overwrite_raw_extract=False
+):
     if not os.path.isdir(raw_extracted_dir) or overwrite_raw_extract:
         if overwrite_raw_extract:
             shutil.rmtree(raw_extracted_dir)
