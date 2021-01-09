@@ -8,7 +8,7 @@ import torchaudio
 from functools import partial
 
 from tqdm import tqdm
-from typing import Dict, List, NamedTuple, Tuple
+from typing import Dict, List, NamedTuple, Tuple, Optional
 
 from abc import abstractmethod
 
@@ -74,7 +74,7 @@ def process_write_manifest(
 
 class AudioConfig(NamedTuple):
     format: str = "wav"
-    bitrate: int = None
+    bitrate: Optional[int] = None
     min_dur_secs:float = 0.5 # seconds
 
 
@@ -109,7 +109,7 @@ def process_audio(audio_file, raw_processed_dir: Tuple, ac: AudioConfig):
         cmd = f"sox {audio_file} {processed_audio_file}"
     exec_command(cmd)
     si, ei = torchaudio.info(processed_audio_file)
-    num_frames = si.length / si.channels
+    num_frames = int(si.length / si.channels)
     len_in_seconds = num_frames / si.rate
     return file_name, len_in_seconds, num_frames
 
@@ -140,6 +140,7 @@ def get_extract_process_zip_data(
     dump_dir: str,
     work_dir: str,
     remove_raw_extract=True,
+    overwrite:bool=False
 ):
     """
     dump_dir: only zipped archives files here, NO unzipping/extracting! -> used for google-drive
@@ -149,7 +150,7 @@ def get_extract_process_zip_data(
     ac = f"{audio_config.format}{'' if audio_config.bitrate is None else '_' + str(audio_config.bitrate)}"
     corpus_folder_name = f"{corpus.name}_processed_{ac}"
     processed_targz = f"{dump_dir}/{corpus_folder_name}.tar.gz"
-    if not os.path.isfile(processed_targz):
+    if not os.path.isfile(processed_targz) or overwrite:
         processed_corpus_dir = os.path.join(work_dir, corpus_folder_name)
         raw_data_dir = corpus.maybe_extract_raw(raw_zipfile, work_dir)
         file2utt = corpus.build_audiofile2text(raw_data_dir)
