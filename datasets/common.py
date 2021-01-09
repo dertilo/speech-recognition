@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 
 import shutil
 
@@ -57,7 +57,7 @@ def process_write_manifest(
     os.makedirs(processed_dir, exist_ok=True)
     failed = lambda x: x is None
     samples = tqdm(
-        s._asdict()
+        asdict(s)
         for s in process_with_threadpool(
             ({"audio_file": f, "text": t} for f, t in file2utt.items()),
             partial(
@@ -72,7 +72,9 @@ def process_write_manifest(
     data_io.write_jsonl(f"{processed_dir}/{MANIFEST_FILE}", samples)
 
 
-class AudioConfig(NamedTuple):
+
+@dataclass(frozen=True, eq=True)
+class AudioConfig:
     format: str = "wav"
     bitrate: Optional[int] = None
     min_dur_secs:float = 0.5 # seconds

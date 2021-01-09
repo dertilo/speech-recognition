@@ -99,7 +99,7 @@ def main():
 def test_type_hinting(tmp_path):
     """
     This is NOT a test!
-    pytest --typeguard-packages=corteconstitucional
+    pytest --typeguard-packages=datasets datasets/tuda_corpus.py
     """
     from typeguard.util import TYPEGUARD_CACHE
     from redbaron_type_hinting.adding_type_hints import enrich_pyfiles_by_type_hints
