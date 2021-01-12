@@ -1,4 +1,5 @@
 # Datasets
+* [collection-repo by JRMeyer](https://github.com/JRMeyer/open-speech-corpora)
 
 ### Librispeech
 1. to download data see: https://github.com/dertilo/speech-to-text/corpora/download_corpora.py
@@ -19,7 +20,7 @@
 
 ### Tuda-corpus
 
-* broken files: (see `tuda_files_to_skip.txt`)
+* broken files: (see `some-where/kaldi-tuda-de/s5_r2/local/tuda_files_to_skip.txt`)
 ```shell
 2014-03-27-11-50-33
 2014-06-17-13-46-27
@@ -30,5 +31,4 @@
 2014-08-05-11-08-34
 2014-03-18-15-28-52
 2014-03-18-15-29-23
-
 ```
