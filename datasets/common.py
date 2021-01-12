@@ -1,6 +1,4 @@
 from __future__ import annotations
-from datasets.tuda_corpus import Tuda
-from typing import Union
 
 from dataclasses import dataclass, asdict
 
