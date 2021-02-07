@@ -1,7 +1,18 @@
 from __future__ import annotations
-from typing import Dict, List
 
-from datasets.common import SpeechCorpus, find_files_build_audio2text_openslr
+import os
+
+from pathlib import Path
+
+from typing import Dict, List
+from util import data_io
+
+from corpora.common import (
+    SpeechCorpus,
+    find_files_build_audio2text_openslr,
+    AudioConfig,
+    get_extract_process_zip_data,
+)
 
 
 class SpanishDialect(SpeechCorpus):
@@ -63,6 +74,51 @@ class TedxSpanish(SpeechCorpus):
         return [TedxSpanish("67_tedx", f"{base_url}/{67}/tedx_spanish_corpus.tgz")]
 
 
+class CommonVoiceSpanish(SpeechCorpus):
+    @staticmethod
+    def common_voice_data(path):
+        g = data_io.read_lines(os.path.join(path, "validated.tsv"))
+        header = next(g).split("\t")
+
+        def parse_line(l):
+            d = {k: v for k, v in zip(header, l.split("\t"))}
+            return d
+
+        return map(parse_line, g)
+
+    def build_audiofile2text(self, path) -> Dict[str, str]:
+        """
+        112127 validated spanish utterances minus 2 malpaudios
+        """
+        key2utt = {d["path"]: d["sentence"] for d in self.common_voice_data(path)}
+        utts = list(Path(path).rglob("*.mp3"))
+
+        def get_key(f):
+            return str(f).split("/")[-1]
+
+        malpaudios = [
+            "common_voice_es_19499901.mp3",
+            "common_voice_es_19499893.mp3",
+        ]  # broken audios
+
+        return {
+            str(f): key2utt[get_key(f)]
+            for f in utts
+            if get_key(f) in key2utt.keys() and str(f).split("/")[-1] not in malpaudios
+        }
+
+    def get_raw_zipfile(self, download_dir) -> str:
+        """
+        manually download es.tar.gz from: https://voice.mozilla.org/en/datasets
+        cause mozilla wants your email before they let you download the corpus!
+        """
+        return f"{download_dir}/es.tar.gz"
+
+    @staticmethod
+    def get_corpora() -> List[CommonVoiceSpanish]:
+        return [CommonVoiceSpanish("common_voice_spanish", None)]
+
+
 class Caito(SpeechCorpus):
     def build_audiofile2text(self, path) -> Dict[str, str]:
         raise NotImplementedError
@@ -84,6 +140,16 @@ class HeroicoUSMA(SpeechCorpus):
         url = "http://www.openslr.org/resources/39"
         return [HeroicoUSMA("heroico", f"{url}/LDC2006S37.tar.gz")]
 
-if __name__ == '__main__':
 
-    corpora = TedxSpanish.get_corpora() + SpanishDialect.get_corpora()
+if __name__ == "__main__":
+
+    # corpora = TedxSpanish.get_corpora() + SpanishDialect.get_corpora()
+
+    corpus = CommonVoiceSpanish("common_voice_spanish", None)
+    audio_config = AudioConfig("mp3")
+    get_extract_process_zip_data(
+        audio_config,
+        corpus,
+        f"{os.environ['HOME']}/data",
+        f"{os.environ['HOME']}/data/common_voice_spanish_processed",
+    )

@@ -8,14 +8,14 @@ import os
 from typing import List, Dict
 from util import data_io
 
-from datasets.common import (
+from corpora.common import (
     SpeechCorpus,
     find_files_build_audio2text_openslr,
     AudioConfig,
     get_extract_process_zip_data,
 )
 from data_related.utils import ASRSample
-from datasets.spanish_corpora import SpanishDialect, TedxSpanish
+from corpora.spanish_corpora import SpanishDialect, TedxSpanish
 
 
 class LibriSpeech(SpeechCorpus):

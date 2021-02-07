@@ -12,7 +12,7 @@ from typing import List, Dict
 import os
 from util import data_io
 
-from datasets.common import (
+from corpora.common import (
     SpeechCorpus,
     maybe_download,
     get_extract_process_zip_data,
