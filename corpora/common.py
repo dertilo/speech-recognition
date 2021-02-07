@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import traceback
 from dataclasses import dataclass, asdict
+from time import time
 
 import shutil
 
@@ -45,7 +47,7 @@ class SpeechCorpus:
         return maybe_download_compressed(self.name, download_dir, self.url)
 
     def maybe_extract_raw(self, raw_zipfile, processed_dir):
-        raw_extracted_dir = f"{processed_dir}/raw/{self.name}"
+        raw_extracted_dir = f"{processed_dir}/raw"
         maybe_extract(raw_zipfile, raw_extracted_dir, False)
         return raw_extracted_dir
 
@@ -92,6 +94,7 @@ def process_build_sample(
         asr_sample = ASRSample(file_name, text, len_in_seconds, num_frames)
     except Exception:
         print(f"failed to process {audio_file}")
+        print(traceback.print_exc())
         asr_sample = None
     return asr_sample
 
@@ -112,7 +115,13 @@ def process_audio(
         cmd = f"sox {audio_file} -C {ac.bitrate} {processed_audio_file}"
     else:
         cmd = f"sox {audio_file} {processed_audio_file}"
-    exec_command(cmd)
+
+    out = exec_command(cmd)
+    if len(out["stdout"]) > 0:
+        print(f"stdout: {out['stdout']}")
+    if len(out["stderr"]) > 0:
+        print(f"stderr: {out['stderr']}")
+
     si, ei = torchaudio.info(processed_audio_file)
     num_frames = int(si.length / si.channels)
     len_in_seconds = num_frames / si.rate
@@ -153,23 +162,28 @@ def get_extract_process_zip_data(
     """
     raw_zipfile = corpus.get_raw_zipfile(zip_dir)
     ac = f"{audio_config.format}{'' if audio_config.bitrate is None else '_' + str(audio_config.bitrate)}"
-    corpus_folder_name = f"{corpus.name}_processed_{ac}"
-    processed_targz = f"{zip_dir}/{corpus_folder_name}.tar.gz"
+    processed_folder = f"processed_{ac}"
+    processed_targz = f"{zip_dir}/{corpus.name}_{processed_folder}.tar.gz"
+    corpus_work_dir = f"{work_dir}/{corpus.name}"
     if not os.path.isfile(processed_targz) or overwrite:
-        processed_corpus_dir = os.path.join(work_dir, corpus_folder_name)
-        raw_data_dir = corpus.maybe_extract_raw(raw_zipfile, work_dir)
+        processed_corpus_dir = f"{corpus_work_dir}/{processed_folder}"
+        raw_data_dir = corpus.maybe_extract_raw(raw_zipfile, corpus_work_dir)
         file2utt = corpus.build_audiofile2text(raw_data_dir)
+        print("beginn processing")
+        start = time()
         process_write_manifest(
             (raw_data_dir, processed_corpus_dir), file2utt, audio_config
         )
-        print(f"targzipping {processed_corpus_dir}")
+        print(
+            f"processing done in: {time()-start} secs; now targzipping {processed_corpus_dir}"
+        )
         folder_to_targz(processed_corpus_dir, zip_dir)
         print(f"wrote {processed_targz}")
         if remove_raw_extract:
             shutil.rmtree(raw_data_dir)
     else:
         print(f"found {processed_targz}")
-        unzip(processed_targz, work_dir)
+        unzip(processed_targz, corpus_work_dir)
 
 
 def maybe_extract(

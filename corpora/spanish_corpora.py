@@ -77,7 +77,9 @@ class TedxSpanish(SpeechCorpus):
 class CommonVoiceSpanish(SpeechCorpus):
     @staticmethod
     def common_voice_data(path):
-        g = data_io.read_lines(os.path.join(path, "validated.tsv"))
+        g = data_io.read_lines(
+            os.path.join(path, f"{path}/cv-corpus-6.1-2020-12-11/es/validated.tsv")
+        )
         header = next(g).split("\t")
 
         def parse_line(l):
@@ -150,6 +152,8 @@ if __name__ == "__main__":
     get_extract_process_zip_data(
         audio_config,
         corpus,
-        f"{os.environ['HOME']}/data",
-        f"{os.environ['HOME']}/data/common_voice_spanish_processed",
+        f"/data",
+        f"/data",
+        remove_raw_extract=False,
+        overwrite=True,
     )
