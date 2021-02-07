@@ -1,4 +1,10 @@
 # [NeMo](https://github.com/NVIDIA/NeMo)
+### setup
+```shell
+docker build -t s2t -f Dockerfile_nemo .
+# see german_asr.md in my notes
+```
+
 ### fine-tuning
 * [gtcooke94 diskussion](https://github.com/NVIDIA/NeMo/issues/1510)
    * [gist by gtcooke94](https://gist.github.com/gtcooke94/89d933cda31ee75fec3c32e295b5b718)

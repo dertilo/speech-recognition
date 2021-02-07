@@ -123,4 +123,4 @@ quartznet.set_trainer(trainer)
 quartznet.setup_optimization(optim_config=DictConfig(new_opt))
 
 trainer.fit(quartznet)
-quartznet.save_to("</path/to/save/to>"
+quartznet.save_to("</path/to/save/to>")

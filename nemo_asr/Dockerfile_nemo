@@ -1,0 +1,31 @@
+FROM nvcr.io/nvidia/nemo:1.0.0b3
+
+RUN apt-get update && apt-get install -y libsndfile1 ffmpeg
+RUN pip -q install "util@git+https://git@github.com/dertilo/util.git#egg=util"
+
+# System packages
+RUN apt-get update && apt-get install -y curl
+
+# Install miniconda to /miniconda
+RUN curl -LO http://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+RUN bash Miniconda3-latest-Linux-x86_64.sh -p /miniconda -b
+RUN rm Miniconda3-latest-Linux-x86_64.sh
+ENV PATH=/miniconda/bin:${PATH}
+RUN conda update -y conda
+RUN conda install pytorch torchvision torchaudio cudatoolkit=11.0 -c pytorch
+
+ARG PIP_INSTALL="python -m pip --no-cache-dir install --upgrade"
+RUN $PIP_INSTALL \
+            scikit-learn \
+            spacy \
+            tensorboardX \
+            gunicorn \
+            falcon \
+            flask \
+            bs4 \
+            psutil \
+            wandb \
+            torchaudio
+
+
+
