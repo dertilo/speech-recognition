@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 import os
 
 import tarfile
@@ -7,7 +9,8 @@ from zipfile import ZipFile
 from typing import List, Dict, Callable, Iterable, NamedTuple
 
 
-class ASRSample(NamedTuple):
+@dataclass(frozen=True, eq=True)
+class ASRSample:
     audio_file: str
     text: str
     duration: float  # in seconds
