@@ -1,3 +1,6 @@
+# Here everything concerning dataset specific preprocessing
+* downloading, text-cleaning, audio-format-conversion 
+
 # Datasets
 * [collection-repo by JRMeyer](https://github.com/JRMeyer/open-speech-corpora)
 
@@ -32,3 +35,4 @@
 2014-03-18-15-28-52
 2014-03-18-15-29-23
 ```
+
