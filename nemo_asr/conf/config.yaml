@@ -4,7 +4,8 @@ repeat: &repeat 1
 dropout: &dropout 0.0
 separable: &separable true
 labels: &labels [" ", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m",
-         "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "'"]
+         "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "'",
+         "á", "é", "í", "ó", "ú", "ñ", "ü"]
 
 model:
   train_ds:
@@ -132,7 +133,7 @@ model:
   decoder:
     _target_: nemo.collections.asr.modules.ConvASRDecoder
     feat_in: 1024
-    num_classes: 28
+    num_classes: 35
     vocabulary: *labels
 
   optim:
