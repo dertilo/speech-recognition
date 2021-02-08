@@ -89,9 +89,6 @@ class CommonVoiceSpanish(SpeechCorpus):
         return map(parse_line, g)
 
     def build_audiofile2text(self, path) -> Dict[str, str]:
-        """
-        112127 validated spanish utterances minus 2 malpaudios
-        """
         key2utt = {d["path"]: d["sentence"] for d in self.common_voice_data(path)}
         utts = list(Path(path).rglob("*.mp3"))
 

@@ -4,6 +4,11 @@
 # Datasets
 * [collection-repo by JRMeyer](https://github.com/JRMeyer/open-speech-corpora)
 
+### CommonVoice Spanish
+* processing ~236k samples took ~1 hour
+```shell
+236312it [1:07:57, 57.96it/s]   
+```
 ### Librispeech
 1. to download data see: https://github.com/dertilo/speech-to-text/corpora/download_corpora.py
 * splits
