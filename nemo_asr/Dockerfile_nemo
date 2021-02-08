@@ -1,7 +1,6 @@
 FROM nvcr.io/nvidia/nemo:1.0.0b3
 
 RUN apt-get update && apt-get install -y libsndfile1 ffmpeg
-RUN pip -q install "util@git+https://git@github.com/dertilo/util.git#egg=util"
 
 # System packages
 RUN apt-get update && apt-get install -y curl
@@ -25,7 +24,8 @@ RUN $PIP_INSTALL \
             bs4 \
             psutil \
             wandb \
-            torchaudio
+            torchaudio \
+            "util@git+https://git@github.com/dertilo/util.git#egg=util"
 
 
 
