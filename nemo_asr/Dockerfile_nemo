@@ -4,6 +4,7 @@ RUN apt-get update && apt-get install -y libsndfile1 ffmpeg
 
 # System packages
 RUN apt-get update && apt-get install -y curl
+RUN apt-get install libsox-fmt-mp3
 
 # Install miniconda to /miniconda
 RUN curl -LO http://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
@@ -12,6 +13,7 @@ RUN rm Miniconda3-latest-Linux-x86_64.sh
 ENV PATH=/miniconda/bin:${PATH}
 RUN conda update -y conda
 RUN conda install pytorch torchvision torchaudio cudatoolkit=11.0 -c pytorch
+RUN conda install -c conda-forge ruamel.yaml
 
 ARG PIP_INSTALL="python -m pip --no-cache-dir install --upgrade"
 RUN $PIP_INSTALL \
