@@ -76,9 +76,9 @@ class TedxSpanish(SpeechCorpus):
 
 class CommonVoiceSpanish(SpeechCorpus):
     @staticmethod
-    def common_voice_data(path):
+    def common_voice_data(path, split_name: str):
         g = data_io.read_lines(
-            os.path.join(path, f"{path}/cv-corpus-6.1-2020-12-11/es/validated.tsv")
+            os.path.join(path, f"{path}/cv-corpus-6.1-2020-12-11/es/{split_name}.tsv")
         )
         header = next(g).split("\t")
 
@@ -89,7 +89,9 @@ class CommonVoiceSpanish(SpeechCorpus):
         return map(parse_line, g)
 
     def build_audiofile2text(self, path) -> Dict[str, str]:
-        key2utt = {d["path"]: d["sentence"] for d in self.common_voice_data(path)}
+        key2utt = {
+            d["path"]: d["sentence"] for d in self.common_voice_data(path, self.name)
+        }
         utts = list(Path(path).rglob("*.mp3"))
 
         def get_key(f):
@@ -115,7 +117,7 @@ class CommonVoiceSpanish(SpeechCorpus):
 
     @staticmethod
     def get_corpora() -> List[CommonVoiceSpanish]:
-        return [CommonVoiceSpanish("common_voice_spanish", None)]
+        return [CommonVoiceSpanish(ds) for ds in ["train", "dev", "test"]]
 
 
 class Caito(SpeechCorpus):
@@ -144,13 +146,14 @@ if __name__ == "__main__":
 
     # corpora = TedxSpanish.get_corpora() + SpanishDialect.get_corpora()
 
-    corpus = CommonVoiceSpanish("common_voice_spanish", None)
+    corpora = CommonVoiceSpanish.get_corpora()
     audio_config = AudioConfig("mp3")
-    get_extract_process_zip_data(
-        audio_config,
-        corpus,
-        f"/data",
-        f"/data",
-        remove_raw_extract=False,
-        overwrite=True,
-    )
+    for corpus in corpora:
+        get_extract_process_zip_data(
+            audio_config,
+            corpus,
+            f"/data",
+            f"/data/SPANISH_CV",
+            remove_raw_extract=False,
+            overwrite=True,
+        )

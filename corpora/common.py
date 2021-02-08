@@ -32,7 +32,7 @@ MANIFEST_FILE = "manifest.jsonl.gz"
 @dataclass
 class SpeechCorpus:
     name: str
-    url: str
+    url: Optional[str]=None
 
     @abstractmethod
     def build_audiofile2text(self, path) -> Dict[str, str]:
