@@ -9,10 +9,10 @@ labels: &labels [" ", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"
 
 model:
   train_ds:
-    manifest_filepath: ???
+    manifest_filepath: /data/SPANISH_CV/train_manifest.jsonl
     sample_rate: 16000
     labels: *labels
-    batch_size: 32
+    batch_size: 16
     trim_silence: True
     max_duration: 16.7
     shuffle: True
@@ -21,10 +21,10 @@ model:
     tarred_shard_strategy: "scatter"
 
   validation_ds:
-    manifest_filepath: ???
+    manifest_filepath: /data/SPANISH_CV/dev_manifest.jsonl
     sample_rate: 16000
     labels: *labels
-    batch_size: 32
+    batch_size: 16
     shuffle: False
 
   preprocessor:
@@ -139,7 +139,7 @@ model:
   optim:
     name: novograd
     # _target_: nemo.core.optim.optimizers.Novograd
-    lr: .01
+    lr: .001
     # optimizer arguments
     betas: [0.8, 0.5]
     weight_decay: 0.001
@@ -159,8 +159,8 @@ model:
       last_epoch: -1
 
 trainer:
-  gpus: 0 # number of gpus
-  max_epochs: 5
+  gpus: 1 # number of gpus
+  max_epochs: 1
   max_steps: null # computed at runtime if not set
   num_nodes: 1
   accelerator: ddp

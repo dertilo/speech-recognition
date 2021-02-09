@@ -22,12 +22,12 @@ from nemo.core.config import hydra_runner
 from nemo.utils.exp_manager import exp_manager
 
 
-@hydra_runner(config_path="/raid", config_name="quartznet_15x5.yaml")
+@hydra_runner(config_path="conf", config_name="config.yaml")
 def main(cfg):
     trainer = pl.Trainer(**cfg.trainer)
     exp_manager(trainer, cfg.get("exp_manager", None))
     asr_model = EncDecCTCModel.from_pretrained(model_name="QuartzNet15x5Base-En")
-    asr_model.change_vocabulary(new_vocabulary=cfg.model.labels)
+    asr_model.change_vocabulary(new_vocabulary=cfg.labels)
 
     asr_model._trainer = trainer
     asr_model.setup_optimization(cfg.model.optim)
