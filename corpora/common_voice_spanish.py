@@ -61,3 +61,12 @@ if __name__ == "__main__":
         start = time()
         process_write_manifest((raw_dir, processed_corpus_dir), file2utt, audio_config)
         print(f"processing done in: {time() - start} secs")
+
+"""
+beginn processing /data/SPANISH_CV/train_processed_mp3
+161811it [43:20, 62.22it/s]   
+beginn processing /data/SPANISH_CV/dev_processed_mp3
+15089it [04:16, 58.78it/s]   
+beginn processing /data/SPANISH_CV/test_processed_mp3
+15089it [04:16, 58.93it/s]   
+"""
