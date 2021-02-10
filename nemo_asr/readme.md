@@ -2,17 +2,42 @@
 ### setup
 ```shell
 docker build -t s2t -f Dockerfile_nemo .
-# see german_asr.md in my notes
+# see modern_asr.md in my notes
+apt-get install libsox-fmt-mp3
+cd NeMo && pip install -r requirements/requirements_asr.txt
+cd NeMo && 
 ```
+* tensorboard
+```shell
+# tensorboard
+pip uninstall -y tensorboard
+pip install nvidia-pyindex
+pip install nvidia-tensorboard-plugin-dlprof
 
+
+conda install -c conda-forge tensorboard -y
+tensorboard --bind_all --logdir nemo_experiments/
+```
+-> TODO: issue remains! still not working inside of container!
+
+### reproduce Sahu's results
+```shell
+export repo_path="/code/spanish_nemo_asr_sahu/nemo_asr_app"
+python tools/NeMo/convert_old_jasper.py --config_path="${repo_path}/tools/NeMo/example_configs/config_es.yaml" --encoder_ckpt="${repo_path}/models/es_5d_mcv_finetuned/JasperEncoder-STEP-386304.pt" --decoder_ckpt="${repo_path}/models/es_5d_mcv_finetuned/JasperDecoderForCTC-STEP-386304.pt" --output_path="/data/es_finetuned.nemo"
+python tools/NeMo/convert_old_jasper.py --config_path="${repo_path}/tools/NeMo/example_configs/quartznet15x5-es.yaml" --encoder_ckpt="${repo_path}/models/es_5d_mcv_finetuned/JasperEncoder-STEP-386304.pt" --decoder_ckpt="${repo_path}/models/es_5d_mcv_finetuned/JasperDecoderForCTC-STEP-386304.pt" --output_path="/data/es_finetuned.nemo"
+```
+* not working!
 ### fine-tuning
+```shell
+python nemo_asr/speech_to_text_finetune.py model.train_ds.manifest_filepath
+```
 * [gtcooke94 diskussion](https://github.com/NVIDIA/NeMo/issues/1510)
    * [gist by gtcooke94](https://gist.github.com/gtcooke94/89d933cda31ee75fec3c32e295b5b718)
 ### TODO
 * unicode for manifests: `json.dump(metadata, f, ensure_ascii=False)`
 
 ### Info
-* [pretrained models](https://api.ngc.nvidia.com/v2/models/nvidia/nemospeechmodels)
+* [pretrained models](https://api.ngc.nvidia.com/v2/models/nvidia/nemospeechmodels/versions/1.0.0a5/files/)
 * rclone , synchronize to colab
 ```
 rclone sync -P --exclude ".git/**" --exclude ".idea/**" --exclude "build/**" --exclude "*.pyc" --max-size 100k $HOME/code/SPEECH/NeMo dertilo-googledrive:NeMo

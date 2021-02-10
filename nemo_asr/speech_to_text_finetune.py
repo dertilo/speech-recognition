@@ -26,7 +26,7 @@ from nemo.utils.exp_manager import exp_manager
 def main(cfg):
     trainer = pl.Trainer(**cfg.trainer)
     exp_manager(trainer, cfg.get("exp_manager", None))
-    asr_model = EncDecCTCModel.from_pretrained(model_name="QuartzNet15x5Base-En")
+    asr_model = EncDecCTCModel.from_pretrained(model_name=cfg.get("name"))
     asr_model.change_vocabulary(new_vocabulary=cfg.labels)
 
     asr_model._trainer = trainer
