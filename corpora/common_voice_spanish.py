@@ -1,48 +1,15 @@
 from time import time
 
-from pathlib import Path
-
-from typing import Dict
-
-import os
-
-from util import data_io
-
 from corpora.common import maybe_extract, AudioConfig, process_write_manifest
+from corpora.common_voice import build_audiofile2text
 
-
-def common_voice_data(path, split_name: str):
-    g = data_io.read_lines(
-        os.path.join(path, f"{path}/cv-corpus-6.1-2020-12-11/es/{split_name}.tsv")
-    )
-    header = next(g).split("\t")
-
-    def parse_line(l):
-        d = {k: v for k, v in zip(header, l.split("\t"))}
-        return d
-
-    return map(parse_line, g)
-
-
-def build_audiofile2text(path, split_name) -> Dict[str, str]:
-    key2utt = {d["path"]: d["sentence"] for d in common_voice_data(path, split_name)}
-
-    def get_file_name(audio_file):
-        return str(audio_file).split("/")[-1]
+if __name__ == "__main__":
 
     malpaudios = [
         "common_voice_es_19499901.mp3",
         "common_voice_es_19499893.mp3",
     ]  # broken audios
 
-    return {
-        str(f): key2utt[get_file_name(f)]
-        for f in Path(path).rglob("*.mp3")
-        if get_file_name(f) in key2utt.keys() and get_file_name(f) not in malpaudios
-    }
-
-
-if __name__ == "__main__":
     audio_config = AudioConfig("mp3")
 
     ac = f"{audio_config.format}{'' if audio_config.bitrate is None else '_' + str(audio_config.bitrate)}"
@@ -56,7 +23,7 @@ if __name__ == "__main__":
 
     for split_name in ["train", "dev", "test"]:
         processed_corpus_dir = f"{corpus_dir}/{split_name}_processed_{ac}"
-        file2utt = build_audiofile2text(raw_dir, split_name)
+        file2utt = build_audiofile2text(raw_dir, split_name,"es",broken_files=malpaudios)
         print(f"beginn processing {processed_corpus_dir}")
         start = time()
         process_write_manifest((raw_dir, processed_corpus_dir), file2utt, audio_config)
