@@ -7,6 +7,8 @@ from time import time
 import shutil
 
 import torchaudio
+
+torchaudio.set_audio_backend("sox_io")
 from functools import partial
 
 from tqdm import tqdm
@@ -32,7 +34,7 @@ MANIFEST_FILE = "manifest.jsonl.gz"
 @dataclass
 class SpeechCorpus:
     name: str
-    url: Optional[str]=None
+    url: Optional[str] = None
 
     @abstractmethod
     def build_audiofile2text(self, path) -> Dict[str, str]:
@@ -122,9 +124,9 @@ def process_audio(
     if len(out["stderr"]) > 0:
         print(f"stderr: {out['stderr']}")
 
-    si, ei = torchaudio.info(processed_audio_file)
-    num_frames = int(si.length / si.channels)
-    len_in_seconds = num_frames / si.rate
+    info = torchaudio.info(processed_audio_file)
+    num_frames = info.num_frames
+    len_in_seconds = info.num_frames / info.sample_rate
     return file_name, len_in_seconds, num_frames
 
 
