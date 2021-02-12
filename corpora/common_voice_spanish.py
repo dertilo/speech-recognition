@@ -23,7 +23,9 @@ if __name__ == "__main__":
 
     for split_name in ["train", "dev", "test"]:
         processed_corpus_dir = f"{corpus_dir}/{split_name}_processed_{ac}"
-        file2utt = build_audiofile2text(raw_dir, split_name,"es",broken_files=malpaudios)
+        file2utt = build_audiofile2text(
+            raw_dir, split_name, "es", broken_files=malpaudios
+        )
         print(f"beginn processing {processed_corpus_dir}")
         start = time()
         process_write_manifest((raw_dir, processed_corpus_dir), file2utt, audio_config)

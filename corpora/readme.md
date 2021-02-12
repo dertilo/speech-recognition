@@ -1,8 +1,9 @@
 # Here everything concerning dataset specific preprocessing
-* downloading, text-cleaning, audio-format-conversion 
+* downloading, text-cleaning, audio-format-conversion; independent of training models!
 
 # Datasets
 * [collection-repo by JRMeyer](https://github.com/JRMeyer/open-speech-corpora)
+* [MLS: Multilingual LibriSpeech](https://indico2.conference4me.psnc.pl/event/35/contributions/3585/attachments/1060/1101/Wed-2-6-10.pdf)
 
 ### CommonVoice Spanish
 * processing ~236k samples took ~1 hour

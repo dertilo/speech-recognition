@@ -18,7 +18,7 @@ def common_voice_data(path, split_name: str, lang="de"):
     return map(parse_line, g)
 
 
-def build_audiofile2text(path, split_name,lang, broken_files=None) -> Dict[str, str]:
+def build_audiofile2text(path, split_name, lang, broken_files=None) -> Dict[str, str]:
     key2utt = {
         d["path"]: d["sentence"] for d in common_voice_data(path, split_name, lang)
     }
