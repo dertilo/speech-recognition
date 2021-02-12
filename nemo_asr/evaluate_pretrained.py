@@ -31,7 +31,7 @@ if __name__ == "__main__":
     trainer = pl.Trainer(logger=logger, **cfg["trainer"])
 
     asr_model = nemo_asr.models.EncDecCTCModel.from_pretrained(
-        model_name="QuartzNet5x5LS-En"
+        model_name="QuartzNet15x5Base-En"
     )
     asr_model.setup_training_data(train_data_config=cfg["model"]["train_ds"])
     asr_model.setup_validation_data(val_data_config=cfg["model"]["validation_ds"])

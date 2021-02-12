@@ -1,4 +1,4 @@
-name: &name "QuartzNet5x5LS-En"
+name: &name "QuartzNet15x5Base-En"
 sample_rate: &sample_rate 16000
 repeat: &repeat 1
 dropout: &dropout 0.0
